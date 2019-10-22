@@ -3,7 +3,7 @@ ALL: lib
 
 CFLAGS    = ${GAMG_INCLUDE}
 FFLAGS    =
-SOURCEC   = amgx.c
+SOURCEC   = amgx.cpp
 SOURCEF   =
 SOURCEH   =
 LIBBASE   = libpetscksp

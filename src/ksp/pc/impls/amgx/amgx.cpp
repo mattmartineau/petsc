@@ -13,11 +13,11 @@
 
 typedef struct {
   static PetscInt         count;
-  AMGX_solver_handle      AMGX = nullptr;
-  AMGX_matrix_handle      AmgXA = nullptr;
-  AMGX_vector_handle      AmgXP = nullptr;
-  AMGX_vector_handle      AmgXRHS = nullptr;
-  AMGX_config_handle      cfg = nullptr;
+  AMGX_solver_handle      AMGX;
+  AMGX_matrix_handle      AmgXA;
+  AMGX_vector_handle      AmgXP;
+  AMGX_vector_handle      AmgXRHS;
+  AMGX_config_handle      cfg;
   static AMGX_resources_handle   rsrc;
 } PC_AMGX;
 
@@ -32,48 +32,133 @@ static PetscErrorCode PCDestroy_AMGX(PC pc)
   PC_AMGX        *amgx = (PC_AMGX*)pc->data;
   PetscFunctionBegin;
   // destroy solver instance
-  AMGX_solver_destroy(amgx->solver);
+  AMGX_solver_destroy(amgx->AMGX);
   // destroy matrix instance
   AMGX_matrix_destroy(amgx->AmgXA);
   // destroy RHS and unknown vectors
   AMGX_vector_destroy(amgx->AmgXP);
   AMGX_vector_destroy(amgx->AmgXRHS);
-  ierr = PetscFree(pc->data);CHKERRQ(ierr);
   // decrease the number of instances
   // only the last instance need to destroy resource and finalizing AmgX
   if (amgx->count == 1) {
-    AMGX_resources_destroy(rsrc);
-    AMGX_SAFE_CALL(AMGX_config_destroy(cfg));
+    AMGX_resources_destroy(amgx->rsrc);
+    AMGX_SAFE_CALL(AMGX_config_destroy(amgx->cfg));
     AMGX_SAFE_CALL(AMGX_finalize_plugins());
     AMGX_SAFE_CALL(AMGX_finalize());
   } else {
-    AMGX_config_destroy(cfg);
+    AMGX_config_destroy(amgx->cfg);
   }
   amgx->count -= 1;
+  ierr = PetscFree(amgx);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 static PetscErrorCode PCSetUp_AMGX(PC pc)
 {
   PC_AMGX         *amgx = (PC_ASM*)pc->data;
   PetscErrorCode   ierr;
+  Mat              Pmat = pc->pmat;
+  PetscInt         Iend,nGlobalRows,nLocalRows,rawN;
+  AMGX_distribution_handle dist;
+  std::vector<PetscInt>    partData;
+  std::vector<PetscInt64>  offsets;
+  int                      nranks;
+  const PetscInt          *rawCol, *rawRow;
+  PetscScalar             *rawData;
+  PetscBool                done;
+  std::vector<PetscInt>       row;
+  std::vector<PetscInt64>     col;
+  std::vector<PetscScalar>    data;
+  PetscFunctionBegin;
+  if (!pc->setupcalled) {
+    int              ring;
+    // create AmgX vector object for unknowns and RHS
+    AMGX_vector_create(&amgx->AmgXP, amgx->rsrc, AMGX_mode_dDDI);
+    AMGX_vector_create(&amgx->AmgXRHS, amgx->rsrc, AMGX_mode_dDDI);
+    // create AmgX matrix object for unknowns and RHS
+    AMGX_matrix_create(&amgx->AmgXA, amgx->rsrc, AMGX_mode_dDDI);
+    // create an AmgX solver object
+    AMGX_solver_create(&amgx->AMGX, amgx->rsrc, AMGX_mode_dDDI, amgx->cfg);
+    // obtain the default number of rings based on current configuration
+    AMGX_config_get_default_number_of_rings(amgx->cfg, &ring); // should be 2 for classical, 1 for else
+  }
+  // upload matrix
+  AMGX_distribution_create(&dist, amgx->cfg);
+  // get offsets
+  ierr = MatGetOwnershipRange(Pmat,NULL,&Iend);CHKERRQ(ierr);
+  Iend++; // add 1 to allow reusing gathered ismax values as partition offsets for AMGX
+  MPI_Comm_size(PetscObjectComm((PetscObject)pc), &nranks);
+  partData.resize(nranks);
+  ierr = MPI_Allgather(&Iend, 1, MPIU_INT, &partData[0], 1, MPIU_INT, PetscObjectComm((PetscObject)pc));CHKERRQ(ierr);
+  partOffsets.insert(partData.begin(), 0); // partition 0 always starts at 0
+  offsets.assign(partData.begin(), partData.end());
+  AMGX_distribution_set_partition_data(dist, AMGX_DIST_PARTITION_OFFSETS, offsets.data());
+  // upload matrix
+  ierr = MatGetSize(Pmat, &nGlobalRows, nullptr); CHKERRQ(ierr);
+  ierr = MatGetLocalSize(Pmat, &nLocalRows, nullptr); CHKERRQ(ierr);
+  ierr = MatGetRowIJ(Pmat, 0, PETSC_FALSE, PETSC_FALSE, &rawN, &rawRow, &rawCol, &done);CHKERRQ(ierr);
+  if (rawN!=nLocalRows)SETERRQ2(PetscObjectComm((PetscObject)pc),PETSC_ERR_SIG, "rawN!=nLocalRows %D %D\n",rawN,nLocalRows);
+  // check if the function worked
+  if (!done) SETERRQ(PetscObjectComm((PetscObject)pc),PETSC_ERR_SIG, "MatGetRowIJ did not work!\n");
+  // get data
+  ierr = MatSeqAIJGetArray(Pmat, &rawData);CHKERRQ(ierr);
+  // copy values to STL vector. Note: there is an implicit conversion from
+  // PetscInt to PetscInt64 for the column vector
+  col.assign(rawCol, rawCol+rawRow[localN]);
+  row.assign(rawRow, rawRow+localN+1);
+  data.assign(rawData, rawData+rawRow[localN]);
+  // return ownership of memory space to PETSc
+  ierr = MatRestoreRowIJ(localA, 0, PETSC_FALSE, PETSC_FALSE, &rawN, &rawRow, &rawCol, &done);CHKERRQ(ierr);
+  // check if the function worked
+  if (!done) SETERRQ(globalCpuWorld, PETSC_ERR_SIG, "MatRestoreRowIJ did not work!");
+  // return ownership of memory space to PETSc
+  ierr = MatSeqAIJRestoreArray(localA, &rawData);CHKERRQ(ierr);
+  // upload
+  AMGX_matrix_upload_distributed(
+                                 amgx->AmgXA, nGlobalRows, nLocalRows, row[nLocalRows],
+                                 1, 1, row.data(), col.data(), data.data(),
+                                 nullptr, dist);
+  AMGX_distribution_destroy(dist);
 
+  // bind the matrix A to the solver
+  ierr = MPI_Barrier(PetscObjectComm((PetscObject)pc));CHKERRQ(ierr);
+  AMGX_solver_setup(amgx->AMGX, amgx->AmgXA);
 
-
-
+  // connect (bind) vectors to the matrix
+  AMGX_vector_bind(amgx->AAmgXP, amgx->AAmgXA);
+  AMGX_vector_bind(amgx->AAmgXRHS, amgx->AAmgXA);
 
   PetscFunctionReturn(0);
 }
-static PetscErrorCode PCApply_AMGX(PC pc,Vec x,Vec y)
+static PetscErrorCode PCApply_AMGX(PC pc,Vec p,Vec b)
 {
   PC_AMGX        *amgx = (PC_AMGX*)pc->data;
   PetscErrorCode  ierr;
-
+  double         *unks, *rhs;
+  int            size;
+  AMGX_SOLVE_STATUS   status;
   PetscFunctionBegin;
-
-
-
-
-
+  // get size of local vector (p and b should have the same local size)
+  ierr = VecGetLocalSize(p, &size); CHKERRQ(ierr);
+  // get pointers to the raw data of local vectors
+  ierr = VecGetArray(p, &unks); CHKERRQ(ierr);
+  ierr = VecGetArray(b, &rhs); CHKERRQ;
+  // upload vectors to AmgX
+  AMGX_vector_upload(amgx->AmgXP, size, 1, unks);
+  AMGX_vector_upload(amgx->AmgXRHS, size, 1, rhs);
+  // solve
+  ierr = MPI_Barrier(PetscObjectComm((PetscObject)pc)); CHKERRQ(ierr);
+  AMGX_solver_solve(amgx->AMGX, amgx->AmgXRHS, amgx->AmgXP);
+  // get the status of the solver
+  AMGX_solver_get_status(amgx->AMGX, &status);
+  // check whether the solver successfully solve the problem
+  if (status != AMGX_SOLVE_SUCCESS) SETERRQ1(PetscObjectComm((PetscObject)pc),
+                                             PETSC_ERR_CONV_FAILED, "AmgX solver failed to solve the system! "
+                                             "The error code is %d.\n", status);
+  // download data from device
+  AMGX_vector_download(amgx->AmgXP, unks);
+  // restore PETSc vectors
+  ierr = VecRestoreArray(p, &unks); CHKERRQ(ierr);
+  ierr = VecRestoreArray(b, &rhs); CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -150,8 +235,8 @@ PETSC_EXTERN PetscErrorCode PCCreate_AMGX(PC pc)
 {
   PetscErrorCode ierr;
   PC_AMGX       *amgx;
-  AMGX_Mode      mode = dDDI;
-
+  MPI_Comm       AMGX_MPI_Comm = PetscObjectComm((PetscObject)pc);
+  cudaError_t    err = cudaSuccess;
   PetscFunctionBegin;
   ierr = PetscNewLog(pc,&amgx);CHKERRQ(ierr);
 
@@ -166,8 +251,8 @@ PETSC_EXTERN PetscErrorCode PCCreate_AMGX(PC pc)
   // only the first instance (AmgX solver) is in charge of initializing AmgX
   if (amgx->count == 1) {
     // initialize AmgX
-    AMGX_SAFE_CALL(AMGX_initialize());
-    // intialize AmgX plugings
+    AMGX_SAFE_CALL(AMGX_initialize(AMGX_MPI_Comm,"dDDI"/*,""*/));
+    // intialize AmgX plugins
     AMGX_SAFE_CALL(AMGX_initialize_plugins());
     // only the master process can output something on the screen
     AMGX_SAFE_CALL(AMGX_register_print_callback(
@@ -177,20 +262,21 @@ PETSC_EXTERN PetscErrorCode PCCreate_AMGX(PC pc)
     AMGX_SAFE_CALL(AMGX_install_signal_handler());
   }
   // create an AmgX configure object
-  AMGX_SAFE_CALL(AMGX_config_create_from_file(&amgx->cfg, amgx_arg_str.c_str()));
+  AMGX_config_create(amgx->cfg, "communicator=MPI");
   // let AmgX handle returned error codes internally
   AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "exception_handling=1"));
+  AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "solver(mg)=AMG"));
+  AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "mg:algorithm=AGGREGATION"));
   // create an AmgX resource object, only the first instance is in charge
-  if (count == 1) AMGX_resources_create(&amgx->rsrc, amgx->cfg, &gpuWorld, 1, &devID);
-  // create AmgX vector object for unknowns and RHS
-  AMGX_vector_create(&amgx->AmgXP, amgx->rsrc, mode);
-  AMGX_vector_create(&amgx->AmgXRHS, amgx->rsrc, mode);
-  // create AmgX matrix object for unknowns and RHS
-  AMGX_matrix_create(&amgx->AmgXA, amgx->rsrc, mode);
-  // create an AmgX solver object
-  AMGX_solver_create(&amgx->AMGX, amgx->rsrc, mode, amgx->cfg);
-  // obtain the default number of rings based on current configuration
-  AMGX_config_get_default_number_of_rings(amgx->cfg, &ring);
+  if (count == 1) {
+    int devID,devCount;
+    err = cudaGetDevice(&devID);
+    if (err != cudaSuccess) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_SYS,"error in cudaGetDevice %s",cudaGetErrorString(err));
+    AMGX_resources_create(&amgx->rsrc, amgx->cfg, &AMGX_MPI_Comm, 1, &devID);
+    err = cudaGetDeviceCount(&devCount);
+    if (err != cudaSuccess) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_SYS,"error in cudaGetDeviceCount %s",cudaGetErrorString(err));
+    if (devCount!=1) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_SYS,"error devCount %d != 1",devCount);
+  }
 
   PetscFunctionReturn(0);
 }
