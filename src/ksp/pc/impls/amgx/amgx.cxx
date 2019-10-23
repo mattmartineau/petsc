@@ -23,7 +23,7 @@ typedef struct {
 // initialize PC_AMGX::count to 0
 PetscInt PC_AMGX::count = 0;
 // initialize AmgXSolver::rsrc to nullptr;
-AMGX_resources_handle AmgXSolver::rsrc = nullptr;
+AMGX_resources_handle PC_AMGX::rsrc = nullptr;
 
 static PetscErrorCode PCDestroy_AMGX(PC pc)
 {
@@ -53,7 +53,7 @@ static PetscErrorCode PCDestroy_AMGX(PC pc)
 }
 static PetscErrorCode PCSetUp_AMGX(PC pc)
 {
-  PC_AMGX         *amgx = (PC_ASM*)pc->data;
+  PC_AMGX         *amgx = (PC_AMGX*)pc->data;
   PetscErrorCode   ierr;
   Mat              Pmat = pc->pmat;
   PetscInt         Iend,nGlobalRows,nLocalRows,rawN;
