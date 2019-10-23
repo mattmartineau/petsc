@@ -1,9 +1,9 @@
-
+#requirespackage 'PETSC_HAVE_CUDA'
 ALL: lib
 
-CFLAGS    = ${GAMG_INCLUDE}
+CFLAGS    = ${AMGX_INCLUDE}
 FFLAGS    =
-SOURCEC   = amgx.cpp
+SOURCECXX = amgx.cpp
 SOURCEF   =
 SOURCEH   =
 LIBBASE   = libpetscksp
