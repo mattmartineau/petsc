@@ -1,6 +1,7 @@
 /*
   This file defines an interface to the AMGx GPU solver library
 */
+#include <petsc/private/pcimpl.h>               /*I "petscpc.h" I*/
 
 // STL
 # include <string>
@@ -8,8 +9,6 @@
 
 // AmgX
 # include <amgx_c.h>
-
-#include <petsc/private/pcimpl.h>               /*I "petscpc.h" I*/
 
 typedef struct {
   static PetscInt         count;
