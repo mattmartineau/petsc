@@ -10,7 +10,7 @@
 // AmgX
 # include <amgx_c.h>
 
-typedef struct {
+typedef struct _PC_AMGX {
   static PetscInt         count;
   AMGX_solver_handle      AMGX;
   AMGX_matrix_handle      AmgXA;
