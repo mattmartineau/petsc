@@ -1,5 +1,5 @@
 /*
-  This file defines an interface to the AMGx GPU solver library
+  This file implements a PC interface to the AMGx GPU solver library
 */
 #include <petsc/private/pcimpl.h>               /*I "petscpc.h" I*/
 
