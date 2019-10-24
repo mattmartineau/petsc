@@ -7,6 +7,9 @@
 # include <string>
 # include <vector>
 
+// CUDA
+# include <cuda_runtime.h>
+
 // AmgX
 # include <amgx_c.h>
 
@@ -55,7 +58,7 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
 {
   PC_AMGX         *amgx = (PC_AMGX*)pc->data;
   PetscErrorCode   ierr;
-  Mat              Pmat = pc->pmat;
+  Mat              Pmat = pc->pmat, localA;
   PetscInt         Iend,nGlobalRows,nLocalRows,rawN;
   AMGX_distribution_handle dist;
   std::vector<PetscInt>    partData;
@@ -64,9 +67,9 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
   const PetscInt          *rawCol, *rawRow;
   PetscScalar             *rawData;
   PetscBool                done;
-  std::vector<PetscInt>       row;
-  std::vector<PetscInt64>     col;
-  std::vector<PetscScalar>    data;
+  std::vector<int>         row;
+  std::vector<PetscInt64>  col;
+  std::vector<PetscScalar> data;
   PetscFunctionBegin;
   if (!pc->setupcalled) {
     int              ring;
@@ -88,32 +91,36 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
   MPI_Comm_size(PetscObjectComm((PetscObject)pc), &nranks);
   partData.resize(nranks);
   ierr = MPI_Allgather(&Iend, 1, MPIU_INT, &partData[0], 1, MPIU_INT, PetscObjectComm((PetscObject)pc));CHKERRQ(ierr);
-  partOffsets.insert(partData.begin(), 0); // partition 0 always starts at 0
+  partData.insert(partData.begin(), 0); // partition 0 always starts at 0
   offsets.assign(partData.begin(), partData.end());
   AMGX_distribution_set_partition_data(dist, AMGX_DIST_PARTITION_OFFSETS, offsets.data());
   // upload matrix
   ierr = MatGetSize(Pmat, &nGlobalRows, nullptr); CHKERRQ(ierr);
   ierr = MatGetLocalSize(Pmat, &nLocalRows, nullptr); CHKERRQ(ierr);
-  ierr = MatGetRowIJ(Pmat, 0, PETSC_FALSE, PETSC_FALSE, &rawN, &rawRow, &rawCol, &done);CHKERRQ(ierr);
+  // get local matrix from redistributed matrix
+  ierr = MatMPIAIJGetLocalMat(Pmat, MAT_INITIAL_MATRIX, &localA);CHKERRQ(ierr);
+  ierr = MatGetRowIJ(localA, 0, PETSC_FALSE, PETSC_FALSE, &rawN, &rawRow, &rawCol, &done);CHKERRQ(ierr);
   if (rawN!=nLocalRows)SETERRQ2(PetscObjectComm((PetscObject)pc),PETSC_ERR_SIG, "rawN!=nLocalRows %D %D\n",rawN,nLocalRows);
   // check if the function worked
   if (!done) SETERRQ(PetscObjectComm((PetscObject)pc),PETSC_ERR_SIG, "MatGetRowIJ did not work!\n");
   // get data
-  ierr = MatSeqAIJGetArray(Pmat, &rawData);CHKERRQ(ierr);
+  ierr = MatSeqAIJGetArray(localA, &rawData);CHKERRQ(ierr);
   // copy values to STL vector. Note: there is an implicit conversion from
   // PetscInt to PetscInt64 for the column vector
-  col.assign(rawCol, rawCol+rawRow[localN]);
-  row.assign(rawRow, rawRow+localN+1);
-  data.assign(rawData, rawData+rawRow[localN]);
+  col.assign(rawCol, rawCol+rawRow[nLocalRows]);
+  row.assign(rawRow, rawRow+nLocalRows+1);
+  data.assign(rawData, rawData+rawRow[nLocalRows]);
   // return ownership of memory space to PETSc
   ierr = MatRestoreRowIJ(localA, 0, PETSC_FALSE, PETSC_FALSE, &rawN, &rawRow, &rawCol, &done);CHKERRQ(ierr);
   // check if the function worked
-  if (!done) SETERRQ(globalCpuWorld, PETSC_ERR_SIG, "MatRestoreRowIJ did not work!");
+  if (!done) SETERRQ(PetscObjectComm((PetscObject)pc), PETSC_ERR_SIG, "MatRestoreRowIJ did not work!");
   // return ownership of memory space to PETSc
   ierr = MatSeqAIJRestoreArray(localA, &rawData);CHKERRQ(ierr);
+  if (localA != Pmat) {
+    ierr = MatDestroy(&localA);CHKERRQ(ierr);
+  }
   // upload
-  AMGX_matrix_upload_distributed(
-                                 amgx->AmgXA, nGlobalRows, nLocalRows, row[nLocalRows],
+  AMGX_matrix_upload_distributed(amgx->AmgXA, nGlobalRows, nLocalRows, row[nLocalRows],
                                  1, 1, row.data(), col.data(), data.data(),
                                  nullptr, dist);
   AMGX_distribution_destroy(dist);
@@ -123,24 +130,24 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
   AMGX_solver_setup(amgx->AMGX, amgx->AmgXA);
 
   // connect (bind) vectors to the matrix
-  AMGX_vector_bind(amgx->AAmgXP, amgx->AAmgXA);
-  AMGX_vector_bind(amgx->AAmgXRHS, amgx->AAmgXA);
+  AMGX_vector_bind(amgx->AmgXP, amgx->AmgXA);
+  AMGX_vector_bind(amgx->AmgXRHS, amgx->AmgXA);
 
   PetscFunctionReturn(0);
 }
 static PetscErrorCode PCApply_AMGX(PC pc,Vec p,Vec b)
 {
-  PC_AMGX        *amgx = (PC_AMGX*)pc->data;
-  PetscErrorCode  ierr;
-  double         *unks, *rhs;
-  int            size;
-  AMGX_SOLVE_STATUS   status;
+  PC_AMGX          *amgx = (PC_AMGX*)pc->data;
+  PetscErrorCode    ierr;
+  double           *unks, *rhs;
+  PetscInt          size;
+  AMGX_SOLVE_STATUS status;
   PetscFunctionBegin;
   // get size of local vector (p and b should have the same local size)
   ierr = VecGetLocalSize(p, &size); CHKERRQ(ierr);
   // get pointers to the raw data of local vectors
   ierr = VecGetArray(p, &unks); CHKERRQ(ierr);
-  ierr = VecGetArray(b, &rhs); CHKERRQ;
+  ierr = VecGetArray(b, &rhs); CHKERRQ(ierr);
   // upload vectors to AmgX
   AMGX_vector_upload(amgx->AmgXP, size, 1, unks);
   AMGX_vector_upload(amgx->AmgXRHS, size, 1, rhs);
@@ -163,7 +170,7 @@ static PetscErrorCode PCApply_AMGX(PC pc,Vec p,Vec b)
 
 PetscErrorCode PCSetFromOptions_AMGX(PetscOptionItems *PetscOptionsObject,PC pc)
 {
-  PC_AMGX    *jac = (PC_AMGX*)pc->data;
+  //PC_AMGX    *amgx = (PC_AMGX*)pc->data;
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
@@ -176,7 +183,7 @@ PetscErrorCode PCSetFromOptions_AMGX(PetscOptionItems *PetscOptionsObject,PC pc)
 
 PetscErrorCode PCView_AMGX(PC pc,PetscViewer viewer)
 {
-  PC_AMGX    *jac = (PC_AMGX*)pc->data;
+  //PC_AMGX       *amgx = (PC_AMGX*)pc->data;
   PetscErrorCode ierr;
   PetscBool      iascii;
 
@@ -234,7 +241,6 @@ PETSC_EXTERN PetscErrorCode PCCreate_AMGX(PC pc)
 {
   PetscErrorCode ierr;
   PC_AMGX       *amgx;
-  MPI_Comm       AMGX_MPI_Comm = PetscObjectComm((PetscObject)pc);
   cudaError_t    err = cudaSuccess;
   PetscFunctionBegin;
   ierr = PetscNewLog(pc,&amgx);CHKERRQ(ierr);
@@ -250,28 +256,29 @@ PETSC_EXTERN PetscErrorCode PCCreate_AMGX(PC pc)
   // only the first instance (AmgX solver) is in charge of initializing AmgX
   if (amgx->count == 1) {
     // initialize AmgX
-    AMGX_SAFE_CALL(AMGX_initialize(AMGX_MPI_Comm,"dDDI"/*,""*/));
+    AMGX_SAFE_CALL(AMGX_initialize());
     // intialize AmgX plugins
     AMGX_SAFE_CALL(AMGX_initialize_plugins());
     // only the master process can output something on the screen
-    AMGX_SAFE_CALL(AMGX_register_print_callback(
-                                                [](const char *msg, int length)->void
-                                                {PetscPrintf(PetscObjectComm((PetscObject)pc), "%s", msg);}));
+    AMGX_SAFE_CALL(AMGX_register_print_callback([]
+                                                (const char *msg, int length)->void{
+                                                  PetscPrintf(PETSC_COMM_WORLD, "%s", msg);}));
     // let AmgX to handle errors returned
     AMGX_SAFE_CALL(AMGX_install_signal_handler());
   }
   // create an AmgX configure object
-  AMGX_config_create(amgx->cfg, "communicator=MPI");
+  AMGX_config_create(&amgx->cfg, "communicator=MPI");
   // let AmgX handle returned error codes internally
   AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "exception_handling=1"));
   AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "solver(mg)=AMG"));
   AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "mg:algorithm=AGGREGATION"));
   // create an AmgX resource object, only the first instance is in charge
-  if (count == 1) {
+  if (amgx->count == 1) {
     int devID,devCount;
+    MPI_Comm comm = PetscObjectComm((PetscObject)pc);
     err = cudaGetDevice(&devID);
     if (err != cudaSuccess) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_SYS,"error in cudaGetDevice %s",cudaGetErrorString(err));
-    AMGX_resources_create(&amgx->rsrc, amgx->cfg, &AMGX_MPI_Comm, 1, &devID);
+    AMGX_resources_create(&amgx->rsrc, amgx->cfg, &comm, 1, &devID);
     err = cudaGetDeviceCount(&devCount);
     if (err != cudaSuccess) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_SYS,"error in cudaGetDeviceCount %s",cudaGetErrorString(err));
     if (devCount!=1) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_SYS,"error devCount %d != 1",devCount);
