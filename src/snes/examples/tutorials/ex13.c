@@ -625,5 +625,10 @@ int main(int argc, char **argv)
     suffix: 2d_p1_adj_0
     requires: triangle
     args: -potential_petscspace_degree 1 -dm_refine 2 -adjoint -adjoint_petscspace_degree 1 -error_petscspace_degree 0
+  test:
+    suffix: amgx
+    requires: cuda amgx
+    nsize: 1
+    args: -dim 3 -simplex 0 -potential_petscspace_degree 3 -convest_num_refine 2 -snes_convergence_estimate -pc_type amgx
 
 TEST*/
