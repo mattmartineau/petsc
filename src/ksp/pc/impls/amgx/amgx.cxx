@@ -267,18 +267,19 @@ PETSC_EXTERN PetscErrorCode PCCreate_AMGX(PC pc)
     AMGX_SAFE_CALL(AMGX_install_signal_handler());
   }
   // create an AmgX configure object
-  AMGX_config_create(&amgx->cfg, "communicator=MPI");
+  AMGX_SAFE_CALL(AMGX_config_create(&amgx->cfg, "config_version=2"));
   // let AmgX handle returned error codes internally
-  AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "exception_handling=1"));
-  AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "solver(mg)=AMG"));
-  AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "mg:algorithm=AGGREGATION"));
+  AMGX_SAFE_CALL(AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "communicator=MPI")));
+  AMGX_SAFE_CALL(AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "exception_handling=1")));
+  AMGX_SAFE_CALL(AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "solver(mg)=AMG")));
+  AMGX_SAFE_CALL(AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "mg:algorithm=AGGREGATION")));
   // create an AmgX resource object, only the first instance is in charge
   if (amgx->count == 1) {
     int devID,devCount;
     MPI_Comm comm = PetscObjectComm((PetscObject)pc);
     err = cudaGetDevice(&devID);
     if (err != cudaSuccess) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_SYS,"error in cudaGetDevice %s",cudaGetErrorString(err));
-    AMGX_resources_create(&amgx->rsrc, amgx->cfg, &comm, 1, &devID);
+    AMGX_SAFE_CALL(AMGX_resources_create(&amgx->rsrc, amgx->cfg, &comm, 1, &devID));
     err = cudaGetDeviceCount(&devCount);
     if (err != cudaSuccess) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_SYS,"error in cudaGetDeviceCount %s",cudaGetErrorString(err));
     if (devCount!=1) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_SYS,"error devCount %d != 1",devCount);
