@@ -47,8 +47,9 @@ static PetscErrorCode PCDestroy_AMGX(PC pc)
     AMGX_SAFE_CALL(AMGX_config_destroy(amgx->cfg));
     AMGX_SAFE_CALL(AMGX_finalize_plugins());
     AMGX_SAFE_CALL(AMGX_finalize());
+    amgx->rsrc = nullptr;
   } else {
-    AMGX_config_destroy(amgx->cfg);
+    AMGX_SAFE_CALL(AMGX_config_destroy(amgx->cfg));
   }
   amgx->count -= 1;
   ierr = PetscFree(amgx);CHKERRQ(ierr);
@@ -82,6 +83,7 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
     AMGX_solver_create(&amgx->AMGX, amgx->rsrc, AMGX_mode_dDDI, amgx->cfg);
     // obtain the default number of rings based on current configuration
     AMGX_config_get_default_number_of_rings(amgx->cfg, &ring); // should be 2 for classical, 1 for else
+    printf("amgx ring: %d\n", ring); // debug
   }
   // upload matrix
   AMGX_distribution_create(&dist, amgx->cfg);
@@ -226,6 +228,15 @@ static std::string amgx_arg_str = "config_version=2\n"
 "prec:max_unassigned_percentage=0.0\n"
 "smoother:relaxation_factor=0.8\n";
 
+/* print callback (could be customized) */
+static void print_callback(const char *msg, int length)
+{
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    if (rank == 0) { printf("%s", msg); }
+}
+
 /*MC
      PCAMGX - AMGX iteration
 
@@ -236,7 +247,6 @@ static std::string amgx_arg_str = "config_version=2\n"
 .seealso:  PCCreate(), PCSetType(), PCType (for list of available types), PC
 
 M*/
-
 PETSC_EXTERN PetscErrorCode PCCreate_AMGX(PC pc)
 {
   PetscErrorCode ierr;
@@ -260,11 +270,16 @@ PETSC_EXTERN PetscErrorCode PCCreate_AMGX(PC pc)
     // intialize AmgX plugins
     AMGX_SAFE_CALL(AMGX_initialize_plugins());
     // only the master process can output something on the screen
-    AMGX_SAFE_CALL(AMGX_register_print_callback([]
-                                                (const char *msg, int length)->void{
-                                                  PetscPrintf(PETSC_COMM_WORLD, "%s", msg);}));
+    AMGX_SAFE_CALL(AMGX_register_print_callback(&print_callback));
     // let AmgX to handle errors returned
     AMGX_SAFE_CALL(AMGX_install_signal_handler());
+    // debug - version
+    int major, minor;
+    char *ver, *date, *time;
+    AMGX_get_api_version(&major, &minor);
+    printf("amgx api version: %d.%d\n", major, minor);
+    AMGX_get_build_info_strings(&ver, &date, &time);
+    printf("amgx build version: %s\nBuild date and time: %s %s\n", ver, date, time);
   }
   // create an AmgX configure object
   AMGX_SAFE_CALL(AMGX_config_create(&amgx->cfg, "config_version=2"));
