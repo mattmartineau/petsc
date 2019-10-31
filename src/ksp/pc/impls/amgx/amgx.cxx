@@ -100,7 +100,10 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
   ierr = MatGetSize(Pmat, &nGlobalRows, nullptr); CHKERRQ(ierr);
   ierr = MatGetLocalSize(Pmat, &nLocalRows, nullptr); CHKERRQ(ierr);
   // get local matrix from redistributed matrix
-  ierr = MatMPIAIJGetLocalMat(Pmat, MAT_INITIAL_MATRIX, &localA);CHKERRQ(ierr);
+  if (nranks==1) localA = Pmat;
+  else {
+    ierr = MatMPIAIJGetLocalMat(Pmat, MAT_INITIAL_MATRIX, &localA);CHKERRQ(ierr);
+  }
   ierr = MatGetRowIJ(localA, 0, PETSC_FALSE, PETSC_FALSE, &rawN, &rawRow, &rawCol, &done);CHKERRQ(ierr);
   if (rawN!=nLocalRows)SETERRQ2(PetscObjectComm((PetscObject)pc),PETSC_ERR_SIG, "rawN!=nLocalRows %D %D\n",rawN,nLocalRows);
   // check if the function worked
