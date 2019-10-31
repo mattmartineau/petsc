@@ -629,6 +629,6 @@ int main(int argc, char **argv)
     suffix: amgx
     requires: cuda amgx
     nsize: 1
-    args: -dim 2 -simplex 0 -potential_petscspace_degree 2 -dm_refine 2 -convest_num_refine 3 -snes_convergence_estimate -pc_type amgx
+    args: -dim 2 -simplex 0 -potential_petscspace_degree 2 -dm_refine 2 -convest_num_refine 3 -snes_convergence_estimate -pc_type amgx -ksp_type cg -ksp_monitor -options_left
 
 TEST*/

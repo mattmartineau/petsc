@@ -95,6 +95,7 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
   ierr = MPI_Allgather(&Iend, 1, MPIU_INT, &partData[0], 1, MPIU_INT, PetscObjectComm((PetscObject)pc));CHKERRQ(ierr);
   partData.insert(partData.begin(), 0); // partition 0 always starts at 0
   offsets.assign(partData.begin(), partData.end());
+  cout << partData;
   AMGX_distribution_set_partition_data(dist, AMGX_DIST_PARTITION_OFFSETS, offsets.data());
   // upload matrix
   ierr = MatGetSize(Pmat, &nGlobalRows, nullptr); CHKERRQ(ierr);
