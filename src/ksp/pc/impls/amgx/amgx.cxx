@@ -284,10 +284,10 @@ PETSC_EXTERN PetscErrorCode PCCreate_AMGX(PC pc)
   // create an AmgX configure object
   AMGX_SAFE_CALL(AMGX_config_create(&amgx->cfg, "config_version=2"));
   // let AmgX handle returned error codes internally
-  AMGX_SAFE_CALL(AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "communicator=MPI")));
-  AMGX_SAFE_CALL(AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "exception_handling=1")));
-  AMGX_SAFE_CALL(AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "solver(mg)=AMG")));
-  AMGX_SAFE_CALL(AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "mg:algorithm=AGGREGATION")));
+  AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "communicator=MPI"));
+  AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "exception_handling=1"));
+  AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "solver(mg)=AMG"));
+  AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "mg:algorithm=AGGREGATION"));
   // create an AmgX resource object, only the first instance is in charge
   if (amgx->count == 1) {
     int devID,devCount;
