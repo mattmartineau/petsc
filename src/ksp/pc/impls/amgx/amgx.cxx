@@ -281,25 +281,29 @@ PETSC_EXTERN PetscErrorCode PCCreate_AMGX(PC pc)
     AMGX_get_build_info_strings(&ver, &date, &time);
     printf("amgx build version: %s\nBuild date and time: %s %s\n", ver, date, time);
   }
-  // create an AmgX configure object
-  AMGX_SAFE_CALL(AMGX_config_create(&amgx->cfg, "config_version=2"));
-  // let AmgX handle returned error codes internally
-  AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "communicator=MPI"));
-  AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "exception_handling=1"));
-  AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "solver=AMG"));
-  AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "algorithm=AGGREGATION"));
-  AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "smoother=MULTICOLOR_GS"));
-  AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "monitor_residual=1"));
-  AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "symmetric_GS=1"));
-  AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "presweeps=1"));
-  AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "postsweeps=1"));
-  AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "cycle=V"));
-  AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "print_grid_stats=1"));
-  AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "max_uncolored_percentage=0.15"));
-  AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "max_iters=100"));
-  AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "matrix_coloring_scheme=MIN_MAX"));
-  AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "tolerance=0.1"));
-  AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "norm=L1"));
+  if (1) {
+    AMGX_config_create_from_file(&amgx->cfg, "/ccs/home/adams/AMGX/core/configs/FGMRES");
+  } else {
+    // create an AmgX configure object
+    AMGX_SAFE_CALL(AMGX_config_create(&amgx->cfg, "config_version=2"));
+    // let AmgX handle returned error codes internally
+    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "communicator=MPI"));
+    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "exception_handling=1"));
+    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "solver=AMG"));
+    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "algorithm=AGGREGATION"));
+    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "smoother=MULTICOLOR_GS"));
+    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "monitor_residual=1"));
+    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "symmetric_GS=1"));
+    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "presweeps=1"));
+    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "postsweeps=1"));
+    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "cycle=V"));
+    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "print_grid_stats=1"));
+    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "max_uncolored_percentage=0.15"));
+    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "max_iters=100"));
+    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "matrix_coloring_scheme=MIN_MAX"));
+    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "tolerance=0.1"));
+    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "norm=L1"));
+  }
   // create an AmgX resource object, only the first instance is in charge
   if (amgx->count == 1) {
     int devID,devCount;
