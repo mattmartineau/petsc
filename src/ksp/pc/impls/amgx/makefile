@@ -2,10 +2,10 @@
 #####requirespackage 'PETSC_HAVE_AMGX'
 
 ALL: lib
-CXXFLAGS  = ${AMGX_INCLUDE}
+CFLAGS  = ${AMGX_INCLUDE}
 CFLAGS    =
 FFLAGS    =
-SOURCECXX = amgx.cxx
+SOURCEC   = amgx.c
 SOURCEF   =
 SOURCEH   =
 LIBBASE   = libpetscksp
