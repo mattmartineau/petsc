@@ -16,6 +16,8 @@ typedef struct _PC_AMGX {
   AMGX_config_handle      cfg;
   MPI_Comm                comm;
   AMGX_resources_handle   rsrc;
+  void                    *lib_handle;
+  char                    filename[PETSC_MAX_PATH_LEN];
 } PC_AMGX;
 static PetscInt s_count = 0;
  
@@ -23,15 +25,19 @@ static PetscInt s_count = 0;
 PetscErrorCode PCReset_AMGX(PC pc)
 {
   PC_AMGX        *amgx = (PC_AMGX*)pc->data;
-
+  cudaError_t    err = cudaSuccess;
   PetscFunctionBegin;
   // destroy solver instance
-  AMGX_solver_destroy(amgx->AmgXsolver);
+  err = AMGX_solver_destroy(amgx->AmgXsolver);
+  //if (err != cudaSuccess) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_PLIB,"error: %s",cudaGetErrorString(err));
   // destroy matrix instance
-  AMGX_matrix_destroy(amgx->AmgXA);
+  err = AMGX_matrix_destroy(amgx->AmgXA);
+  //if (err != cudaSuccess) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_PLIB,"error: %s",cudaGetErrorString(err));
   // destroy RHS and unknown vectors
-  AMGX_vector_destroy(amgx->AmgXP);
-  AMGX_vector_destroy(amgx->AmgXRHS);
+  err = AMGX_vector_destroy(amgx->AmgXP);
+  //if (err != cudaSuccess) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_PLIB,"error: %s",cudaGetErrorString(err));
+  err = AMGX_vector_destroy(amgx->AmgXRHS);
+  //if (err != cudaSuccess) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_PLIB,"error: %s",cudaGetErrorString(err));
   PetscFunctionReturn(0);
 }
 
@@ -39,18 +45,23 @@ static PetscErrorCode PCDestroy_AMGX(PC pc)
 {
   PetscErrorCode ierr;
   PC_AMGX        *amgx = (PC_AMGX*)pc->data;
+  cudaError_t    err = cudaSuccess;
   PetscFunctionBegin;
   ierr = PCReset(pc);CHKERRQ(ierr);
   // decrease the number of instances
   // only the last instance need to destroy resource and finalizing AmgX
-  if (1) {
-    if (!amgx->rsrc) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SYS,"s_rsrc == NULL");
-    AMGX_resources_destroy(amgx->rsrc);
+  if (s_count == 1) {
+    if (!amgx->rsrc) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_PLIB,"s_rsrc == NULL");
+    err = AMGX_resources_destroy(amgx->rsrc);
+    if (err != cudaSuccess) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_PLIB,"error: %s",cudaGetErrorString(err));
+    /* destroy config (need to use AMGX_SAFE_CALL after this point) */
     AMGX_SAFE_CALL(AMGX_config_destroy(amgx->cfg));
     AMGX_SAFE_CALL(AMGX_finalize_plugins());
     AMGX_SAFE_CALL(AMGX_finalize());
-    amgx->rsrc = 0;
     ierr = MPI_Comm_free(&amgx->comm);CHKERRQ(ierr);
+#ifdef AMGX_DYNAMIC_LOADING
+    amgx_libclose(amgx->lib_handle);
+#endif
   } else {
     AMGX_SAFE_CALL(AMGX_config_destroy(amgx->cfg));
   }
@@ -62,6 +73,7 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
 {
   PC_AMGX         *amgx = (PC_AMGX*)pc->data;
   PetscErrorCode   ierr;
+  cudaError_t      err = cudaSuccess;
   Mat              Pmat = pc->pmat;
   PetscInt         nGlobalRows,nLocalRows,rawN,bs;
   int              nranks,rank,nnz;
@@ -69,6 +81,40 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
   MPI_Comm         wcomm = amgx->comm;
   PetscFunctionBegin;
   if (!pc->setupcalled) {
+    if (1) {
+      AMGX_SAFE_CALL(AMGX_config_create_from_file(&amgx->cfg,amgx->filename));
+    } else {
+      // create an AmgX configure object
+      AMGX_SAFE_CALL(AMGX_config_create(&amgx->cfg, "config_version=2"));
+      // let AmgX handle returned error codes internally
+      AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "communicator=MPI"));
+      AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "solver=AMG"));
+      AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "algorithm=AGGREGATION"));
+      AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "smoother=MULTICOLOR_GS"));
+      AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "monitor_residual=1"));
+      AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "symmetric_GS=1"));
+      AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "presweeps=1"));
+      AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "postsweeps=1"));
+      AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "cycle=V"));
+      AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "print_grid_stats=1"));
+      AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "max_uncolored_percentage=0.15"));
+      AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "max_iters=1"));
+      AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "matrix_coloring_scheme=MIN_MAX"));
+      AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "tolerance=0.1"));
+      AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "norm=L1"));
+    }
+    /* switch on internal error handling (no need to use AMGX_SAFE_CALL after this point) */
+    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "exception_handling=1"));
+    // create an AmgX resource object, only the first instance is in charge
+    if (1) {
+      int devID,devCount;
+      err = cudaGetDevice(&devID);
+      if (err != cudaSuccess) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_PLIB,"error in cudaGetDevice %s",cudaGetErrorString(err));
+      err = AMGX_resources_create(&amgx->rsrc, amgx->cfg, &amgx->comm, 1, &devID);
+      if (err != cudaSuccess) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_PLIB,"error in AMGX_resources_create %s",cudaGetErrorString(err));
+      err = cudaGetDeviceCount(&devCount);
+      if (err != cudaSuccess) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_PLIB,"error in cudaGetDeviceCount %s",cudaGetErrorString(err));
+    }
     // create AmgX matrix object for unknowns and RHS
     AMGX_matrix_create(&amgx->AmgXA, amgx->rsrc, AMGX_mode_dDDI);
     // create AmgX vector object for unknowns and RHS
@@ -76,24 +122,14 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
     AMGX_vector_create(&amgx->AmgXRHS, amgx->rsrc, AMGX_mode_dDDI);
     // create an AmgX solver object
     AMGX_solver_create(&amgx->AmgXsolver, amgx->rsrc, AMGX_mode_dDDI, amgx->cfg);
-    // obtain the default number of rings based on current configuration - debug
-    if (1) {
-      int ring;
-      AMGX_config_get_default_number_of_rings(amgx->cfg, &ring); // 2 for classical, 1 for else
-      printf("amgx ring: %d\n", ring); // debug
-    }
-  } else {
-    // ????
-  }
+  } else { /* ???? */ }
   // upload matrix
-printf("[%d]PCSetUp_AMGX START\n",-1);
   MPI_Comm_size(wcomm, &nranks);
   MPI_Comm_rank(wcomm, &rank);
   ierr = MatGetSize(Pmat, &nGlobalRows, NULL); CHKERRQ(ierr);
-  if (nGlobalRows>=2147483648) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_SYS,"AMGx only supports 32 bit ints. N = %D",nGlobalRows);
+  if (nGlobalRows>=2147483648) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_PLIB,"AMGx only supports 32 bit ints. N = %D",nGlobalRows);
   ierr = MatGetLocalSize(Pmat, &nLocalRows, NULL);CHKERRQ(ierr);
   ierr = MatGetBlockSize(Pmat, &bs);CHKERRQ(ierr);
-printf("[%d]PCSetUp_AMGX n=%ld NP=%d\n",rank,nLocalRows,nranks);
   { // get offsets
     int          *rows;
     int64_t      *cols;
@@ -141,9 +177,9 @@ printf("[%d]PCSetUp_AMGX n=%ld NP=%d\n",rank,nLocalRows,nranks);
        WARNING: Even though, internal error handling has been requested,
        AMGX_SAFE_CALL needs to be used on this system call.
        It is an exception to the general rule. */
-    AMGX_SAFE_CALL(AMGX_pin_memory(cols, nnz * sizeof(int64_t)));
-    AMGX_SAFE_CALL(AMGX_pin_memory(rows, (n32 + 1)*sizeof(int)));
-    AMGX_SAFE_CALL(AMGX_pin_memory(data, nnz * sizeof(PetscScalar))); /* check that this has bs^2 */
+    /* AMGX_SAFE_CALL(AMGX_pin_memory(cols, nnz * sizeof(int64_t))); */
+    /* AMGX_SAFE_CALL(AMGX_pin_memory(rows, (n32 + 1)*sizeof(int))); */
+    /* AMGX_SAFE_CALL(AMGX_pin_memory(data, nnz * sizeof(PetscScalar))); */ /* check that this has bs^2 */
     // get offsets and upload
     ierr = PetscMalloc1(nranks+1,&partition_offsets);CHKERRQ(ierr);
     partition_offsets[0] = 0;
@@ -172,19 +208,20 @@ printf("[%d]PCSetUp_AMGX n=%ld NP=%d\n",rank,nLocalRows,nranks);
 
   PetscFunctionReturn(0);
 }
-static PetscErrorCode PCApply_AMGX(PC pc,Vec p,Vec b)
+static PetscErrorCode PCApply_AMGX(PC pc,Vec b,Vec x)
 {
   PC_AMGX          *amgx = (PC_AMGX*)pc->data;
   PetscErrorCode    ierr;
-  double           *unks, *rhs;
+  PetscScalar       *unks;
+  const PetscScalar *rhs;  
   PetscInt          size;
   AMGX_SOLVE_STATUS status;
   PetscFunctionBegin;
   // get size of local vector (p and b should have the same local size)
-  ierr = VecGetLocalSize(p, &size); CHKERRQ(ierr);
+  ierr = VecGetLocalSize(x, &size); CHKERRQ(ierr);
   // get pointers to the raw data of local vectors
-  ierr = VecGetArray(p, &unks); CHKERRQ(ierr);
-  ierr = VecGetArray(b, &rhs); CHKERRQ(ierr);
+  ierr = VecGetArray(x, &unks); CHKERRQ(ierr);
+  ierr = VecGetArrayRead(b, &rhs); CHKERRQ(ierr);
   // upload vectors to AmgX
   AMGX_vector_upload(amgx->AmgXP, size, 1, unks);
   AMGX_vector_upload(amgx->AmgXRHS, size, 1, rhs);
@@ -194,24 +231,25 @@ static PetscErrorCode PCApply_AMGX(PC pc,Vec p,Vec b)
   // get the status of the solver
   AMGX_solver_get_status(amgx->AmgXsolver, &status);
   // check whether the solver successfully solve the problem
-  if (status != AMGX_SOLVE_SUCCESS) SETERRQ1(amgx->comm,
-                                             PETSC_ERR_CONV_FAILED, "AmgX solver failed to solve the system! "
-                                             "The error code is %d.\n", status);
+  if (status == AMGX_SOLVE_FAILED) SETERRQ1(amgx->comm,
+					    PETSC_ERR_CONV_FAILED, "AmgX solver failed to solve the system! "
+					    "The error code is %d.\n", status);
   // download data from device
   AMGX_vector_download(amgx->AmgXP, unks);
   // restore PETSc vectors
-  ierr = VecRestoreArray(p, &unks); CHKERRQ(ierr);
-  ierr = VecRestoreArray(b, &rhs); CHKERRQ(ierr);
+  ierr = VecRestoreArray(x, &unks); CHKERRQ(ierr);
+  ierr = VecRestoreArrayRead(b, &rhs); CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
 PetscErrorCode PCSetFromOptions_AMGX(PetscOptionItems *PetscOptionsObject,PC pc)
 {
-  //PC_AMGX    *amgx = (PC_AMGX*)pc->data;
+  PC_AMGX    *amgx = (PC_AMGX*)pc->data;
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
   ierr = PetscOptionsHead(PetscOptionsObject,"AMGX options");CHKERRQ(ierr);
+  ierr = PetscOptionsString("-c", "AMGx parameter file (json)", "amgx.c", amgx->filename, amgx->filename, PETSC_MAX_PATH_LEN, NULL);CHKERRQ(ierr);
   // ierr = PetscOptionsReal("-pc_amgx_lambda","relaxation factor (0 < lambda)","",jac->lambda,&jac->lambda,NULL);CHKERRQ(ierr);
   // ierr = PetscOptionsBool("-pc_amgx_symmetric","apply row projections symmetrically","",jac->symmetric,&jac->symmetric,NULL);CHKERRQ(ierr);
   ierr = PetscOptionsTail();CHKERRQ(ierr);
@@ -255,7 +293,6 @@ PETSC_EXTERN PetscErrorCode PCCreate_AMGX(PC pc)
 {
   PetscErrorCode ierr;
   PC_AMGX       *amgx;
-  cudaError_t    err = cudaSuccess;
   PetscFunctionBegin;
   ierr = PetscNewLog(pc,&amgx);CHKERRQ(ierr);
   pc->ops->apply           = PCApply_AMGX;
@@ -271,20 +308,20 @@ PETSC_EXTERN PetscErrorCode PCCreate_AMGX(PC pc)
   if (s_count == 1) {
     /* load the library (if it was dynamically loaded) */
 #ifdef AMGX_DYNAMIC_LOADING
-    void *lib_handle = NULL;
+    amgx->lib_handle = NULL;
 #ifdef _WIN32
-    lib_handle = amgx_libopen("amgxsh.dll");
+    amgx->lib_handle = amgx_libopen("amgxsh.dll");
 #else
-    lib_handle = amgx_libopen("libamgxsh.so");
+    amgx->lib_handle = amgx_libopen("libamgxsh.so");
 #endif
-    if (lib_handle == NULL)
+    if (amgx->lib_handle == NULL)
       {
         errAndExit("ERROR: can not load the library");
       }
     //load all the routines
-    if (amgx_liblink_all(lib_handle) == 0)
+    if (amgx_liblink_all(amgx->lib_handle) == 0)
       {
-        amgx_libclose(lib_handle);
+        amgx_libclose(amgx->lib_handle);
         errAndExit("ERROR: corrupted library loaded\n");
       }
 #endif
@@ -296,56 +333,13 @@ PETSC_EXTERN PetscErrorCode PCCreate_AMGX(PC pc)
     AMGX_SAFE_CALL(AMGX_register_print_callback(&print_callback));
     // let AmgX to handle errors returned
     AMGX_SAFE_CALL(AMGX_install_signal_handler());
-    // debug - version
-    if (1) {
-      int major, minor;
-      char *ver, *date, *time;
-      AMGX_get_api_version(&major, &minor);
-      printf("amgx api version: %d.%d\n", major, minor);
-      AMGX_get_build_info_strings(&ver, &date, &time);
-      printf("amgx build version: %s\nBuild date and time: %s %s\n", ver, date, time);
-    }
   }
-  if (1) {
-    AMGX_config_create_from_file(&amgx->cfg, "/ccs/home/adams/AMGX/core/configs/FGMRES_AGGREGATION.json");
-    //AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "communicator=MPI"));
-  } else {
-    // create an AmgX configure object
-    AMGX_SAFE_CALL(AMGX_config_create(&amgx->cfg, "config_version=2"));
-    // let AmgX handle returned error codes internally
-    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "communicator=MPI"));
-    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "exception_handling=1"));
-    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "solver=AMG"));
-    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "algorithm=AGGREGATION"));
-    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "smoother=MULTICOLOR_GS"));
-    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "monitor_residual=1"));
-    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "symmetric_GS=1"));
-    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "presweeps=1"));
-    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "postsweeps=1"));
-    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "cycle=V"));
-    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "print_grid_stats=1"));
-    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "max_uncolored_percentage=0.15"));
-    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "max_iters=100"));
-    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "matrix_coloring_scheme=MIN_MAX"));
-    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "tolerance=0.1"));
-    AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "norm=L1"));
-  }
-  /* switch on internal error handling (no need to use AMGX_SAFE_CALL after this point) */
-  AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "exception_handling=1"));
-  // create an AmgX resource object, only the first instance is in charge
-  if (1) {
-    int devID,devCount;
+  {
     MPI_Comm comm_in = PetscObjectComm((PetscObject)pc);
     /* This communicator is not yet known to this system, so we duplicate it and make an internal communicator */
     ierr = MPI_Comm_dup(comm_in,&amgx->comm);CHKERRQ(ierr);
-    err = cudaGetDevice(&devID);
-    if (devID) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_SYS,"error devID %d != 0",devID);
-    if (err != cudaSuccess) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_SYS,"error in cudaGetDevice %s",cudaGetErrorString(err));
-    err = AMGX_resources_create(&amgx->rsrc, amgx->cfg, &amgx->comm, 1, &devID);
-    if (err != cudaSuccess) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_SYS,"error in AMGX_resources_create %s",cudaGetErrorString(err));
-    err = cudaGetDeviceCount(&devCount);
-    if (err != cudaSuccess) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_SYS,"error in cudaGetDeviceCount %s",cudaGetErrorString(err));
-    if (devCount!=1) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_SYS,"error devCount %d != 1",devCount);
   }
+  ierr = PetscSNPrintf(amgx->filename,PETSC_MAX_PATH_LEN-1,"../../../../share/petsc/amgx/AGGREGATION_GS.json");CHKERRQ(ierr);
+
   PetscFunctionReturn(0);
 }

@@ -374,7 +374,7 @@ static PetscErrorCode ComputeSpectral(DM dm, Vec u, PetscInt numPlanes, const Pe
   ierr = DMRestoreLocalVector(dm, &uloc);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
-
+PetscLogStage stage[4];
 int main(int argc, char **argv)
 {
   DM             dm;   /* Problem specification */
@@ -385,6 +385,7 @@ int main(int argc, char **argv)
 
   ierr = PetscInitialize(&argc, &argv, NULL,help);if (ierr) return ierr;
   ierr = ProcessOptions(PETSC_COMM_WORLD, &user);CHKERRQ(ierr);
+  ierr = PetscLogStageRegister("Solve", &stage[0]);CHKERRQ(ierr);
   /* Primal system */
   ierr = SNESCreate(PETSC_COMM_WORLD, &snes);CHKERRQ(ierr);
   ierr = CreateMesh(PETSC_COMM_WORLD, &user, &dm);CHKERRQ(ierr);
@@ -395,7 +396,10 @@ int main(int argc, char **argv)
   ierr = PetscObjectSetName((PetscObject) u, "potential");CHKERRQ(ierr);
   ierr = DMPlexSetSNESLocalFEM(dm, &user, &user, &user);CHKERRQ(ierr);
   ierr = SNESSetFromOptions(snes);CHKERRQ(ierr);
+  ierr = SNESSetUp(snes);CHKERRQ(ierr);
+  ierr = PetscLogStagePush(stage[0]);CHKERRQ(ierr);
   ierr = SNESSolve(snes, NULL, u);CHKERRQ(ierr);
+  ierr = PetscLogStagePop();CHKERRQ(ierr);
   ierr = SNESGetSolution(snes, &u);CHKERRQ(ierr);
   ierr = VecViewFromOptions(u, NULL, "-potential_view");CHKERRQ(ierr);
   if (user.spectral) {
