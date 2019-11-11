@@ -17,7 +17,7 @@
         "monitor_residual": 0,
         "postsweeps": 1,
         "scope": "main",
-        "max_levels": 100,
+        "max_levels": 1000,
         "matrix_coloring_scheme": "MIN_MAX",
         "tolerance": 0.1,
         "norm": "L2",
