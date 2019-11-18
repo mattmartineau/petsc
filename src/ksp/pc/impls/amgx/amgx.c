@@ -339,7 +339,7 @@ PETSC_EXTERN PetscErrorCode PCCreate_AMGX(PC pc)
     /* This communicator is not yet known to this system, so we duplicate it and make an internal communicator */
     ierr = MPI_Comm_dup(comm_in,&amgx->comm);CHKERRQ(ierr);
   }
-  ierr = PetscSNPrintf(amgx->filename,PETSC_MAX_PATH_LEN-1,"../../../../share/petsc/amgx/AGGREGATION_GS.json");CHKERRQ(ierr);
+  ierr = PetscSNPrintf(amgx->filename,PETSC_MAX_PATH_LEN-1,"../../../../share/petsc/amgx/AMG_CLASSICAL_AGGRESSIVE_L1_RT6.json");CHKERRQ(ierr);
 
   PetscFunctionReturn(0);
 }

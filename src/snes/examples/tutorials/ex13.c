@@ -632,7 +632,8 @@ int main(int argc, char **argv)
   test:
     suffix: amgx
     requires: cuda amgx
-    nsize: 1
-    args: -dim 2 -simplex 0 -potential_petscspace_degree 2 -dm_refine 2 -convest_num_refine 3 -snes_convergence_estimate -pc_type amgx -ksp_type cg -ksp_monitor -options_left
+    nsize: 4
+    args: -dim 3 -cells 2,2,1 -simplex 0 -potential_petscspace_degree 1 -dm_refine 3 -pc_type amgx -ksp_type cg -ksp_type preonly -ksp_max_it 1 -dm_mat_type aijcusparse -dm_vec_type cuda -snes_max_it 1 -snes_type ksponly -petscpartitioner_type simple -c ../../../../share/petsc/amgx/AMG_CLASSICAL_AGGRESSIVE_L1_RT8.json
+
 
 TEST*/
