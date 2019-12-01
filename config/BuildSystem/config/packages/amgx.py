@@ -1,72 +1,39 @@
 import config.package
+import os
 
-class Configure(config.package.Package):
+class Configure(config.package.CMakePackage):
   def __init__(self, framework):
-    config.package.Package.__init__(self, framework)
-    self.version   = '2.1.0.131-opensource'
-    self.download  = ['http://ftp.mcs.anl.gov/pub/petsc/externalpackages/amgx-2.1.0.131.tar.gz']
-    self.functions = ['?????']
-    self.includes  = ['amgx.h']
-    self.liblist   = [['libamgx.a']]
-    self.precisions = ['double']
-    self.complex    = 0
-    self.hastests   = 0
+    config.package.CMakePackage.__init__(self, framework)
+    self.version          = ''
+    self.versionname      = ''
+    self.gitcommit         = 'master'
+    self.download         = ['git://https://github.com/petsc/AMGX']
+    self.functions        = []
+    self.includes         = ['amgx_c.h']
+    self.liblist          = [['libamgx.a']]
+    self.precisions       = ['double']
+    self.cxx              = 1
     return
 
   def setupDependencies(self, framework):
-    config.package.Package.setupDependencies(self, framework)
-    self.mpi             = framework.require('config.packages.MPI',self)
-    self.deps = [self.mpi]
+    config.package.CMakePackage.setupDependencies(self, framework)
+    self.mpi            = framework.require('config.packages.MPI',self)
+    self.cuda           = framework.require('config.packages.cuda',self)
+    self.deps           = [self.mpi,self.cuda]
     return
 
-  def Install(self):
-    import os
+  def formCMakeConfigureArgs(self):
+    args = config.package.CMakePackage.formCMakeConfigureArgs(self)
 
-    g = open(os.path.join(self.packageDir,'SRC','make.PETSC'),'w')
-
-    g.write('AR             = '+self.setCompilers.AR+'\n')
-    g.write('ARFLAGS        = '+self.setCompilers.AR_FLAGS+'\n')
-    g.write('AR_LIB_SUFFIX  = '+self.setCompilers.AR_LIB_SUFFIX+'\n')
-    g.write('RANLIB         = '+self.setCompilers.RANLIB+'\n')
-
-    self.setCompilers.pushLanguage('C')
-    cflags = self.removeWarningFlags(self.setCompilers.getCompilerFlags())
-    cflags += ' ' + self.headers.toString(self.mpi.include)+' '+self.headers.toString('.')
-    cflags += ' ' + '-DAMGX_MPI' # either using MPI or MPIUNI
-
-    g.write('CC             = '+self.setCompilers.getCompiler()+'\n')
-    g.write('CFLAGS         = '+cflags+'\n')
-    g.write('CLD            = $(CC)\n')
-    g.write('MPICC          = $(CC)\n')
-    g.write('CPP            ='+self.framework.getPreprocessor()+'\n')
-    self.setCompilers.popLanguage()
-
-    # extra unused options
-    g.write('CLDFLAGS       = \n')
-    g.write('F77            = echo\n')
-    g.write('F77LD          = $(F77)\n')
-    g.write('FFXN 	    = -DAdd_\n')
-    g.write('FSUFFIX 	    = F\n')
-    g.write('MPIF77 	    = echo\n')
-    g.write('FFLAGS 	    = \n')
-    g.write('F77LDFLAGS     = \n')
-    g.close()
-
-    if self.installNeeded(os.path.join('SRC','make.PETSC')):
-      try:
-        self.logPrintBox('Compiling and installing AMGX; this may take several minutes')
-        self.installDirProvider.printSudoPasswordMessage()
-        output,err,ret = config.package.Package.executeShellCommand(self.installSudo+'mkdir -p '+os.path.join(self.installDir,'lib'), timeout=2500, log=self.log)
-        output,err,ret = config.package.Package.executeShellCommand(self.installSudo+'mkdir -p '+os.path.join(self.installDir,'include'), timeout=2500, log=self.log)
-        output,err,ret  = config.package.Package.executeShellCommand('cd '+self.packageDir+' && make realclean && cd SRC && make && cd .. && '+self.installSudo+' cp -f lib/*.a '+os.path.join(self.installDir,self.libdir,'')+' && '+self.installSudo+'cp -f include/*.h '+os.path.join(self.installDir,self.includedir,''), timeout=2500, log = self.log)
-      except RuntimeError as e:
-        raise RuntimeError('Error running make on AMGX: '+str(e))
-      self.postInstall(output+err,os.path.join('SRC','make.PETSC'))
-    return self.installDir
-
-  def configureLibrary(self):
-    config.package.Package.configureLibrary(self)
-    self.checkNVCCDoubleAlign()
-    self.configureTypes()
-    self.addDefine('HAVE_AMGX','1')
-    return
+#    for place,item in enumerate(args):
+#      if item.find('CMAKE_C_COMPILER') >= 0:
+#        # findCUDA sets ccbin to the C compiler, force the C++ compiler instead
+#        # this prevents the error
+#        # base/src/amg_signal.cu(221): error: union "sigaction::<unnamed>" has no member "__sigaction_handler"
+#        self.framework.pushLanguage('C++')
+#        args[place]='-DCMAKE_C_COMPILER="'+self.framework.getCompiler()+'"'
+#        self.framework.popLanguage()
+    self.framework.pushLanguage('C++')
+    args.append('-DCUDA_NVCC_FLAGS="-ccbin '+self.framework.getCompiler()+'"')
+    self.framework.popLanguage()
+    return args

@@ -148,6 +148,9 @@ test_build:
 	+@if [ "${MUMPS_LIB}" != "" ] && [ "${PETSC_WITH_BATCH}" = "" ]; then \
           cd src/snes/examples/tutorials >/dev/null; ${OMAKE} PETSC_ARCH=${PETSC_ARCH}  PETSC_DIR=${PETSC_DIR}  DIFF=${PETSC_DIR}/lib/petsc/bin/petscdiff runex19_fieldsplit_mumps; \
          fi;
+	+@if [ "${AMGX_LIB}" != "" ] && [ "${PETSC_WITH_BATCH}" = "" ]; then \
+          cd src/snes/examples/tutorials/ >/dev/null; ${OMAKE} PETSC_ARCH=${PETSC_ARCH}  PETSC_DIR=${PETSC_DIR} testex13 >/dev/null; ${OMAKE} PETSC_ARCH=${PETSC_ARCH}  PETSC_DIR=${PETSC_DIR}  DIFF=${PETSC_DIR}/lib/petsc/bin/petscdiff runex13_amgx;  \
+         fi;
 	+@if [ "${SUPERLU_DIST_LIB}" != "" ] && [ "${PETSC_WITH_BATCH}" = "" ]; then \
           cd src/snes/examples/tutorials >/dev/null; ${OMAKE} PETSC_ARCH=${PETSC_ARCH}  PETSC_DIR=${PETSC_DIR}  DIFF=${PETSC_DIR}/lib/petsc/bin/petscdiff runex19_superlu_dist; \
          fi;
