@@ -79,6 +79,7 @@
 #define PCSVD 'svd'
 #define PCGAMG 'gamg'
 #define PCBDDC 'bddc'
+#define PCAMGX 'amgx'
 #define PCPATCH 'patch'
 #define PCDEFLATION 'deflation'
 
