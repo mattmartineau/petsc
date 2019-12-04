@@ -225,10 +225,20 @@ PetscErrorCode PCSetFromOptions_AMGX(PetscOptionItems *PetscOptionsObject,PC pc)
 {
   PC_AMGX        *amgx = (PC_AMGX*)pc->data;
   PetscErrorCode ierr;
+  PetscBool      exists;
 
   PetscFunctionBegin;
   ierr = PetscOptionsHead(PetscOptionsObject,"AMGX options");CHKERRQ(ierr);
-  ierr = PetscOptionsString("-c", "AMGx parameter file (json)", "amgx.c", amgx->filename, amgx->filename, PETSC_MAX_PATH_LEN, NULL);CHKERRQ(ierr);
+  ierr = PetscOptionsString("-pc_amgx_json", "AMGx parameter file (json)", "amgx.c", amgx->filename, amgx->filename, PETSC_MAX_PATH_LEN, NULL);CHKERRQ(ierr);
+  ierr = PetscStrreplace(PetscObjectComm((PetscObject)pc),amgx->filename,amgx->filename,PETSC_MAX_PATH_LEN);CHKERRQ(ierr);
+  ierr = PetscTestFile(amgx->filename,'r',&exists);CHKERRQ(ierr);
+  if (!exists) { /* try to add prefix */
+    char str[PETSC_MAX_PATH_LEN];
+    ierr = PetscSNPrintf(str,PETSC_MAX_PATH_LEN-1,"${PETSC_DIR}/share/petsc/amgx/%s",amgx->filename);CHKERRQ(ierr);
+    ierr = PetscStrreplace(PetscObjectComm((PetscObject)pc),str,amgx->filename,PETSC_MAX_PATH_LEN);CHKERRQ(ierr);
+    ierr = PetscTestFile(amgx->filename,'r',&exists);CHKERRQ(ierr);
+    if (!exists) SETERRQ1(PetscObjectComm((PetscObject)pc),PETSC_ERR_PLIB,"input file not found (%s)",amgx->filename);
+  }
   ierr = PetscOptionsTail();CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -309,8 +319,9 @@ PETSC_EXTERN PetscErrorCode PCCreate_AMGX(PC pc)
     /* This communicator is not yet known to this system, so we duplicate it and make an internal communicator */
     ierr = MPI_Comm_dup(comm_in,&amgx->comm);CHKERRQ(ierr);
   }
-  /* set a default path/filename, use -c to set at runtime */
-  ierr = PetscSNPrintf(amgx->filename,PETSC_MAX_PATH_LEN-1,"../../../../share/petsc/amgx/AMG_CLASSICAL_AGGRESSIVE_L1_RT6.json");CHKERRQ(ierr);
+  /* set a default path/filename, use -pc_amgx_json to set at runtime */
+  ierr = PetscSNPrintf(amgx->filename,PETSC_MAX_PATH_LEN-1,"${PETSC_DIR}/share/petsc/amgx/AMG_CLASSICAL_AGGRESSIVE_L1_RT6.json");CHKERRQ(ierr);
+  ierr = PetscStrreplace(comm_in,amgx->filename,amgx->filename,PETSC_MAX_PATH_LEN);CHKERRQ(ierr);
 
   PetscFunctionReturn(0);
 }

@@ -53,7 +53,7 @@ testex13: ex13.PETSc
            ${MPIEXEC} -n 8 ./ex13 -dim 3 -cells 2,2,2 -simplex 0 -potential_petscspace_degree 1 -dm_refine 3 \
             -pc_type amgx -ksp_type preonly -ksp_max_it 1 -dm_mat_type aijcusparse -dm_vec_type cuda \
             -snes_max_it 1 -snes_type ksponly -petscpartitioner_type simple \
-           -c ${PETSC_DIR}/share/petsc/amgx/AMG_CLASSICAL_AGGRESSIVE_L1_RT6.json > ex13_1.tmp 2>&1; \
+           -pc_amgx_json AMG_CLASSICAL_AGGRESSIVE_L1_RT6.json > ex13_1.tmp 2>&1; \
 	   if (${DIFF} output/ex13_1.testout ex13_1.tmp > /dev/null 2>&1) then \
            echo "C/C++ example src/snes/examples/tutorials/ex13 run successfully with 8 MPI processes"; \
 	   else echo "Possible error running C/C++ src/snes/examples/tutorials/ex13 with 8 MPI processes"; \
@@ -113,7 +113,7 @@ runex19_suitesparse:
            else  printf "${PWD}\nPossible problem with ex19 running with suitesparse, diffs above\n=========================================\n"; fi; \
 	   ${RM} -f ex19_1.tmp
 runex13_amgx:
-	-@${MPIEXEC} -n 4 -dim 3 -cells 2,2,1 -simplex 0 -potential_petscspace_degree 1 -dm_refine 3 -pc_type amgx -ksptype cg -ksp_type preonly -ksp_max_it 1 -dm_mat_type aijcusparse -dm_vec_type cuda -snes_max_it 1 -snes_type ksponly -petscpartitioner_type simple -c $PETSC_DIR/share/petsc/amgx/AMG_CLASSICAL_AGGRESSIVE_L1_RT6.json > ex13.tmp 2>&1; \
+	-@${MPIEXEC} -n 4 -dim 3 -cells 2,2,1 -simplex 0 -potential_petscspace_degree 1 -dm_refine 3 -pc_type amgx -ksptype cg -ksp_type preonly -ksp_max_it 1 -dm_mat_type aijcusparse -dm_vec_type cuda -snes_max_it 1 -snes_type ksponly -petscpartitioner_type simple -pc_amgx_json AMG_CLASSICAL_AGGRESSIVE_L1_RT6.json > ex13.tmp 2>&1; \
 	   if (${DIFF} output/ex13_amgx.out ex13.tmp) then \
            echo "C/C++ example src/snes/examples/tutorials/ex19 run successfully with hypre"; \
            else  printf "${PWD}\nPossible problem with ex19 running with hypre, diffs above\n=========================================\n"; fi; \
