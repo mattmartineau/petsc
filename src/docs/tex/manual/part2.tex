@@ -3075,10 +3075,16 @@ coarsening rate by decreasing the threshold and squaring the coarsening
 graph (\trl{-pc_gamg_square_graph <N>}, squares the graph on the finest N levels).
 Likewise if your \lstinline{MatPtAP} time is small and your convergence rate is not ideal then you could decrease the coarsening rate.
 
-PETSc  has a preliminary interface to Nvidia's AMGx solver -- \trl{-pc_type amgx} or  \lstinline{PCSetType(pc,PCAMGX).
-AMGx does not scale well with MPI processes because, for one, it does not seem to have a coarse grid solver.
-The PETSc parameter interface to AMGx is fragile and not flexible, one must specify an AMGx input file with \trl{-c path-to-intput-file}.
-The classical AMG method is recomended (eg, -c share/petsc/amgx/AMG_CLASSICAL_AGGRESSIVE_L1_RT6.json).
+PETSc  has a preliminary interface to Nvidia's AMGx solver -- \trl{-pc_type amgx} or  \lstinline{PCSetType(pc,PCAMGX)}.
+AMGx does not seem to have a coarse grid solver.
+This results in low modes not being solved efficiently as the number
+of MPI processes is increased.
+The PETSc parameter interface to AMGx is fragile and not flexible, one must specify an AMGx input file with \trl{-pc_amgx_json path-to-intput-file}.
+The classical AMG method is recommended (eg, -pc_amgx_json
+AMG_CLASSICAL_AGGRESSIVE_L1_RT6.json).
+Sample input files are located in share/petsc/amgx and PETSc will add this prefix if the provide full path is not found.
+The classical AMG solver is recommended (AMG_CLASSICAL_AGGRESSIVE_L1_RT6.json).
+This input file is for a complete CG/AMG solver within AMGx and so one should use \trl{-ksp_type preonly -ksp_max_it 1}.
 
 PETSc's AMG solver is constructed as a framework for developers to
 easily add AMG capabilities, like a new AMG methods or an AMG component like a matrix
