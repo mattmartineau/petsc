@@ -50,13 +50,13 @@ testex13: ex13.PETSc
         elif [ "${MPIEXEC}" = "/bin/false" ]; then \
            echo "*mpiexec not found*. Please run src/snes/examples/tutorials/ex13 manually"; \
 	if [ ! "${MPI_IS_MPIUNI}" ]; then \
-           ${MPIEXEC} -n 9 ./ex13 -dim 3 -cells 2,2,1 -simplex 0 -potential_petscspace_degree 1 -dm_refine 3 \
-            -pc_type amgx -ksp_type cg -ksp_type preonly -ksp_max_it 1 -dm_mat_type aijcusparse -dm_vec_type cuda \
+           ${MPIEXEC} -n 8 ./ex13 -dim 3 -cells 2,2,2 -simplex 0 -potential_petscspace_degree 1 -dm_refine 3 \
+            -pc_type amgx -ksp_type preonly -ksp_max_it 1 -dm_mat_type aijcusparse -dm_vec_type cuda \
             -snes_max_it 1 -snes_type ksponly -petscpartitioner_type simple \
-           -c $PETSC_DIR/share/petsc/amgx/AMG_CLASSICAL_AGGRESSIVE_L1_RT6.json > ex13_1.tmp 2>&1; \
+           -c ${PETSC_DIR}/share/petsc/amgx/AMG_CLASSICAL_AGGRESSIVE_L1_RT6.json > ex13_1.tmp 2>&1; \
 	   if (${DIFF} output/ex13_1.testout ex13_1.tmp > /dev/null 2>&1) then \
-           echo "C/C++ example src/snes/examples/tutorials/ex13 run successfully with 2 MPI processes"; \
-	   else echo "Possible error running C/C++ src/snes/examples/tutorials/ex13 with 2 MPI processes"; \
+           echo "C/C++ example src/snes/examples/tutorials/ex13 run successfully with 8 MPI processes"; \
+	   else echo "Possible error running C/C++ src/snes/examples/tutorials/ex13 with 8 MPI processes"; \
            echo "See http://www.mcs.anl.gov/petsc/documentation/faq.html";\
            cat ex13_1.tmp; fi; fi; \
         ${RM} -f ex13_1.tmp; fi
