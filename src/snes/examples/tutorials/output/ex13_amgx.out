@@ -1,0 +1,48 @@
+AMGX version 2.1.0.131-opensource
+Compiled with CUDA Runtime 10.1, using CUDA driver 10.1
+Cannot read file as JSON object, trying as AMGX config
+Converting config string to current config version
+Parsing configuration string: exception_handling=1 ; 
+Using Normal MPI (Hostbuffer) communicator...
+Cannot read file as JSON object, trying as AMGX config
+Converting config string to current config version
+Parsing configuration string: selector=AGGRESSIVE_PMIS ; 
+Cannot read file as JSON object, trying as AMGX config
+Cannot read file as JSON object, trying as AMGX config
+Converting config string to current config version
+Parsing configuration string: interpolator=MULTIPASS ; 
+AMG Grid:
+         Number of Levels: 3
+            LVL         ROWS               NNZ    SPRSTY       Mem (GB)
+         --------------------------------------------------------------
+           0(D)         1575             35131    0.0142       0.000556
+           1(D)           28               326     0.416       2.55e-05
+           2(D)            9                81         1       8.43e-06
+         --------------------------------------------------------------
+         Grid Complexity: 1.02349
+         Operator Complexity: 1.01159
+         Total Memory Usage: 0.000590269 GB
+         --------------------------------------------------------------
+           iter      Mem Usage (GB)       residual           rate
+         --------------------------------------------------------------
+            Ini            0.865845   3.137018e+00
+              0            0.865845   9.855561e-01         0.3142
+              1              0.8658   3.409159e-01         0.3459
+              2              0.8658   1.079833e-01         0.3167
+              3              0.8658   3.333112e-02         0.3087
+              4              0.8658   1.242735e-02         0.3728
+              5              0.8658   3.519755e-03         0.2832
+              6              0.8658   1.365636e-03         0.3880
+              7              0.8658   6.199824e-04         0.4540
+              8              0.8658   2.086746e-04         0.3366
+              9              0.8658   5.533701e-05         0.2652
+             10              0.8658   1.431027e-05         0.2586
+             11              0.8658   4.077352e-06         0.2849
+             12              0.8658   1.342750e-06         0.3293
+         --------------------------------------------------------------
+         Total Iterations: 13
+         Avg Convergence Rate: 		         0.3237
+         Final Residual: 		   1.342750e-06
+         Total Reduction in Residual: 	   4.280337e-07
+         Maximum Memory Usage: 		          0.866 GB
+         --------------------------------------------------------------

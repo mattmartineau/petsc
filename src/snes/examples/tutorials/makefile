@@ -113,10 +113,10 @@ runex19_suitesparse:
            else  printf "${PWD}\nPossible problem with ex19 running with suitesparse, diffs above\n=========================================\n"; fi; \
 	   ${RM} -f ex19_1.tmp
 runex13_amgx:
-	-@${MPIEXEC} -n 4 -dim 3 -cells 2,2,1 -simplex 0 -potential_petscspace_degree 1 -dm_refine 3 -pc_type amgx -ksptype cg -ksp_type preonly -ksp_max_it 1 -dm_mat_type aijcusparse -dm_vec_type cuda -snes_max_it 1 -snes_type ksponly -petscpartitioner_type simple -pc_amgx_json AMG_CLASSICAL_AGGRESSIVE_L1_RT6.json > ex13.tmp 2>&1; \
+	-@${MPIEXEC} -n 4 ./ex13 -dim 3 -cells 2,2,1 -simplex 0 -potential_petscspace_degree 1 -dm_refine 3 -pc_type amgx -ksptype cg -ksp_type preonly -ksp_max_it 1 -dm_mat_type aijcusparse -dm_vec_type cuda -snes_max_it 1 -snes_type ksponly -petscpartitioner_type simple -pc_amgx_json AMG_CLASSICAL_AGGRESSIVE_L1_RT6.json > ex13.tmp 2>&1; \
 	   if (${DIFF} output/ex13_amgx.out ex13.tmp) then \
-           echo "C/C++ example src/snes/examples/tutorials/ex19 run successfully with hypre"; \
-           else  printf "${PWD}\nPossible problem with ex19 running with hypre, diffs above\n=========================================\n"; fi; \
+           echo "C/C++ example src/snes/examples/tutorials/ex13 run successfully with AMGx"; \
+           else  printf "${PWD}\nPossible problem with ex13 running with AMGx, diffs above\n=========================================\n"; fi; \
 	   ${RM} -f ex13.tmp
 
 include ${PETSC_DIR}/lib/petsc/conf/test

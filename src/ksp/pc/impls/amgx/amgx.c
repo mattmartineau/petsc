@@ -25,13 +25,12 @@ static PetscInt s_count = 0;
 PetscErrorCode PCReset_AMGX(PC pc)
 {
   PC_AMGX        *amgx = (PC_AMGX*)pc->data;
-  cudaError_t    err = cudaSuccess;
 
   PetscFunctionBegin;
-  err = AMGX_solver_destroy(amgx->AmgXsolver);
-  err = AMGX_matrix_destroy(amgx->AmgXA);
-  err = AMGX_vector_destroy(amgx->AmgXP);
-  err = AMGX_vector_destroy(amgx->AmgXRHS);
+  AMGX_solver_destroy(amgx->AmgXsolver);
+  AMGX_matrix_destroy(amgx->AmgXA);
+  AMGX_vector_destroy(amgx->AmgXP);
+  AMGX_vector_destroy(amgx->AmgXRHS);
   PetscFunctionReturn(0);
 }
 
@@ -321,7 +320,7 @@ PETSC_EXTERN PetscErrorCode PCCreate_AMGX(PC pc)
   }
   /* set a default path/filename, use -pc_amgx_json to set at runtime */
   ierr = PetscSNPrintf(amgx->filename,PETSC_MAX_PATH_LEN-1,"${PETSC_DIR}/share/petsc/amgx/AMG_CLASSICAL_AGGRESSIVE_L1_RT6.json");CHKERRQ(ierr);
-  ierr = PetscStrreplace(comm_in,amgx->filename,amgx->filename,PETSC_MAX_PATH_LEN);CHKERRQ(ierr);
+  ierr = PetscStrreplace(PetscObjectComm((PetscObject)pc),amgx->filename,amgx->filename,PETSC_MAX_PATH_LEN);CHKERRQ(ierr);
 
   PetscFunctionReturn(0);
 }
