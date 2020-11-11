@@ -75,15 +75,10 @@ static PetscErrorCode PCDestroy_AMGX(PC pc)
 static PetscErrorCode PCSetUp_AMGX(PC pc)
 {
     PC_AMGX *amgx = (PC_AMGX *)pc->data;
-    PetscErrorCode ierr;
-    cudaError_t err = cudaSuccess;
     Mat Pmat = pc->pmat;
-    PetscInt nGlobalRows, nLocalRows, rawN, bs;
-    int nranks, rank, nnz;
-    PetscBool done;
-    MPI_Comm wcomm = amgx->comm;
 
     PetscFunctionBegin;
+
     if (!pc->setupcalled)
     {
         AMGX_SAFE_CALL(AMGX_config_create_from_file(&amgx->cfg, amgx->filename));
@@ -95,11 +90,13 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
 
         // XXX Unless I missed something outside of this file, must change for multi GPU I would expect
         int devID, devCount;
-        err = cudaGetDevice(&devID);
+
+        cudaError_t err = cudaGetDevice(&devID);
         if (err != cudaSuccess)
         {
             SETERRQ1(PETSC_COMM_SELF, PETSC_ERR_PLIB, "error in cudaGetDevice %s", cudaGetErrorString(err));
         }
+
         err = cudaGetDeviceCount(&devCount);
         if (err != cudaSuccess)
         {
@@ -111,30 +108,30 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
         err = AMGX_vector_create(&amgx->AmgXP, amgx->rsrc, AMGX_mode_dDDI);
         err = AMGX_vector_create(&amgx->AmgXRHS, amgx->rsrc, AMGX_mode_dDDI);
         err = AMGX_solver_create(&amgx->AmgXsolver, amgx->rsrc, AMGX_mode_dDDI, amgx->cfg);
-    }
-    else
-    {
-        // XXX Need to double check, but assuming "setupcalled" will be true after the first invocation,
-        // we can simply re-setup / replace coefficients in future. How do we check if the
-        // sparsity pattern changed though...?
-    }
 
-    /* upload matrix */
-    MPI_Comm_size(wcomm, &nranks);
-    MPI_Comm_rank(wcomm, &rank);
+        /* upload matrix */
+        int nranks;
+        int rank;
+        MPI_Comm_size(amgx->comm, &nranks);
+        MPI_Comm_rank(amgx->comm, &rank);
 
-    ierr = MatGetSize(Pmat, &nGlobalRows, NULL); CHKERRQ(ierr);
+        PetscInt nGlobalRows;
+        PetscErrorCode ierr = MatGetSize(Pmat, &nGlobalRows, NULL);
+        CHKERRQ(ierr);
 
-    // XXX This isn't a requirement on AmgX, rather this integration doesn't yet handle 64bit indices correctly
-    if (nGlobalRows >= 2147483648)
-    {
-        SETERRQ1(PETSC_COMM_SELF, PETSC_ERR_PLIB, "AMGx only supports 32 bit ints. N = %D", nGlobalRows);
-    }
+        // XXX This isn't a requirement on AmgX, rather this integration doesn't yet handle 64bit indices correctly
+        if (nGlobalRows >= 2147483648)
+        {
+            SETERRQ1(PETSC_COMM_SELF, PETSC_ERR_PLIB, "AMGx only supports 32 bit ints. N = %D", nGlobalRows);
+        }
 
-    ierr = MatGetLocalSize(Pmat, &nLocalRows, NULL); CHKERRQ(ierr);
-    ierr = MatGetBlockSize(Pmat, &bs); CHKERRQ(ierr);
+        ierr = MatGetLocalSize(Pmat, &amgx->nLocalRows, NULL);
+        CHKERRQ(ierr);
 
-    {
+        PetscInt bs;
+        ierr = MatGetBlockSize(Pmat, &bs);
+        CHKERRQ(ierr);
+
         /* get offsets */
         PetscInt *rows;
         PetscInt *cols;
