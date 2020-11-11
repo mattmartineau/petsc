@@ -164,7 +164,7 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
             ierr = MatGetRowIJ(localA, 0, PETSC_FALSE, PETSC_FALSE, &rawN, &rawRow, &rawCol, &done); CHKERRQ(ierr);
             if(!done)
             {
-                printf("MatGetRowIJ did not work\n");
+                SETERRQ(wcomm, PETSC_ERR_PLIB, "MatGetRowIJ was not successful\n");
             }
             if (rawN != nLocalRows)
             {
@@ -237,9 +237,6 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
         ierr = PetscFree(cols); CHKERRQ(ierr);
         ierr = PetscFree(data); CHKERRQ(ierr);
         ierr = PetscFree(rows); CHKERRQ(ierr);
-
-        //ierr = PetscFree(partition_offsets); CHKERRQ(ierr);
-        //ierr = PetscFree3(cols, data, rows); CHKERRQ(ierr);
     }
 
     /* bind the matrix A to the solver */

@@ -148,13 +148,11 @@ PetscErrorCode  PCRegisterAll(void)
 #if defined(PETSC_HAVE_HPDDM)
   ierr = PCRegister(PCHPDDM        ,PCCreate_HPDDM);CHKERRQ(ierr);
 #endif
-<<<<<<< HEAD
 #if defined(PETSC_HAVE_AMGX)
   ierr = PCRegister(PCAMGX         ,PCCreate_AMGX);CHKERRQ(ierr);
-=======
+#endif
 #if defined(PETSC_HAVE_HARA)
   ierr = PCRegister(PCHARA         ,PCCreate_HARA);CHKERRQ(ierr);
->>>>>>> master
 #endif
   PetscFunctionReturn(0);
 }
