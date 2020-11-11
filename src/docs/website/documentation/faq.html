@@ -3,6 +3,7 @@
   <head>
     <meta http-equiv="content-type" content="text/html;charset=utf-8">
     <link href="../style.css" rel="stylesheet" type="text/css">
+    <link rel="icon" href="../images/PETSc_RGB-logo.png" type="image/png" sizes="16x16">
     <title>PETSc: Documentation: FAQ</title>
   </head>
   <body>
@@ -37,12 +38,13 @@
             <li><a href="license.html">License</a></li>
             <li><a href="linearsolvertable.html">Linear Solver Table</a></li>
             <li><a href="nonlinearsolvertable.html">Nonlinear Solver Table</a></li>
+	    <li><a href="taosolvertable.html">TAO Solver Table</a></li>
           </ul>
         </li>
         <li><a href="../publications/index.html">Applications/Publications</a></li>
         <li><a href="../miscellaneous/index.html">Miscellaneous</a></li>
         <li><a href="../miscellaneous/external.html">External Software</a></li>
-        <li><a href="../developers/index.html">Developers Site</a></li>
+        <li><a href="https://docs.petsc.org/en/latest/developers/index.html">Developers Site</a></li>
       </ul>
     </div>
 
@@ -93,14 +95,19 @@
         <li><a href="#gfortran">What Fortran compiler do you recommend for the Apple Mac OS X?</a></li>
         <li><a href="#packagelocations">How can I find the URL locations of the packages you install using --download-PACKAGE?</a></li>
         <li><a href="#multiplempis">How to fix the problem: PETSc was configured with one MPICH or OpenMPI mpi.h version but now appears to be compiling using a different MPICH OpenMPI mpi.h version</a></li>
-        <li><a href="#PetscOptionsInsertFile">What does it mean when make test gives:</a>
+        <li><a href="#mpi-network-misconfigure">What does it mean when make check gives:</a>
             <pre>
-Possible error running C/C++ src/snes/examples/tutorials/ex19 with 2 MPI processes
+Possible error running C/C++ src/snes/tutorials/ex19 with 2 MPI processes
 See https://www.mcs.anl.gov/petsc/documentation/faq.html
 [0]PETSC ERROR: #1 PetscOptionsInsertFile() line 563 in /Users/barrysmith/Src/PETSc/src/sys/objects/options.c
 [0]PETSC ERROR: #2 PetscOptionsInsert() line 720 in /Users/barrysmith/Src/PETSc/src/sys/objects/options.c
 [0]PETSC ERROR: #3 PetscInitialize() line 828 in /Users/barrysmith/Src/PETSc/src/sys/objects/pinit.c
-            </pre></li>
+            </pre>
+            or you get the message
+            <pre>
+Error in first MPI collective call, this indicates a network problem, it could be caused by an incorrect mpiexec or having VPN running:
+            </pre>
+        </li>
       </ul>
 
       <h4><a href="#usage">Usage</a></h4>
@@ -116,12 +123,13 @@ See https://www.mcs.anl.gov/petsc/documentation/faq.html
         <li><a href="#mpi-vec-to-mpi-vec">How do I collect all the values from a parallel PETSc vector into a vector on the zeroth (or any particular) processor?</a></li>
         <li><a href="#sparse-matrix-ascii-format">How can I read in or write out a sparse matrix in Matrix Market, Harwell-Boeing, SLAPC or other ASCII format?</a></li>
         <li><a href="#setfromoptions">Does TSSetFromOptions(), SNESSetFromOptions() or KSPSetFromOptions() reset all the parameters I set or how come TS/SNES/KSPSetXXX() don't seem to work?</a></li>
-        <li><a href="#makefiles">Can I use my own makefiles or rules for compiling code, rather than PETSc's?</a></li>
+        <li><a href="#makefiles">How do I compile and link may own PETSc application codess and can I use my own makefiles or rules for compiling code, rather than PETSc's?</a></li>
         <li><a href="#cmake">Can I use CMake to build my own project that depends on PETSc?</a></li>
         <li><a href="#carriagereturns">How can I put carriage returns in PetscPrintf() statements from Fortran?</a></li>
         <li><a href="#cxxmethod">How can I implement callbacks using C++ class methods?</a></li>
         <li><a href="#functionjacobian">Everyone knows that when you code Newton's method you should compute the function and its Jacobian at the same time. How can one do this in PETSc?</a></li>
         <li><a href="#jacobianfree">How can I use Newton's method Jacobian free? Can I difference a different function than provided with SNESSetFunction()?</a></li>
+        <li><a href="#lagjacobian">Computing the Jacobian or preconditioner is time consuming, is there any way to compute it less often?</a></li>
         <li><a href="#conditionnumber">How can I determine the condition number of a matrix?</a></li>
         <li><a href="#invertmatrix">How can I compute the inverse of a PETSc matrix?</a></li>
         <li><a href="#schurcomplement">How can I compute a Schur complement: Kbb - Kba *inverse(Kaa)*Kab?</a></li>
@@ -134,8 +142,9 @@ See https://www.mcs.anl.gov/petsc/documentation/faq.html
         <li><a href="#parallelsolvesequentialcode">If I have a sequential program can I use a parallel direct solver?</a></li>
         <li><a href="#infeasible">TS or SNES produces infeasible (out of domain) solutions or states, how can I prevent this?</a></li>
         <li><a href="#hermitian">Can PETSc work with Hermitian matrices?</a></li>
-      </ul>
+        <li><a href="#matreassembly">How do I efficiently assemble a bunch of very similar matrices (say in a time loop)?</a></li>
         <li><a href="#resize">Can one resize or change the size of PETSc matrices or vectors?</a></li>
+        <li><a href="#mumpsnullspace">How can one compute the nullspace of a sparse matrix with MUMPS?</a></li>
       </ul>
 
       <h4><a href="#Execution">Execution</a></h4>
@@ -156,6 +165,8 @@ See https://www.mcs.anl.gov/petsc/documentation/faq.html
         <li><a href="#newton">Why is Newton's method (SNES) not converging, or converges slowly?</a></li>
         <li><a href="#kspdiverged">Why is the linear solver (KSP) not converging, or converges slowly?</a></li>
         <li><a href="#typebound">I get the error message:Actual argument at (1) to assumed-type dummy is of derived type with type-bound or FINAL procedures</li>
+        <li><a href="#crashvecdestroy">In C++ I get a crash on VecDestroy() (or some other PETSc object)  at the end of the program</li>
+
       </ul>
 
       <h4><a href="#debugging">Debugging</a></h4>
@@ -178,6 +189,7 @@ See https://www.mcs.anl.gov/petsc/documentation/faq.html
         <li><a href="#doubleits">Why do some Krylov methods seem to print two residual norms per iteration?</a></li>
         <li><a href="#dylib">Unable to locate PETSc dynamic library /home/balay/spetsc/lib/libg/linux/libpetsc</a></li>
         <li><a href="#bisect">How do I determine what update to PETSc broke my code?</a></li>
+        <li><a href="#openmpithreaderror">How to fix the error PMIX ERROR: ERROR in file gds_ds12_lock_pthread.c?</a></li>
       </ul>
 
       <h4><a href="#shared-libraries">Shared Libraries</a></h4>
@@ -455,7 +467,7 @@ See https://www.mcs.anl.gov/petsc/documentation/faq.html
       except KSPIBCGS, run all their vector operations on the GPU; thus, for
       example, Jacobi preconditioned Krylov methods run completely on the GPU.
       Preconditioners are a problem; we could do with some help for these. The
-      example <a href="https://www.mcs.anl.gov/petsc/petsc-master/src/snes/examples/tutorials/ex47cu.cu.html">src/snes/examples/tutorials/ex47cu.cu</a>
+      example <a href="https://www.mcs.anl.gov/petsc/petsc-master/src/snes/tutorials/ex47cu.cu.html">src/snes/tutorials/ex47cu.cu</a>
       demonstates how the nonlinear function evaluation can be done on the
       GPU.
 
@@ -506,11 +518,6 @@ See https://www.mcs.anl.gov/petsc/documentation/faq.html
         </li>
 
         <li>
-          Begin by copying one of the many PETSc examples (in, for example,
-          petsc/src/ksp/examples/tutorials) and its corresponding makefile.
-        </li>
-
-        <li>
           See the introductory section of the PETSc users manual for tips on
           documentation.
         </li>
@@ -532,8 +539,8 @@ See https://www.mcs.anl.gov/petsc/documentation/faq.html
         <li>
           The PETSc test suite contains sample output for many of the examples.
           These are contained in the PETSc directories
-          ${PETSC_DIR}/src/*/examples/tutorials/output and
-          ${PETSC_DIR}/src/*/examples/tests/output. Once you have run the test
+          ${PETSC_DIR}/src/*/tutorials/output and
+          ${PETSC_DIR}/src/*/tests/output. Once you have run the test
           examples, you may remove all of these directories to save some disk space.
         </li>
 
@@ -647,17 +654,25 @@ See https://www.mcs.anl.gov/petsc/documentation/faq.html
   </ul>
 
 
-      <h3><a name="PetscOptionsInsertFile">What does it mean when make test gives:</a></h3>
+      <h3><a name="mpi-network-misconfigure">What does it mean when make check gives:</a></h3>
             <pre>
-Possible error running C/C++ src/snes/examples/tutorials/ex19 with 2 MPI processes
+Possible error running C/C++ src/snes/tutorials/ex19 with 2 MPI processes
 See https://www.mcs.anl.gov/petsc/documentation/faq.html
 [0]PETSC ERROR: #1 PetscOptionsInsertFile() line 563 in /Users/barrysmith/Src/PETSc/src/sys/objects/options.c
 [0]PETSC ERROR: #2 PetscOptionsInsert() line 720 in /Users/barrysmith/Src/PETSc/src/sys/objects/options.c
 [0]PETSC ERROR: #3 PetscInitialize() line 828 in /Users/barrysmith/Src/PETSc/src/sys/objects/pinit.c
 </pre></li>
 
-      <p>
-        The machine has a funky network configuration and for some reason MPICH is unable to communicate between processes with the socket connections it has established. This can happen even if you are running MPICH on just one machine. Often you will find that ping `hostname` fails with this network configuration; that is processes on the machine cannot even connect to the same machine. You can try completely disconnecting your machine from the network and see if make test then works or speaking with your system adminstrator. You can also use the ./configure options --download-mpich --download-mpich-device=ch3:nemesis
+       <p>
+      You are using the wrong mpiexec for the MPI you have linked PETSc with.
+       </p>
+
+       <p>
+      You have VPN enabled on your machine whose network settings may not play well with MPI
+       </p>
+
+       <p>
+        The machine has a funky network configuration and for some reason MPICH is unable to communicate between processes with the socket connections it has established. This can happen even if you are running MPICH on just one machine. Often you will find that ping `hostname` fails with this network configuration; that is processes on the machine cannot even connect to the same machine. You can try completely disconnecting your machine from the network and see if make check then works or speaking with your system administrator. You can also use the ./configure options --download-mpich --download-mpich-device=ch3:nemesis
       </p>
 
       <hr>
@@ -788,7 +803,7 @@ PetscErrorCode mypetscvfprintf(FILE *fd, const char format[], va_list Argp) {
         and several others. You may see the available ASM options by using
         <code>-pc_type asm -help</code> Also, see the procedural interfaces in the
         manual pages, with names <code>PCASMxxxx()</code> and check the index of the
-        <a href="https://www.mcs.anl.gov/petsc/petsc-current/docs/manual.pdf">users manual</a>
+        <a href="https://docs.petsc.org/en/latest/manual">users manual</a>
         for <code>PCASMxxx</code>().
       </p>
 
@@ -798,13 +813,13 @@ PetscErrorCode mypetscvfprintf(FILE *fd, const char format[], va_list Argp) {
         is defined by solving specific local subdomain problems. It currently
         only works for 3D scalar problems on structured grids created with PETSc
         DMDAs. See the manual page for PCEXOTIC and
-        src/ksp/ksp/examples/tutorials/ex45.c for any example.
+        src/ksp/ksp/tutorials/ex45.c for any example.
       </p>
 
       <p>
         PETSc also contains a balancing Neumann-Neumann type preconditioner, see the
         manual page for PCBDDC. This requires matrices be constructed with
-        <code>MatCreateIS()</code> via the finite element method. See src/ksp/ksp/examples/tests/ex59.c
+        <code>MatCreateIS()</code> via the finite element method. See src/ksp/ksp/tests/ex59.c
       </p>
 
       <h3><a name="blocks">Can I create BAIJ matrices with different size blocks for different block rows?</a></h3>
@@ -895,7 +910,7 @@ PetscErrorCode mypetscvfprintf(FILE *fd, const char format[], va_list Argp) {
       Julia package.</p>
 
       <p>For other formats, either adapt one of the above libraries or see the
-      examples in src/mat/examples/tests, specifically ex72.c or ex78.c. 
+      examples in src/mat/tests, specifically ex72.c or ex78.c. 
       You will likely need to modify the code slightly to match your
       required ASCII format. Note: Never read or write in parallel an ASCII
       matrix file, instead for reading: read in sequentially with a standalone
@@ -944,16 +959,17 @@ PetscErrorCode mypetscvfprintf(FILE *fd, const char format[], va_list Argp) {
         </li>
       </ul>
 
-      <h3><a name="makefiles">Can I use my own makefiles or rules for compiling code, instead of using PETSc's?</a></h3>
+      <h3><a name="makefiles">How do I compile and link may own PETSc application codes and can I use my own makefiles or rules for compiling code, rather than PETSc's?</a></h3>
 
-      Yes, see the section of the <a href="https://www.mcs.anl.gov/petsc/petsc-current/docs/manual.pdf">users manual</a> called Makefiles
+      See the <a href="https://docs.petsc.org/en/latest/manual/getting_started/#writing-application-codes-with-petsc">section of the users manual</a> on writing application codes with PETSc. This provides a
+      simple makefile that can be used to compiler user code. You are free to modify this makefile or completely replace it with your own makefile. 
 
       <h3><a name="cmake">Can I use CMake to build my own project that depends on PETSc?</a></h3>
 
-      Use the FindPETSc.cmake module from <a
-        href="https://github.com/jedbrown/cmake-modules/">this repository</a>.
-      See the CMakeLists.txt from <a
-        href="https://github.com/jedbrown/dohp">Dohp</a> for example usage.
+      Use <a href="https://cmake.org/cmake/help/latest/module/FindPkgConfig.html">FindPkgConfig.cmake</a>, which is installed by default with CMake.
+      PETSc installs <code>${PETSC_DIR}/${PETSC_ARCH}/lib/pkgconfig/petsc.pc</code>, which can be be read by <code>FindPkgConfig.cmake</code>.
+      If you must use a very old version of CMake and/or PETSc, you can use the <code>FindPETSc.cmake</code> module from <a href="https://github.com/jedbrown/cmake-modules/">this repository</a>.
+      See the CMakeLists.txt from <a href="https://github.com/jedbrown/dohp">Dohp</a> for (very dated) example usage.
 
       <h3><a name="carriagereturns">How can I put carriage returns in PetscPrintf() statements from Fortran?</a></h3>
 
@@ -1004,7 +1020,38 @@ PetscErrorCode mypetscvfprintf(FILE *fd, const char format[], va_list Argp) {
         function.
       </p>
 
-      <h3><a name="jacobianfree">How can I use Newton's method Jacobian free? Can I difference a different function than provided
+      <h3><a name="lagjacobian">Computing the Jacobian or preconditioner is time consuming, is there any way to compute it less often?</a></h3>
+
+      PETSc has a variety of ways of lagging the computation of the Jacobian or the preconditioner. They are documented in the manual page and users manual.
+
+      <ol>
+        <li>
+          -snes_lag_jacobian <lag> - (SNESSetLagJacobian) how often Jacobian is rebuilt (use -1 to never rebuild, use -2 to rebuild the next time requested and then never again).
+        </li>
+        <li>
+          -snes_lag_jacobian_persists - forces lagging of Jacobian through multiple SNES solves (SNESSetLagJacobianPersists), same as passing -2 to -snes_lag_jacobian. By default, each new SNES solve normally triggers a recomputation of the Jacobian
+        </li>
+        <li>
+          These are often (but does not need to be) used in combination with -snes_mf_operator which applies the fresh Jacobian matrix free for every matrix-vector product.
+          Otherwise the out-of-date matrix vector product, computed with the lagged Jacobian will be used.
+        </li>
+      </ol>
+
+      <ol>
+        <li>
+          -snes_lag_preconditioner <lag> - (SNESSetLagPreconditioner) how often the preconditioner is rebuilt. Note: if you are lagging the Jacobian the system will know the
+                                           the matrix has not changed and will not recompute the (same) preconditioner. 
+        </li>
+        <li>
+          -snes_lag_preconditioner_persists - Preconditioner lags through multiple SNES solves
+        </li>
+      </ol>
+
+      By using KSPMonitorSet() and/or SNESMonitorSet() one can provide code that monitors the convergence rate and automatically triggers an update of the Jacobian or preconditioner based on decreasing convergence of the iterative method. For example if the number of SNES iterations doubles one might trigger a new computation of the Jacobian.
+      
+      Experimentation is the only general purpose way to determine which approach is best for your problem. It is also important to experiment on your true problem at the scale you will be solving the problem since the performance benifits depend on the exact problem and and problem size.
+
+<h3><a name="jacobianfree">How can I use Newton's method Jacobian free? Can I difference a different function than provided
              with <a href="https://www.mcs.anl.gov/petsc/petsc-current/docs/manualpages/SNES/SNESSetFunction.html">SNESSetFunction()?</a></h3>
 
       <p>
@@ -1021,13 +1068,13 @@ PetscErrorCode mypetscvfprintf(FILE *fd, const char format[], va_list Argp) {
        To write the code (rather than use the options above) use <a href="https://www.mcs.anl.gov/petsc/petsc-current/docs/manualpages/SNES/MatCreateSNESMF.html">MatCreateSNESMF()</a> and pass the resulting matrix object to
        SNESSetJacobian(). For purely matrix-free (like -snes_mf) pass the matrix object for both matrix arguments and pass the function MatMFFDComputeJacobian(). To provide your own approximate Jacobian matrix to compute
        the preconditioner (like -snes_mf_operator), pass this other matrix as the second matrix argument to SNESSetJacobian(). Make sure your provided computejacobian() function calls MatAssemblyBegin/End() separately on BOTH
-       matrix arguments to this function. See <a href="https://www.mcs.anl.gov/petsc/petsc-current/src/snes/examples/tests/ex7.c.html">src/snes/examples/tests/ex7.c</a>
+       matrix arguments to this function. See <a href="https://www.mcs.anl.gov/petsc/petsc-current/src/snes/tests/ex7.c.html">src/snes/tests/ex7.c</a>
       </p>
 
       <p>
        To difference a different function than that passed to SNESSetJacobian() to compute the matrix-free Jacobian multiply call
        <a href="https://www.mcs.anl.gov/petsc/petsc-current/docs/manualpages/Mat/MatMFFDSetFunction.html">MatMFFDSetFunction()</a> to set that other function.
-       See <a href="https://www.mcs.anl.gov/petsc/petsc-current/src/snes/examples/tests/ex7.c.html">src/snes/examples/tests/ex7.c.h</a>
+       See <a href="https://www.mcs.anl.gov/petsc/petsc-current/src/snes/tests/ex7.c.html">src/snes/tests/ex7.c.h</a>
       </p>
 
       <h3><a name="conditionnumber">How can I determine the condition number of a matrix?</a></h3>
@@ -1111,13 +1158,13 @@ PetscErrorCode mypetscvfprintf(FILE *fd, const char format[], va_list Argp) {
       <ol>
         <li>
           use DMPlex, which is a high level approach to manage your mesh and
-          discretization. <a href="https://www.mcs.anl.gov/petsc/petsc-current/src/snes/examples/tutorials/ex62.c.html">SNES
+          discretization. <a href="https://www.mcs.anl.gov/petsc/petsc-current/src/snes/tutorials/ex62.c.html">SNES
           ex62</a> solves the Stokes equation using this approach.
         </li>
         <li>
           manage the grid data structure yourself and use
           PETSc IS and VecScatter to communicate the required
-          ghost point communication. See <a href="https://www.mcs.anl.gov/petsc/petsc-current/src/snes/examples/tutorials/ex10d/ex10.c.html">src/snes/examples/tutorials/ex10d/ex10.c</a>
+          ghost point communication. See <a href="https://www.mcs.anl.gov/petsc/petsc-current/src/snes/tutorials/ex10d/ex10.c.html">src/snes/tutorials/ex10d/ex10.c</a>
         </li>
       </ol>
 
@@ -1297,10 +1344,31 @@ PETSC_COMM_WORLD = NewComm;
         </li>
     </ol>
 
+     <h3><a name="matreassembly">How can I assemble a bunch of similar matrices?</a></h3>
+     
+     <p>You can first add the values common to all the matrices, then use MatStoreValues() to stash the common values.
+        Each iteration you call MatRetrieveValues(), then set the unique values in a matrix and assemble.</p>
 
      <h3><a name="resize">Can one resize or change the size of PETSc matrices or vectors?</a></h3>
 
       No, once the vector or matrices sizes have been set and the matrices or vectors are fully usuable one cannot change the size of the matrices or vectors or number of processors they live on. One may create new vectors and copy, for example using VecScatterCreate(), the old values from the previous vector.
+
+     <h3><a name="mumpsnullspace">How can one compute the nullspace of a sparse matrix with MUMPS?</a></h3>
+
+      <pre>
+      Mat F,work,V;
+      PetscInt N;
+
+      MatGetFactor(A,MATSOLVERMUMPS,MAT_FACTOR_LU,&F);
+      MatMumpsSetIcntl(F,24,1);
+      MatMumpsSetIcntl(F,25,1);
+      MatLUFactorSymbolic(F,A,NULL,NULL,NULL);
+      MatLUFactorNumeric(F,A,NULL);
+      MatMumpsGetInfog(F,28,&N);   /* this is the dimension of the null space */
+      MatDenseCreate(comm,rows,N,PETSC_DETERMINE,PETSC_DETERMINE,NULL,&V);    /* this will contain the null space in the columns */
+      MatDuplicate(V,MAT_DO_NOT_COPY_VALUES,&work);
+      MatMatSolve(F,work,V);
+     </pre>
 
       <hr>
 
@@ -1334,7 +1402,7 @@ PETSC_COMM_WORLD = NewComm;
 
       <h3><a name="efficient-assembly">Assembling large sparse matrices takes a long time. What can I do make this process faster? or MatSetValues() is so slow, what can I do to speed it up?</a></h3>
 
-      See the <a href="https://www.mcs.anl.gov/petsc/petsc-current/docs/manual.pdf#nameddest=ch_performance">Performance chapter of the users manual</a> for many tips on this.
+      See the <a href="https://docs.petsc.org/en/latest/manual/performance/">Performance chapter of the users manual</a> for many tips on this.
 
       <ol>
         <li>
@@ -1356,7 +1424,7 @@ PETSC_COMM_WORLD = NewComm;
       <p>Preallocation of matrix memory is crucial for good performance for large problems, see:</p>
 
       <ul>
-        <li><a href="https://www.mcs.anl.gov/petsc/petsc-current/docs/manual.pdf#sec_matsparse">https://www.mcs.anl.gov/petsc/petsc-current/docs/manual.pdf#sec_matsparse</a></li>
+        <li><a href="https://docs.petsc.org/en/latest/manual/mat/#sparse-matrices">the users manual on sparse matrices</a></li>
         <li><a href="https://www.mcs.anl.gov/petsc/petsc-current/docs/manualpages/Mat/MatCreateAIJ.html">https://www.mcs.anl.gov/petsc/petsc-current/docs/manualpages/Mat/MatCreateMPIAIJ.html</a></li>
       </ul>
 
@@ -1374,7 +1442,7 @@ PETSC_COMM_WORLD = NewComm;
 
       <h3><a name="log-view">How can I generate performance summaries with PETSc?</a></h3>
 
-      Use these options at runtime: -log_view. See the <a href="https://www.mcs.anl.gov/petsc/petsc-current/docs/manual.pdf#nameddest=ch_performance">Performance chapter of the users manual</a>
+      Use these options at runtime: -log_view. See the <a href="https://docs.petsc.org/en/latest/manual/performance/">Performance chapter of the users manual</a>
       for information on interpreting the summary data. If using the PETSc
       (non)linear solvers, one can also specify -snes_view or -ksp_view for
       a printout of solver info. Only the highest level PETSc object used needs
@@ -1397,7 +1465,7 @@ PETSC_COMM_WORLD = NewComm;
 
       Some examples use ${DATAFILESPATH}/matrices/medium and other files. These
       test matrices in PETSc binary format can be found at
-      <a href="https://bitbucket.org/petsc/datafiles">https://bitbucket.org/petsc/petsc/datafiles</a>
+      <a href="https://gitlab.com/petsc/datafiles">https://gitlab.com/petsc/datafiles</a>
 
       <h3><a name="info">When I dump some matrices and vectors to binary, I seem to be generating some empty files with .info extensions. What's the deal with these?</a></h3>
 
@@ -1769,6 +1837,24 @@ PETSC_COMM_WORLD = NewComm;
 
   </pre>
 
+      <h3><a name="crashvecdestroy">In C++ I get a crash on VecDestroy() (or some other PETSc object)  at the end of the program</a></h3>
+
+      This can happen when the destructor for a C++ class is automatically called at the end of the program after PetscFinalize(). Use the code</p>
+
+<pre>
+    main()
+    {
+        PetscInitialize()
+        {
+          your variables
+          your code
+
+           ...   /* all your destructors are called here automatically by C++ so they work correctly */
+        }
+        PetscFinalize()
+        return 0
+     }
+  </pre>
       <hr>
 
       <h2><a name="debugging">Debugging</a></h2>
@@ -2145,10 +2231,18 @@ source /opt/intel/idb/10.1.012/bin/idbvars.sh
           See <a href="https://mirrors.edge.kernel.org/pub/software/scm/git/docs/git-bisect.html">git-bisect(1)</a>
           and the <a href="https://git-scm.com/book/en/Git-Tools-Debugging-with-Git">debugging
           section of the Git Book</a> for more debugging tips.
-        <li>
+        </li>
       </ul>
 
       <hr>
+
+      <h3><a name="openmpithreaderror">How to fix the error  PMIX ERROR: ERROR in file gds_ds12_lock_pthread.c?</a></h3>
+
+        This seems to be an error when using OpenMPI and OpenBLAS with threads (or perhaps other packages that use threads). </p>
+
+        export PMIX_MCA_gds=hash</p>
+
+        Should resolve the problem.
 
       <h2><a name="shared-libraries">Shared Libraries</a></h2>
 

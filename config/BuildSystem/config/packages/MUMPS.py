@@ -3,11 +3,12 @@ import config.package
 class Configure(config.package.Package):
   def __init__(self, framework):
     config.package.Package.__init__(self, framework)
-    self.version          = '5.2.1'
+    self.version          = '5.3.5'
+    self.minversion       = '5.2.1'
     self.versionname      = 'MUMPS_VERSION'
-    self.gitcommit        = 'v'+self.version+'-p2'
-    self.download         = ['git://https://bitbucket.org/petsc/pkg-mumps.git',
-                             'https://bitbucket.org/petsc/pkg-mumps/get/'+self.gitcommit+'.tar.gz']
+    self.download         = ['http://mumps.enseeiht.fr/MUMPS_'+self.version+'.tar.gz',
+                             'https://ftp.mcs.anl.gov/pub/petsc/externalpackages/MUMPS_'+self.version+'.tar.gz']
+    self.download_darwin  = ['https://bitbucket.org/petsc/pkg-mumps/get/v5.2.1-p2.tar.gz']
     self.downloaddirnames = ['petsc-pkg-mumps','MUMPS']
     self.liblist          = [['libcmumps.a','libdmumps.a','libsmumps.a','libzmumps.a','libmumps_common.a','libpord.a'],
                             ['libcmumps.a','libdmumps.a','libsmumps.a','libzmumps.a','libmumps_common.a','libpord.a','libpthread.a'],
@@ -16,9 +17,8 @@ class Configure(config.package.Package):
     self.functions        = ['dmumps_c']
     self.includes         = ['dmumps_c.h']
     #
-    # Mumps does NOT work with 64 bit integers without a huge number of hacks we ain't making
+    self.fc               = 1
     self.precisions       = ['single','double']
-    self.requires32bitint = 1;  # 1 means that the package will not work with 64 bit integers
     self.downloadonWindows= 1
     self.hastests         = 1
     self.hastestsdatafiles= 1
@@ -66,8 +66,6 @@ class Configure(config.package.Package):
       self.usesopenmp = 'yes'
       # use OMP_NUM_THREADS to control the number of threads used
 
-    if not hasattr(self.compilers, 'FC'):
-      raise RuntimeError('Cannot install '+self.name+' without Fortran, make sure you do NOT have --with-fc=0')
     if not self.fortran.FortranDefineCompilerOption:
       raise RuntimeError('Fortran compiler cannot handle preprocessing directives from command line.')
     g = open(os.path.join(self.packageDir,'Makefile.inc'),'w')
@@ -103,22 +101,21 @@ class Configure(config.package.Package):
     g.write('IORDERINGSF = $(ISCOTCH)\n')
 
     g.write('RM = /bin/rm -f\n')
-    self.setCompilers.pushLanguage('C')
-    g.write('CC = '+self.setCompilers.getCompiler()+'\n')
-    g.write('OPTC    = ' + self.removeWarningFlags(self.setCompilers.getCompilerFlags())+'\n')
+    self.pushLanguage('C')
+    g.write('CC = '+self.getCompiler()+'\n')
+    g.write('OPTC    = ' + self.updatePackageCFlags(self.getCompilerFlags())+'\n')
     g.write('OUTC = -o \n')
-    self.setCompilers.popLanguage()
+    self.popLanguage()
     if not self.fortran.fortranIsF90:
       raise RuntimeError('Installing MUMPS requires a F90 compiler')
-    self.setCompilers.pushLanguage('FC')
-    g.write('FC = '+self.setCompilers.getCompiler()+'\n')
-    g.write('FL = '+self.setCompilers.getCompiler()+'\n')
-    if config.setCompilers.Configure.isNAG(self.setCompilers.getLinker(), self.log):
-      g.write('OPTF    = -dusty -dcfuns '+ self.setCompilers.getCompilerFlags().replace('-Wall','').replace('-Wshadow','').replace('-Mfree','') +'\n')
-    else:
-      g.write('OPTF    = '+ self.setCompilers.getCompilerFlags().replace('-Wall','').replace('-Wshadow','').replace('-Mfree','') +'\n')
+    self.pushLanguage('FC')
+    g.write('FC = '+self.getCompiler()+'\n')
+    g.write('FL = '+self.getCompiler()+'\n')
+    g.write('OPTF    = '+self.updatePackageFFlags(self.getCompilerFlags())+'\n')
+    if self.blasLapack.checkForRoutine('dgemmt'):
+      g.write('OPTF   += -DGEMMT_AVAILABLE \n')
     g.write('OUTF = -o \n')
-    self.setCompilers.popLanguage()
+    self.popLanguage()
 
     # set fortran name mangling
     # this mangling information is for both BLAS and the Fortran compiler so cannot use the BlasLapack mangling flag
@@ -141,7 +138,7 @@ class Configure(config.package.Package):
     g.write('INCSEQ  = -I$(topdir)/libseq\n')
     g.write('LIBSEQ  =  $(LAPACK) -L$(topdir)/libseq -lmpiseq\n')
     g.write('LIBBLAS = '+self.libraries.toString(self.blasLapack.dlib)+'\n')
-    g.write('OPTL    = -O -I.\n')
+    g.write('OPTL    = '+self.getLinkerFlags()+'\n')
     g.write('INCS = $(INCPAR)\n')
     g.write('LIBS = $(LIBPAR)\n')
     if self.argDB['with-mumps-serial']:
@@ -152,7 +149,7 @@ class Configure(config.package.Package):
     g.close()
     if self.installNeeded('Makefile.inc'):
       try:
-        output1,err1,ret1  = config.package.Package.executeShellCommand('make clean', cwd=self.packageDir, timeout=5, log = self.log)
+        output1,err1,ret1  = config.package.Package.executeShellCommand('make clean', cwd=self.packageDir, timeout=60, log = self.log)
       except RuntimeError as e:
         pass
       try:
@@ -166,9 +163,9 @@ class Configure(config.package.Package):
           [self.installSudo+'mkdir -p '+libDir+' '+includeDir,
            self.installSudo+'cp -f lib/*.* '+libDir+'/.',
            self.installSudo+'cp -f include/*.* '+includeDir+'/.'
-          ], cwd=self.packageDir, timeout=50, log = self.log)
+          ], cwd=self.packageDir, timeout=60, log = self.log)
         if self.argDB['with-mumps-serial']:
-          output,err,ret = config.package.Package.executeShellCommand([self.installSudo+'cp', '-f', 'libseq/libmpiseq.a', libDir+'/.'], cwd=self.packageDir, timeout=25, log = self.log)
+          output,err,ret = config.package.Package.executeShellCommand([self.installSudo+'cp', '-f', 'libseq/libmpiseq.a', libDir+'/.'], cwd=self.packageDir, timeout=60, log = self.log)
       except RuntimeError as e:
         self.logPrint('Error running make on MUMPS: '+str(e))
         raise RuntimeError('Error running make on MUMPS')

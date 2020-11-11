@@ -10,9 +10,11 @@ if __name__ == '__main__':
   import configure
   configure_options = [
     '--package-prefix-hash='+petsc_hash_pkgs,
+    '--with-make-test-np=3',
     'COPTFLAGS=-g -O',
     'FOPTFLAGS=-g -O',
     'CXXOPTFLAGS=-g -O',
+    '--with-gcov=1',
     '--download-suitesparse',
     '--download-mumps',
     '--download-scalapack',
@@ -30,12 +32,11 @@ if __name__ == '__main__':
     '--download-parmetis',
     '--download-triangle',
     '--download-p4est',
+    '--download-viennacl',
     '--with-cuda',
     '--with-shared-libraries',
+    '--download-magma',
+    '--with-magma-fortran-bindings=0',
   ]
-
-  import platform
-  if platform.node() == 'p1':
-    configure_options.append('--with-make-test-np=3')
 
   configure.petsc_configure(configure_options)

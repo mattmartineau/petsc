@@ -47,10 +47,9 @@ static PetscErrorCode  PCFactorGetUseInPlace_Factor(PC pc,PetscBool *flg)
   Notes:
     After you have called this function (which has to be after the KSPSetOperators() or PCSetOperators()) you can call PCFactorGetMatrix() and then set factor options on that matrix.
 
-.seealso: PCFactorSetMatSolverType(), PCFactorGetMatrix()
-
   Level: intermediate
 
+.seealso: PCFactorSetMatSolverType(), PCFactorGetMatrix()
 @*/
 PetscErrorCode PCFactorSetUpMatSolverType(PC pc)
 {
@@ -145,7 +144,7 @@ PetscErrorCode  PCFactorSetShiftAmount(PC pc,PetscReal shiftamount)
   PetscFunctionReturn(0);
 }
 
-/*
+/*@
    PCFactorSetDropTolerance - The preconditioner will use an ILU
    based on a drop tolerance. (Under development)
 
@@ -166,7 +165,7 @@ PetscErrorCode  PCFactorSetShiftAmount(PC pc,PetscReal shiftamount)
       There are NO default values for the 3 parameters, you must set them with reasonable values for your
       matrix. We don't know how to compute reasonable values.
 
-*/
+@*/
 PetscErrorCode  PCFactorSetDropTolerance(PC pc,PetscReal dt,PetscReal dtcol,PetscInt maxrowcount)
 {
   PetscErrorCode ierr;
@@ -191,7 +190,6 @@ PetscErrorCode  PCFactorSetDropTolerance(PC pc,PetscReal dt,PetscReal dtcol,Pets
 .  pivot - the tolerance
 
    Level: intermediate
-
 
 .seealso: PCFactorSetZeroPivot()
 @*/
@@ -218,7 +216,6 @@ PetscErrorCode  PCFactorGetZeroPivot(PC pc,PetscReal *pivot)
 
    Level: intermediate
 
-
 .seealso: PCFactorSetShiftAmount(), PCFactorSetShiftType(), PCFactorGetShiftType()
 @*/
 PetscErrorCode  PCFactorGetShiftAmount(PC pc,PetscReal *shift)
@@ -243,7 +240,6 @@ PetscErrorCode  PCFactorGetShiftAmount(PC pc,PetscReal *shift)
 .  type - one of MAT_SHIFT_NONE, MAT_SHIFT_NONZERO,  MAT_SHIFT_POSITIVE_DEFINITE, or MAT_SHIFT_INBLOCKS
 
    Level: intermediate
-
 
 .seealso: PCFactorSetShiftType(), MatFactorShiftType, PCFactorSetShiftAmount(), PCFactorGetShiftAmount()
 @*/
@@ -327,7 +323,6 @@ PetscErrorCode  PCFactorSetLevels(PC pc,PetscInt levels)
    Level: intermediate
 
 .seealso: PCFactorGetAllowDiagonalFill()
-
 @*/
 PetscErrorCode  PCFactorSetAllowDiagonalFill(PC pc,PetscBool flg)
 {
@@ -360,7 +355,6 @@ PetscErrorCode  PCFactorSetAllowDiagonalFill(PC pc,PetscBool flg)
    Level: intermediate
 
 .seealso: PCFactorSetAllowDiagonalFill()
-
 @*/
 PetscErrorCode  PCFactorGetAllowDiagonalFill(PC pc,PetscBool *flg)
 {
@@ -416,9 +410,7 @@ PetscErrorCode  PCFactorReorderForNonzeroDiagonal(PC pc,PetscReal rtol)
    Note:
      By default this will use the PETSc factorization if it exists
 
-
 .seealso: MatGetFactor(), MatSolverType, PCFactorGetMatSolverType()
-
 @*/
 PetscErrorCode  PCFactorSetMatSolverType(PC pc,MatSolverType stype)
 {
@@ -443,9 +435,7 @@ PetscErrorCode  PCFactorSetMatSolverType(PC pc,MatSolverType stype)
 
    Level: intermediate
 
-
 .seealso: MatGetFactor(), MatSolverType, PCFactorGetMatSolverType()
-
 @*/
 PetscErrorCode  PCFactorGetMatSolverType(PC pc,MatSolverType *stype)
 {
@@ -484,7 +474,6 @@ PetscErrorCode  PCFactorGetMatSolverType(PC pc,MatSolverType *stype)
    future runs. Default PETSc uses a value of 5.0
 
    This parameter has NOTHING to do with the levels-of-fill of ILU(). That is set with PCFactorSetLevels() or -pc_factor_levels.
-
 
 @*/
 PetscErrorCode  PCFactorSetFill(PC pc,PetscReal fill)
@@ -564,7 +553,7 @@ PetscErrorCode  PCFactorGetUseInPlace(PC pc,PetscBool *flg)
 
 /*@C
     PCFactorSetMatOrderingType - Sets the ordering routine (to reduce fill) to
-    be used in the LU factorization.
+    be used in the LU, ILU, Cholesky, and ICC factorizations.
 
     Logically Collective on PC
 
@@ -573,16 +562,21 @@ PetscErrorCode  PCFactorGetUseInPlace(PC pc,PetscBool *flg)
 -   ordering - the matrix ordering name, for example, MATORDERINGND or MATORDERINGRCM
 
     Options Database Key:
-.   -pc_factor_mat_ordering_type <nd,rcm,...> - Sets ordering routine
+.   -pc_factor_mat_ordering_type <nd,rcm,...,external> - Sets ordering routine
 
     Level: intermediate
 
     Notes:
     nested dissection is used by default
 
-    For Cholesky and ICC and the SBAIJ format reorderings are not available,
-    since only the upper triangular part of the matrix is stored. You can use the
-    SeqAIJ format in this case to get reorderings.
+    For Cholesky and ICC and the SBAIJ format the only reordering available is natural since only the upper half of the matrix is stored
+    and reordering this matrix is very expensive.
+
+    You can use SeqAIJ matrix with Cholesky and ICC and use any ordering
+
+    external means PETSc will not compute an ordering and the package will use its own ordering, for MATSOLVERCHOLMOD and MATSOLVERUMFPACK
+
+.seealso: MatOrderingType
 
 @*/
 PetscErrorCode  PCFactorSetMatOrderingType(PC pc,MatOrderingType ordering)

@@ -1,4 +1,3 @@
-
 #include <petsc/private/kspimpl.h>  /*I "petscksp.h" I*/
 
 PETSC_EXTERN PetscErrorCode KSPCreate_Richardson(KSP);
@@ -8,6 +7,8 @@ PETSC_EXTERN PetscErrorCode KSPCreate_GROPPCG(KSP);
 PETSC_EXTERN PetscErrorCode KSPCreate_PIPECG(KSP);
 PETSC_EXTERN PetscErrorCode KSPCreate_PIPECGRR(KSP);
 PETSC_EXTERN PetscErrorCode KSPCreate_PIPELCG(KSP);
+PETSC_EXTERN PetscErrorCode KSPCreate_PIPEPRCG(KSP);
+PETSC_EXTERN PetscErrorCode KSPCreate_PIPECG2(KSP);
 PETSC_EXTERN PetscErrorCode KSPCreate_CGNE(KSP);
 PETSC_EXTERN PetscErrorCode KSPCreate_NASH(KSP);
 PETSC_EXTERN PetscErrorCode KSPCreate_STCG(KSP);
@@ -55,8 +56,6 @@ PETSC_EXTERN PetscErrorCode KSPCreate_HPDDM(KSP);
   Not Collective
 
   Level: advanced
-
-.seealso:  KSPRegisterDestroy()
 @*/
 PetscErrorCode  KSPRegisterAll(void)
 {
@@ -71,6 +70,8 @@ PetscErrorCode  KSPRegisterAll(void)
   ierr = KSPRegister(KSPPIPECG,      KSPCreate_PIPECG);CHKERRQ(ierr);
   ierr = KSPRegister(KSPPIPECGRR,    KSPCreate_PIPECGRR);CHKERRQ(ierr);
   ierr = KSPRegister(KSPPIPELCG,     KSPCreate_PIPELCG);CHKERRQ(ierr);
+  ierr = KSPRegister(KSPPIPEPRCG,    KSPCreate_PIPEPRCG);CHKERRQ(ierr);
+  ierr = KSPRegister(KSPPIPECG2,     KSPCreate_PIPECG2);CHKERRQ(ierr);
   ierr = KSPRegister(KSPCGNE,        KSPCreate_CGNE);CHKERRQ(ierr);
   ierr = KSPRegister(KSPNASH,        KSPCreate_NASH);CHKERRQ(ierr);
   ierr = KSPRegister(KSPSTCG,        KSPCreate_STCG);CHKERRQ(ierr);

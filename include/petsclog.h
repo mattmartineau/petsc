@@ -8,16 +8,16 @@
 #include <petsctime.h>
 
 /* General logging of information; different from event logging */
-PETSC_EXTERN PetscErrorCode PetscInfo_Private(const char[],void*,const char[],...);
+PETSC_EXTERN PetscErrorCode PetscInfo_Private(const char[],PetscObject,const char[],...);
 #if defined(PETSC_USE_INFO)
-#define PetscInfo(A,S)                       PetscInfo_Private(PETSC_FUNCTION_NAME,A,S)
-#define PetscInfo1(A,S,a1)                   PetscInfo_Private(PETSC_FUNCTION_NAME,A,S,a1)
-#define PetscInfo2(A,S,a1,a2)                PetscInfo_Private(PETSC_FUNCTION_NAME,A,S,a1,a2)
-#define PetscInfo3(A,S,a1,a2,a3)             PetscInfo_Private(PETSC_FUNCTION_NAME,A,S,a1,a2,a3)
-#define PetscInfo4(A,S,a1,a2,a3,a4)          PetscInfo_Private(PETSC_FUNCTION_NAME,A,S,a1,a2,a3,a4)
-#define PetscInfo5(A,S,a1,a2,a3,a4,a5)       PetscInfo_Private(PETSC_FUNCTION_NAME,A,S,a1,a2,a3,a4,a5)
-#define PetscInfo6(A,S,a1,a2,a3,a4,a5,a6)    PetscInfo_Private(PETSC_FUNCTION_NAME,A,S,a1,a2,a3,a4,a5,a6)
-#define PetscInfo7(A,S,a1,a2,a3,a4,a5,a6,a7) PetscInfo_Private(PETSC_FUNCTION_NAME,A,S,a1,a2,a3,a4,a5,a6,a7)
+#define PetscInfo(A,S)                       PetscInfo_Private(PETSC_FUNCTION_NAME,((PetscObject)A),S)
+#define PetscInfo1(A,S,a1)                   PetscInfo_Private(PETSC_FUNCTION_NAME,((PetscObject)A),S,a1)
+#define PetscInfo2(A,S,a1,a2)                PetscInfo_Private(PETSC_FUNCTION_NAME,((PetscObject)A),S,a1,a2)
+#define PetscInfo3(A,S,a1,a2,a3)             PetscInfo_Private(PETSC_FUNCTION_NAME,((PetscObject)A),S,a1,a2,a3)
+#define PetscInfo4(A,S,a1,a2,a3,a4)          PetscInfo_Private(PETSC_FUNCTION_NAME,((PetscObject)A),S,a1,a2,a3,a4)
+#define PetscInfo5(A,S,a1,a2,a3,a4,a5)       PetscInfo_Private(PETSC_FUNCTION_NAME,((PetscObject)A),S,a1,a2,a3,a4,a5)
+#define PetscInfo6(A,S,a1,a2,a3,a4,a5,a6)    PetscInfo_Private(PETSC_FUNCTION_NAME,((PetscObject)A),S,a1,a2,a3,a4,a5,a6)
+#define PetscInfo7(A,S,a1,a2,a3,a4,a5,a6,a7) PetscInfo_Private(PETSC_FUNCTION_NAME,((PetscObject)A),S,a1,a2,a3,a4,a5,a6,a7)
 #else
 #define PetscInfo(A,S)                       0
 #define PetscInfo1(A,S,a1)                   0
@@ -28,9 +28,42 @@ PETSC_EXTERN PetscErrorCode PetscInfo_Private(const char[],void*,const char[],..
 #define PetscInfo6(A,S,a1,a2,a3,a4,a5,a6)    0
 #define PetscInfo7(A,S,a1,a2,a3,a4,a5,a6,a7) 0
 #endif
+
+/*E
+    PetscInfoCommFlag - Describes the method by which to filter PetscInfo() by communicator size
+
+    Used as an input for PetscInfoSetFilterCommSelf()
+
+$   PETSC_INFO_COMM_ALL - Default uninitialized value. PetscInfo() will not filter based on communicator size (i.e. will
+print for all communicators)
+$   PETSC_INFO_COMM_NO_SELF - PetscInfo() will NOT print for communicators with size = 1 (i.e. *_COMM_SELF)
+$   PETSC_INFO_COMM_ONLY_SELF - PetscInfo will ONLY print for communicators with size = 1
+
+    Level: intermediate
+
+.seealso: PetscInfo(), PetscInfoSetFromOptions(), PetscInfoSetFilterCommSelf()
+E*/
+typedef enum {
+  PETSC_INFO_COMM_ALL = -1,
+  PETSC_INFO_COMM_NO_SELF = 0,
+  PETSC_INFO_COMM_ONLY_SELF = 1
+} PetscInfoCommFlag;
+
+PETSC_EXTERN const char * const PetscInfoCommFlags[];
 PETSC_EXTERN PetscErrorCode PetscInfoDeactivateClass(PetscClassId);
 PETSC_EXTERN PetscErrorCode PetscInfoActivateClass(PetscClassId);
-PETSC_EXTERN PetscBool PetscLogPrintInfo;  /* if true, indicates PetscInfo() is turned on */
+PETSC_EXTERN PetscErrorCode PetscInfoEnabled(PetscClassId, PetscBool *);
+PETSC_EXTERN PetscErrorCode PetscInfoAllow(PetscBool);
+PETSC_EXTERN PetscErrorCode PetscInfoSetFile(const char[],const char[]);
+PETSC_EXTERN PetscErrorCode PetscInfoGetFile(char **,FILE **);
+PETSC_EXTERN PetscErrorCode PetscInfoSetClasses(PetscBool,PetscInt,const char *const *);
+PETSC_EXTERN PetscErrorCode PetscInfoGetClass(const char *, PetscBool *);
+PETSC_EXTERN PetscErrorCode PetscInfoGetInfo(PetscBool *,PetscBool *,PetscBool *,PetscBool *,PetscInfoCommFlag *);
+PETSC_EXTERN PetscErrorCode PetscInfoProcessClass(const char[],PetscInt,PetscClassId[]);
+PETSC_EXTERN PetscErrorCode PetscInfoSetFilterCommSelf(PetscInfoCommFlag);
+PETSC_EXTERN PetscErrorCode PetscInfoSetFromOptions(PetscOptions);
+PETSC_EXTERN PetscErrorCode PetscInfoDestroy(void);
+PETSC_EXTERN PetscBool      PetscLogPrintInfo;  /* if true, indicates PetscInfo() is turned on */
 
 /*MC
     PetscLogEvent - id used to identify PETSc or user events which timed portions (blocks of executable)
@@ -57,16 +90,6 @@ PETSC_EXTERN PetscLogEvent PETSC_LARGEST_EVENT;
 /* Global flop counter */
 PETSC_EXTERN PetscLogDouble petsc_TotalFlops;
 PETSC_EXTERN PetscLogDouble petsc_tmp_flops;
-
-/* Global GPU counters */
-#if defined(PETSC_HAVE_VIENNACL) || defined(PETSC_HAVE_CUDA)
-PETSC_EXTERN PetscLogDouble petsc_ctog_ct;
-PETSC_EXTERN PetscLogDouble petsc_gtoc_ct;
-PETSC_EXTERN PetscLogDouble petsc_ctog_sz;
-PETSC_EXTERN PetscLogDouble petsc_gtoc_sz;
-PETSC_EXTERN PetscLogDouble petsc_gflops;
-PETSC_EXTERN PetscLogDouble petsc_gtime;
-#endif
 
 /* We must make the following structures available to access the event
      activation flags in the PetscLogEventBegin/End() macros. These are not part of the PETSc public
@@ -148,7 +171,7 @@ typedef struct {
   PetscLogDouble mallocIncrease;/* How much the maximum malloced space has increased in this event */
   PetscLogDouble mallocSpace;   /* How much the space was malloced and kept during this event */
   PetscLogDouble mallocIncreaseEvent;  /* Maximum of the high water mark with in event minus memory available at the end of the event */
-  #if defined(PETSC_HAVE_VIENNACL) || defined(PETSC_HAVE_CUDA)
+  #if defined(PETSC_HAVE_DEVICE)
   PetscLogDouble CpuToGpuCount; /* The total number of CPU to GPU copies */
   PetscLogDouble GpuToCpuCount; /* The total number of GPU to CPU copies */
   PetscLogDouble CpuToGpuSize;  /* The total size of CPU to GPU copies */
@@ -225,6 +248,21 @@ PETSC_EXTERN PetscErrorCode PetscStageLogGetEventPerfLog(PetscStageLog,int,Petsc
 #define PETSC_FLOPS_PER_OP 1.0
 #endif
 
+/*@
+       PetscLogFlops - Log how many flops are performed in a calculation
+
+   Input Paramters:
+    flops - the number of flops
+
+   Notes:
+     To limit the chance of integer overflow when multiplying by a constant, represent the constant as a double,
+     not an integer. Use PetscLogFlops(4.0*n) not PetscLogFlops(4*n)
+
+   Level: intermediate
+
+.seealso: PetscLogView(), PetscLogGpuFlops()
+@*/
+
 PETSC_STATIC_INLINE PetscErrorCode PetscLogFlops(PetscLogDouble n)
 {
   PetscFunctionBegin;
@@ -235,7 +273,18 @@ PETSC_STATIC_INLINE PetscErrorCode PetscLogFlops(PetscLogDouble n)
   PetscFunctionReturn(0);
 }
 
-#if defined(PETSC_HAVE_VIENNACL) || defined(PETSC_HAVE_CUDA)
+#if defined(PETSC_HAVE_DEVICE)
+/* Global GPU counters */
+PETSC_EXTERN PetscLogDouble petsc_ctog_ct;
+PETSC_EXTERN PetscLogDouble petsc_gtoc_ct;
+PETSC_EXTERN PetscLogDouble petsc_ctog_sz;
+PETSC_EXTERN PetscLogDouble petsc_gtoc_sz;
+PETSC_EXTERN PetscLogDouble petsc_gflops;
+PETSC_EXTERN PetscLogDouble petsc_gtime;
+#if defined(PETSC_USE_DEBUG)
+PETSC_EXTERN PetscBool      petsc_gtime_inuse;
+#endif
+
 PETSC_STATIC_INLINE PetscErrorCode PetscLogCpuToGpu(PetscLogDouble size)
 {
   PetscFunctionBegin;
@@ -252,6 +301,20 @@ PETSC_STATIC_INLINE PetscErrorCode PetscLogGpuToCpu(PetscLogDouble size)
   PetscFunctionReturn(0);
 }
 
+/*@
+       PetscLogGpuFlops - Log how many flops are performed in a calculation on the device
+
+   Input Paramters:
+    flops - the number of flops
+
+   Notes:
+     To limit the chance of integer overflow when multiplying by a constant, represent the constant as a double,
+     not an integer. Use PetscLogFlops(4.0*n) not PetscLogFlops(4*n)
+
+   Level: intermediate
+
+.seealso: PetscLogView(), PetscLogFlops(), PetscLogGpuTimeBegin(), PetscLogGpuTimeEnd()
+@*/
 PETSC_STATIC_INLINE PetscErrorCode PetscLogGpuFlops(PetscLogDouble n)
 {
   PetscFunctionBegin;
@@ -263,18 +326,41 @@ PETSC_STATIC_INLINE PetscErrorCode PetscLogGpuFlops(PetscLogDouble n)
   PetscFunctionReturn(0);
 }
 
+/*@
+       PetscLogGpuTimeBegin - Start timer for device
+
+   Level: intermediate
+
+      Notes:
+        The timer is run on the CPU, it is just logged separately as time devoted to GPU computations (including kernel launch times). It is used to compute the flop rate on the GPU.
+.seealso:  PetscLogView(), PetscLogGpuFlops(), PetscLogGpuTimeEnd()
+@*/
 PETSC_STATIC_INLINE PetscErrorCode PetscLogGpuTimeBegin()
 {
   PetscErrorCode ierr;
   PetscFunctionBegin;
+#if defined(PETSC_USE_DEBUG)
+  if (petsc_gtime_inuse) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Forgot to call PetscLogGpuTimeEnd()?");
+  petsc_gtime_inuse = PETSC_TRUE;
+#endif
   ierr = PetscTimeSubtract(&petsc_gtime);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
+/*@
+       PetscLogGpuTimeEnd - Stop timer for device
 
+   Level: intermediate
+
+.seealso:  PetscLogView(), PetscLogGpuFlops(), PetscLogGpuTimeBegin()
+@*/
 PETSC_STATIC_INLINE PetscErrorCode PetscLogGpuTimeEnd()
 {
   PetscErrorCode ierr;
   PetscFunctionBegin;
+#if defined(PETSC_USE_DEBUG)
+  if (!petsc_gtime_inuse) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Forgot to call PetscLogGpuTimeBegin()?");
+  petsc_gtime_inuse = PETSC_FALSE;
+#endif
   ierr = PetscTimeAdd(&petsc_gtime);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -299,7 +385,7 @@ PETSC_EXTERN PetscErrorCode (*PetscLogPLE)(PetscLogEvent,int,PetscObject,PetscOb
 PETSC_EXTERN PetscErrorCode (*PetscLogPHC)(PetscObject);
 PETSC_EXTERN PetscErrorCode (*PetscLogPHD)(PetscObject);
 
-#define PetscLogObjectParents(p,n,d)  0;do{int _i; for (_i=0; _i<(n); _i++) {ierr = PetscLogObjectParent((PetscObject)(p),(PetscObject)(d)[_i]);CHKERRQ(ierr);}}while(0)
+#define PetscLogObjectParents(p,n,d)  0;do{int _i; for (_i=0; _i<(n); _i++) {ierr = PetscLogObjectParent((PetscObject)(p),(PetscObject)(d)[_i]);CHKERRQ(ierr);}}while (0)
 #define PetscLogObjectCreate(h)      ((PetscLogPHC) ? (*PetscLogPHC)((PetscObject)(h)) : 0)
 #define PetscLogObjectDestroy(h)     ((PetscLogPHD) ? (*PetscLogPHD)((PetscObject)(h)) : 0)
 PETSC_EXTERN PetscErrorCode PetscLogObjectState(PetscObject, const char[], ...);
@@ -369,15 +455,15 @@ PETSC_EXTERN PetscErrorCode PetscLogEventSynchronize(PetscLogEvent, MPI_Comm);
 
 #define PetscLogEventSync(e,comm) \
   (((PetscLogPLB && petsc_stageLog->stageInfo[petsc_stageLog->curStage].perfInfo.active && petsc_stageLog->stageInfo[petsc_stageLog->curStage].eventLog->eventInfo[e].active) ? \
-    PetscLogEventSynchronize((e),(comm)) : 0 ))
+    PetscLogEventSynchronize((e),(comm)) : 0))
 
 #define PetscLogEventBegin(e,o1,o2,o3,o4) \
   (((PetscLogPLB && petsc_stageLog->stageInfo[petsc_stageLog->curStage].perfInfo.active && petsc_stageLog->stageInfo[petsc_stageLog->curStage].eventLog->eventInfo[e].active) ? \
-    (*PetscLogPLB)((e),0,(PetscObject)(o1),(PetscObject)(o2),(PetscObject)(o3),(PetscObject)(o4)) : 0 ))
+    (*PetscLogPLB)((e),0,(PetscObject)(o1),(PetscObject)(o2),(PetscObject)(o3),(PetscObject)(o4)) : 0))
 
 #define PetscLogEventEnd(e,o1,o2,o3,o4) \
   (((PetscLogPLE && petsc_stageLog->stageInfo[petsc_stageLog->curStage].perfInfo.active && petsc_stageLog->stageInfo[petsc_stageLog->curStage].eventLog->eventInfo[e].active) ? \
-    (*PetscLogPLE)((e),0,(PetscObject)(o1),(PetscObject)(o2),(PetscObject)(o3),(PetscObject)(o4)) : 0 ))
+    (*PetscLogPLE)((e),0,(PetscObject)(o1),(PetscObject)(o2),(PetscObject)(o3),(PetscObject)(o4)) : 0))
 
 PETSC_EXTERN PetscErrorCode PetscLogEventGetFlops(PetscLogEvent,PetscLogDouble*);
 PETSC_EXTERN PetscErrorCode PetscLogEventZeroFlops(PetscLogEvent);
@@ -614,6 +700,15 @@ PETSC_EXTERN PetscErrorCode PetscLogObjectState(PetscObject,const char[],...);
 #define PetscLogEventSync(e,comm)          0
 #define PetscLogEventBegin(e,o1,o2,o3,o4)  0
 #define PetscLogEventEnd(e,o1,o2,o3,o4)    0
+
+#if defined(PETSC_HAVE_DEVICE)
+#define PetscLogCpuToGpu(a)                0
+#define PetscLogGpuToCpu(a)                0
+#define PetscLogGpuFlops(a)                0
+#define PetscLogGpuTimeBegin()             0
+#define PetscLogGpuTimeEnd()               0
+#define PetscLogGpuTimeAdd(a)              0
+#endif
 
 /* If PETSC_USE_LOG is NOT defined, these still need to be! */
 #define MPI_Startall_irecv(count,datatype,number,requests) ((number) && MPI_Startall(number,requests))

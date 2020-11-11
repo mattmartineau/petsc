@@ -25,15 +25,15 @@ class Configure(config.package.Package):
     shareDir       = os.path.join(self.installDir, 'share')
 
     args = []
-    self.framework.pushLanguage('C')
-    args.append('CC="'+self.framework.getCompiler()+'"')
-    args.append('CFLAGS="'+self.removeWarningFlags(self.framework.getCompilerFlags())+'"')
-    self.framework.popLanguage()
+    self.pushLanguage('C')
+    args.append('CC="'+self.getCompiler()+'"')
+    args.append('CFLAGS="'+self.updatePackageCFlags(self.getCompilerFlags())+'"')
+    self.popLanguage()
     if hasattr(self.compilers, 'CXX'):
-      self.framework.pushLanguage('Cxx')
-      args.append('CXX="'+self.framework.getCompiler()+'"')
-      args.append('CXXFLAGS="'+self.removeWarningFlags(self.framework.getCompilerFlags())+'"')
-      self.framework.popLanguage()
+      self.pushLanguage('Cxx')
+      args.append('CXX="'+self.getCompiler()+'"')
+      args.append('CXXFLAGS="'+self.updatePackageCxxFlags(self.getCompilerFlags())+'"')
+      self.popLanguage()
     args = '\n'.join(args)
 
     conffile = os.path.join(self.packageDir, self.package)
@@ -50,7 +50,7 @@ class Configure(config.package.Package):
       try:
         self.logPrintBox('Compiling TChem; this may take several minutes')
         output2,err2,ret2  = config.package.Package.executeShellCommand('cd '+self.packageDir+' && make && cp include/TC_*.h %(includeDir)s && cp lib/libtchem* %(libDir)s' % dict(includeDir=includeDir,libDir=libDir), timeout=500, log = self.log)
-        output2,err2,ret2  = config.package.Package.executeShellCommand('cd '+self.packageDir+' && cp data/periodictable.dat  %(shareDir)s' % dict(shareDir=shareDir) , timeout=10, log = self.log)
+        output2,err2,ret2  = config.package.Package.executeShellCommand('cd '+self.packageDir+' && cp data/periodictable.dat  %(shareDir)s' % dict(shareDir=shareDir) , timeout=60, log = self.log)
       except RuntimeError as e:
         raise RuntimeError('Error running make on TChem: '+str(e))
       self.postInstall(output1+err1+output2+err2,'tchem')

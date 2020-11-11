@@ -39,7 +39,7 @@ class Configure(config.base.Configure):
         if not hasattr(self.setCompilers, name):
           raise MissingProcessor(self.dispatchNames[name])
         return getattr(self.setCompilers, name)
-      if name in ['CC_LINKER_FLAGS', 'FC_LINKER_FLAGS', 'CXX_LINKER_FLAGS', 'CUDAC_LINKER_FLAGS','sharedLibraryFlags', 'dynamicLibraryFlags']:
+      if name in ['CC_LINKER_FLAGS', 'FC_LINKER_FLAGS', 'CXX_LINKER_FLAGS', 'CUDAC_LINKER_FLAGS', 'HIPCC_LINKER_FLAGS', 'SYCLCXX_LINKER_FLAGS', 'sharedLibraryFlags', 'dynamicLibraryFlags']:
         flags = getattr(self.setCompilers, name)
         if not isinstance(flags, list): flags = [flags]
         return ' '.join(flags)
@@ -146,8 +146,11 @@ class Configure(config.base.Configure):
   def checkFortran90(self):
     '''Determine whether the Fortran compiler handles F90'''
     self.pushLanguage('FC')
-    if self.checkLink(body = '      INTEGER, PARAMETER :: int = SELECTED_INT_KIND(8)\n      INTEGER (KIND=int) :: ierr\n\n      ierr = 1'):
-      self.addDefine('USING_F90', 1)
+    if self.checkLink(body = '''
+        REAL(KIND=SELECTED_REAL_KIND(10)) d
+        INTEGER, PARAMETER :: int = SELECTED_INT_KIND(8)
+        INTEGER (KIND=int) :: ierr
+        ierr = 1'''):
       self.fortranIsF90 = 1
       self.logPrint('Fortran compiler supports F90')
     else:
@@ -291,6 +294,11 @@ class Configure(config.base.Configure):
     else:
       self.logPrint('F90 uses a single argument for array pointers', 3, 'compilers')
     return
+
+  def checkFortran90AssumedType(self):
+    if config.setCompilers.Configure.isIBM(self.setCompilers.FC, self.log):
+      self.addDefine('HAVE_F90_ASSUMED_TYPE_NOT_PTR', 1)
+      self.logPrint('IBM F90 compiler detected so using HAVE_F90_ASSUMED_TYPE_NOT_PTR', 3, 'compilers')
 
   def checkFortranModuleInclude(self):
     '''Figures out what flag is used to specify the include path for Fortran modules'''
@@ -443,34 +451,6 @@ class Configure(config.base.Configure):
       self.logWrite(self.setCompilers.restoreLog())
     return
 
-  def checkC99Flag(self):
-    '''Check for -std=c99 or equivalent flag'''
-    includes = "#include <float.h>"
-    body = """
-    float x[2],y;
-    y = FLT_ROUNDS;
-    // c++ comment
-    int j = 2;
-    for (int i=0; i<2; i++){
-      x[i] = i*j*y;
-    }
-    """
-    self.setCompilers.saveLog()
-    self.setCompilers.pushLanguage('C')
-    restoredlog = 0
-    flags_to_try = ['','-std=c99','-std=gnu99','-std=c11''-std=gnu11','-c99']
-    for flag in flags_to_try:
-      if self.setCompilers.checkCompilerFlag(flag, includes, body):
-        self.c99flag = flag
-        self.logWrite(self.setCompilers.restoreLog())
-        restoredlog = 1
-        self.framework.logPrint('Accepted C99 compile flag: '+flag)
-        break
-    self.setCompilers.popLanguage()
-    if not restoredlog:
-      self.logWrite(self.setCompilers.restoreLog())
-    return
-
   def configure(self):
     import config.setCompilers
     if hasattr(self.setCompilers, 'FC'):
@@ -481,6 +461,7 @@ class Configure(config.base.Configure):
       self.executeTest(self.checkFortran90FreeForm)
       self.executeTest(self.checkFortran2003)
       self.executeTest(self.checkFortran90Array)
+      self.executeTest(self.checkFortran90AssumedType)
       self.executeTest(self.checkFortranModuleInclude)
       self.executeTest(self.checkFortranModuleOutput)
       self.executeTest(self.checkFortranTypeStar)

@@ -25,7 +25,12 @@ class Configure(config.package.Package):
     self.indexTypes     = framework.require('PETSc.options.indexTypes', self)
     self.scotch         = framework.require('config.packages.PTScotch',self)
     self.mpi            = framework.require('config.packages.MPI',self)
-    self.deps           = [self.mpi,self.blasLapack, self.scotch]
+    self.pthread        = framework.require('config.packages.pthread',self)
+    # PaStiX.py does not absolutely require hwloc, but it performs better with it and can fail (in ways not easily tested) without it
+    # https://gforge.inria.fr/forum/forum.php?thread_id=32824&forum_id=599&group_id=186
+    # https://solverstack.gitlabpages.inria.fr/pastix/Bindings.html
+    self.hwloc          = framework.require('config.packages.hwloc',self)
+    self.deps           = [self.mpi, self.blasLapack, self.scotch, self.pthread, self.hwloc]
     return
 
   def Install(self):
@@ -48,18 +53,18 @@ class Configure(config.package.Package):
     g.write('EXEEXT      = \n')
     g.write('OBJEXT      = .o\n')
     g.write('LIBEXT      = .'+self.setCompilers.AR_LIB_SUFFIX+'\n')
-    self.setCompilers.pushLanguage('C')
-    g.write('CCPROG      = '+self.setCompilers.getCompiler()+'\n')
+    self.pushLanguage('C')
+    g.write('CCPROG      = '+self.getCompiler()+'\n')
     # common.c tries to use some silly clock_gettime() routine that Mac doesn't have unless this is set
     if self.setCompilers.isDarwin(self.log):
       cflags = ' -DX_ARCHi686_mac    '
     else:
       cflags = ''
     if self.mpi.found:
-      g.write('CCFOPT      = '+self.removeWarningFlags(self.setCompilers.getCompilerFlags())+' '+self.headers.toString(self.mpi.include)+' '+cflags+'\n')
+      g.write('CCFOPT      = '+self.updatePackageCFlags(self.getCompilerFlags())+' '+self.headers.toString(self.mpi.include)+' '+cflags+'\n')
     else:
-      g.write('CCFOPT      = '+self.removeWarningFlags(self.setCompilers.getCompilerFlags())+' '+cflags+'\n')
-    self.setCompilers.popLanguage()
+      g.write('CCFOPT      = '+self.updatePackageCFlags(self.getCompilerFlags())+' '+cflags+'\n')
+    self.popLanguage()
     g.write('CFPROG      = \n')
     g.write('CF90PROG    = \n')
     g.write('MCFPROG     = \n')
@@ -69,9 +74,9 @@ class Configure(config.package.Package):
     g.write('MKPROG      = '+self.make.make+'\n')
     # PaStiX make system has error where in one location it doesn't pass in CCFOTP
     if self.setCompilers.isDarwin(self.log):
-      g.write('MPCCPROG    = '+self.setCompilers.getCompiler()+' -DX_ARCHi686_mac \n')
+      g.write('MPCCPROG    = '+self.getCompiler()+' -DX_ARCHi686_mac \n')
     else:
-      g.write('MPCCPROG    = '+self.setCompilers.getCompiler()+'\n')
+      g.write('MPCCPROG    = '+self.getCompiler()+'\n')
     g.write('ARFLAGS     = '+self.setCompilers.AR_FLAGS+'\n')
     g.write('ARPROG      = '+self.setCompilers.AR+'\n')
     extralib = ''
@@ -138,6 +143,8 @@ class Configure(config.package.Package):
     g.write('# Uncomment the following line if your MPI doesn\'t support MPI_Datatype correctly\n')
     g.write('#CCPASTIX   := $(CCPASTIX) -DNO_MPI_TYPE\n')
     g.write('\n')
+    g.write('CCPASTIX   := $(CCPASTIX) -DWITH_HWLOC '+self.headers.toString(self.hwloc.include)+'\n')
+    g.write('EXTRALIB   := $(EXTRALIB) '+self.libraries.toString(self.hwloc.dlib)+'\n')
     g.write('###################################################################\n')
     g.write('#                          Options                                #\n')
     g.write('###################################################################\n')

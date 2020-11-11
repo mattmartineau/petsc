@@ -37,7 +37,7 @@ makefileMap["NOTSINGLE"]="buildrequires: !single"
 makefileMap["NOSINGLE"]="buildrequires: !single"
 
 makefileMap["DOUBLEINT32"]="buildrequires: !define(USE_64BIT_INDICES) define(PETSC_USE_REAL_DOUBLE)"  
-makefileMap["THREADSAFETY"]="buildrequires: define(PETSC_USING_FREEFORM) define(PETSC_USING_F90)"
+makefileMap["THREADSAFETY"]="buildrequires: define(PETSC_USING_FREEFORM)"
 makefileMap["F2003"]="buildrequires: define(PETSC_USING_FREEFORM) define(PETSC_USING_F2003)"
 #makefileMap["F90_DATATYPES"]="" # ??
 
@@ -50,7 +50,7 @@ makefileMap["PARAMETIS"]="requires: parmetis"
 # Some packages are runtime, but others are buildtime because of includes
 reqpkgs=["HDF5", "HYPRE", "LUSOL","MKL_PARDISO", "ML", "MUMPS", "PARMETIS", "PARMS", "PASTIX", "PTSCOTCH", "REVOLVE", "SAWS", "SPAI", "STRUMPACK", "SUITESPARSE", "SUPERLU", "SUPERLU_DIST"]
 
-bldpkgs=["CTETGEN", "EXODUSII", "CHOMBO","ELEMENTAL", "MATLAB", "MATLAB_ENGINE",  "MOAB", "FFTW", "TCHEM","VECCUDA","CUSP","CUSPARSE","TRILINOS", "X", "TRIANGLE", "YAML"]
+bldpkgs=["CTETGEN", "EXODUSII", "CHOMBO","ELEMENTAL", "MATLAB", "MATLAB_ENGINE",  "MOAB", "FFTW", "TCHEM","VECCUDA","CUSPARSE","TRILINOS", "X", "TRIANGLE", "YAML"]
 
 for pkg in reqpkgs: makefileMap[pkg]="requires: "+ pkg.lower()
 for pkg in bldpkgs: makefileMap[pkg]="buildrequires: "+ pkg.lower()

@@ -1,4 +1,3 @@
-
 #include <petscsys.h>
 #include <../src/sys/classes/viewer/impls/socket/socket.h>
 
@@ -103,7 +102,7 @@ PetscErrorCode PetscBinaryRead(int fd,void *p,int n,int *dummy, PetscDataType ty
     pp += err;
   }
 
-  if(!PetscBinaryBigEndian()) {
+  if (!PetscBinaryBigEndian()) {
     if (type == PETSC_INT) SYByteSwapInt((int*)ptmp,ntmp);
     else if (type == PETSC_SCALAR) SYByteSwapScalar((PetscScalar*)ptmp,ntmp);
     else if (type == PETSC_SHORT) SYByteSwapShort((short*)ptmp,ntmp);
@@ -124,13 +123,13 @@ PetscErrorCode PetscBinaryRead(int fd,void *p,int n,int *dummy, PetscDataType ty
   Notes:
     does byte swapping to work on all machines.
 */
-PetscErrorCode PetscBinaryWrite(int fd,void *p,int n,PetscDataType type,PetscBool dummy)
+PetscErrorCode PetscBinaryWrite(int fd,const void *p,int n,PetscDataType type)
 {
 
-  int  maxblock,wsize,err;
+  int  maxblock,wsize,err,retv=0;
   char *pp = (char*)p;
   int  ntmp  = n;
-  void *ptmp = p;
+  void *ptmp = (void*)p;
 
   maxblock = 65536;
   if (type == PETSC_INT)         n *= sizeof(int);
@@ -139,7 +138,7 @@ PetscErrorCode PetscBinaryWrite(int fd,void *p,int n,PetscDataType type,PetscBoo
   else if (type == PETSC_CHAR)   n *= sizeof(char);
   else PETSC_MEX_ERROR("PetscBinaryRead: Unknown type");
 
-  if(!PetscBinaryBigEndian()) {
+  if (!PetscBinaryBigEndian()) {
     /* make sure data is in correct byte ordering before sending  */
     if (type == PETSC_INT) SYByteSwapInt((int*)ptmp,ntmp);
     else if (type == PETSC_SCALAR) SYByteSwapScalar((PetscScalar*)ptmp,ntmp);
@@ -152,30 +151,19 @@ PetscErrorCode PetscBinaryWrite(int fd,void *p,int n,PetscDataType type,PetscBoo
 #if !defined(PETSC_MISSING_ERRNO_EINTR)
     if (err < 0 && errno == EINTR) continue;
 #endif
-    if (!err && wsize > 0) return 1;
-    if (err < 0) PETSC_MEX_ERROR("Error reading from socket\n");
+    if (!err && wsize > 0) { retv = 1; break; };
+    if (err < 0) break;
     n  -= err;
     pp += err;
   }
 
-  if(!PetscBinaryBigEndian()) {
+  if (!PetscBinaryBigEndian()) {
     /* swap the data back if we swapped it before sending it */
     if (type == PETSC_INT) SYByteSwapInt((int*)ptmp,ntmp);
     else if (type == PETSC_SCALAR) SYByteSwapScalar((PetscScalar*)ptmp,ntmp);
     else if (type == PETSC_SHORT) SYByteSwapShort((short*)ptmp,ntmp);
   }
 
-  return 0;
+  if (err < 0) PETSC_MEX_ERROR("Error writing to socket\n");
+  return retv;
 }
-
-
-
-
-
-
-
-
-
-
-
-

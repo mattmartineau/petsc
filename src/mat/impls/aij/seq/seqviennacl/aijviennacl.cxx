@@ -23,7 +23,7 @@
 
 PETSC_INTERN PetscErrorCode MatConvert_SeqAIJ_SeqAIJViennaCL(Mat A, MatType type, MatReuse reuse, Mat *newmat);
 PETSC_INTERN PetscErrorCode MatGetFactor_seqaij_petsc(Mat,MatFactorType,Mat*);
-
+PETSC_INTERN PetscErrorCode MatProductSetFromOptions_SeqAIJ_SeqDense(Mat);
 
 PetscErrorCode MatViennaCLCopyToGPU(Mat A)
 {
@@ -110,10 +110,10 @@ PetscErrorCode MatViennaCLCopyFromGPU(Mat A, const ViennaCLAIJMatrix *Agpu)
   if (A->offloadmask == PETSC_OFFLOAD_BOTH) PetscFunctionReturn(0);
   if (A->offloadmask == PETSC_OFFLOAD_UNALLOCATED && Agpu) {
     try {
-      if (a->compressedrow.use) SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_ARG_WRONG, "ViennaCL: Cannot handle row compression for GPU matrices");
+      if (a->compressedrow.use) SETERRQ(PETSC_COMM_SELF, PETSC_ERR_ARG_WRONG, "ViennaCL: Cannot handle row compression for GPU matrices");
       else {
 
-        if ((PetscInt)Agpu->size1() != m) SETERRQ2(PETSC_COMM_WORLD, PETSC_ERR_ARG_SIZ, "GPU matrix has %d rows, should be %d", Agpu->size1(), m);
+        if ((PetscInt)Agpu->size1() != m) SETERRQ2(PETSC_COMM_SELF, PETSC_ERR_ARG_SIZ, "GPU matrix has %d rows, should be %d", Agpu->size1(), m);
         a->nz           = Agpu->nnz();
         a->maxnz        = a->nz; /* Since we allocate exactly the right amount */
         A->preallocated = PETSC_TRUE;
@@ -168,7 +168,7 @@ PetscErrorCode MatViennaCLCopyFromGPU(Mat A, const ViennaCLAIJMatrix *Agpu)
   } else {
     if (!Agpu && A->offloadmask != PETSC_OFFLOAD_GPU) PetscFunctionReturn(0);
 
-    if (a->compressedrow.use) SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_ARG_WRONG, "ViennaCL: Cannot handle row compression for GPU matrices");
+    if (a->compressedrow.use) SETERRQ(PETSC_COMM_SELF, PETSC_ERR_ARG_WRONG, "ViennaCL: Cannot handle row compression for GPU matrices");
     if (!Agpu) {
       viennacl::backend::memory_read(viennaclstruct->mat->handle(), 0, sizeof(PetscScalar)*viennaclstruct->mat->nnz(), a->a);
     } else {
@@ -191,6 +191,8 @@ PetscErrorCode MatMult_SeqAIJViennaCL(Mat A,Vec xx,Vec yy)
   ViennaCLVector       *ygpu=NULL;
 
   PetscFunctionBegin;
+  /* The line below is necessary due to the operations that modify the matrix on the CPU (axpy, scale, etc) */
+  ierr = MatViennaCLCopyToGPU(A);CHKERRQ(ierr);
   if (A->rmap->n > 0 && A->cmap->n > 0 && a->nz) {
     ierr = VecViennaCLGetArrayRead(xx,&xgpu);CHKERRQ(ierr);
     ierr = VecViennaCLGetArrayWrite(yy,&ygpu);CHKERRQ(ierr);
@@ -210,7 +212,7 @@ PetscErrorCode MatMult_SeqAIJViennaCL(Mat A,Vec xx,Vec yy)
     ierr = VecViennaCLRestoreArrayWrite(yy,&ygpu);CHKERRQ(ierr);
     ierr = PetscLogGpuFlops(2.0*a->nz - a->nonzerorowcnt);CHKERRQ(ierr);
   } else {
-    ierr = VecSet(yy,0);CHKERRQ(ierr);
+    ierr = VecSet_SeqViennaCL(yy,0);CHKERRQ(ierr);
   }
   PetscFunctionReturn(0);
 }
@@ -224,6 +226,8 @@ PetscErrorCode MatMultAdd_SeqAIJViennaCL(Mat A,Vec xx,Vec yy,Vec zz)
   ViennaCLVector       *zgpu=NULL;
 
   PetscFunctionBegin;
+  /* The line below is necessary due to the operations that modify the matrix on the CPU (axpy, scale, etc) */
+  ierr = MatViennaCLCopyToGPU(A);CHKERRQ(ierr);
   if (A->rmap->n > 0 && A->cmap->n > 0 && a->nz) {
     try {
       ierr = VecViennaCLGetArrayRead(xx,&xgpu);CHKERRQ(ierr);
@@ -245,7 +249,7 @@ PetscErrorCode MatMultAdd_SeqAIJViennaCL(Mat A,Vec xx,Vec yy,Vec zz)
     }
     ierr = PetscLogGpuFlops(2.0*a->nz);CHKERRQ(ierr);
   } else {
-    ierr = VecCopy(yy,zz);CHKERRQ(ierr);
+    ierr = VecCopy_SeqViennaCL(yy,zz);CHKERRQ(ierr);
   }
   PetscFunctionReturn(0);
 }
@@ -257,14 +261,14 @@ PetscErrorCode MatAssemblyEnd_SeqAIJViennaCL(Mat A,MatAssemblyType mode)
   PetscFunctionBegin;
   ierr = MatAssemblyEnd_SeqAIJ(A,mode);CHKERRQ(ierr);
   if (mode == MAT_FLUSH_ASSEMBLY) PetscFunctionReturn(0);
-  if (!A->pinnedtocpu) {
+  if (!A->boundtocpu) {
     ierr = MatViennaCLCopyToGPU(A);CHKERRQ(ierr);
   }
   PetscFunctionReturn(0);
 }
 
 /* --------------------------------------------------------------------------------*/
-/*@
+/*@C
    MatCreateSeqAIJViennaCL - Creates a sparse matrix in AIJ (compressed row) format
    (the default parallel PETSc format).  This matrix will ultimately be pushed down
    to GPUs and use the ViennaCL library for calculations. For good matrix
@@ -340,6 +344,8 @@ PetscErrorCode MatDestroy_SeqAIJViennaCL(Mat A)
   }
 
   ierr = PetscObjectComposeFunction((PetscObject)A,"MatConvert_seqaij_seqaijviennacl_C",NULL);CHKERRQ(ierr);
+  ierr = PetscObjectComposeFunction((PetscObject)A,"MatProductSetFromOptions_seqaijviennacl_seqdense_C",NULL);CHKERRQ(ierr);
+  ierr = PetscObjectComposeFunction((PetscObject)A,"MatProductSetFromOptions_seqaijviennacl_seqaij_C",NULL);CHKERRQ(ierr);
 
   /* this next line is because MatDestroy tries to PetscFree spptr if it is not zero, and PetscFree only works if the memory was allocated with PetscNew or PetscMalloc, which don't call the constructor */
   A->spptr = 0;
@@ -358,7 +364,7 @@ PETSC_EXTERN PetscErrorCode MatCreate_SeqAIJViennaCL(Mat B)
   PetscFunctionReturn(0);
 }
 
-static PetscErrorCode MatPinToCPU_SeqAIJViennaCL(Mat,PetscBool);
+static PetscErrorCode MatBindToCPU_SeqAIJViennaCL(Mat,PetscBool);
 static PetscErrorCode MatDuplicate_SeqAIJViennaCL(Mat A,MatDuplicateOption cpvalues,Mat *B)
 {
   PetscErrorCode ierr;
@@ -368,8 +374,8 @@ static PetscErrorCode MatDuplicate_SeqAIJViennaCL(Mat A,MatDuplicateOption cpval
   ierr = MatDuplicate_SeqAIJ(A,cpvalues,B);CHKERRQ(ierr);
   C = *B;
 
-  ierr = MatPinToCPU_SeqAIJViennaCL(A,PETSC_FALSE);CHKERRQ(ierr);
-  C->ops->pintocpu = MatPinToCPU_SeqAIJViennaCL;
+  ierr = MatBindToCPU_SeqAIJViennaCL(A,PETSC_FALSE);CHKERRQ(ierr);
+  C->ops->bindtocpu = MatBindToCPU_SeqAIJViennaCL;
 
   C->spptr = new Mat_SeqAIJViennaCL();
   ((Mat_SeqAIJViennaCL*)C->spptr)->tempvec        = NULL;
@@ -408,12 +414,14 @@ static PetscErrorCode MatSeqAIJRestoreArray_SeqAIJViennaCL(Mat A,PetscScalar *ar
   PetscFunctionReturn(0);
 }
 
-static PetscErrorCode MatPinToCPU_SeqAIJViennaCL(Mat A,PetscBool flg)
+static PetscErrorCode MatBindToCPU_SeqAIJViennaCL(Mat A,PetscBool flg)
 {
+  Mat_SeqAIJ     *aij = (Mat_SeqAIJ*)A->data;
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
-  A->pinnedtocpu = flg;
+  A->boundtocpu  = flg;
+  aij->inode.use = flg;
   if (flg) {
     /* make sure we have an up-to-date copy on the CPU */
     ierr = MatViennaCLCopyFromGPU(A,(const ViennaCLAIJMatrix *)NULL);CHKERRQ(ierr);
@@ -441,11 +449,10 @@ PETSC_INTERN PetscErrorCode MatConvert_SeqAIJ_SeqAIJViennaCL(Mat A,MatType type,
 {
   PetscErrorCode ierr;
   Mat            B;
-  Mat_SeqAIJ     *aij;
 
   PetscFunctionBegin;
 
-  if (reuse == MAT_REUSE_MATRIX) SETERRQ(PETSC_COMM_WORLD,PETSC_ERR_SUP,"MAT_REUSE_MATRIX is not supported. Consider using MAT_INPLACE_MATRIX instead");
+  if (reuse == MAT_REUSE_MATRIX) SETERRQ(PetscObjectComm((PetscObject)A),PETSC_ERR_SUP,"MAT_REUSE_MATRIX is not supported. Consider using MAT_INPLACE_MATRIX instead");
 
   if (reuse == MAT_INITIAL_MATRIX) {
     ierr = MatDuplicate(A,MAT_COPY_VALUES,newmat);CHKERRQ(ierr);
@@ -453,23 +460,22 @@ PETSC_INTERN PetscErrorCode MatConvert_SeqAIJ_SeqAIJViennaCL(Mat A,MatType type,
 
   B = *newmat;
 
-  aij             = (Mat_SeqAIJ*)B->data;
-  aij->inode.use  = PETSC_FALSE;
-
-  B->spptr        = new Mat_SeqAIJViennaCL();
+  B->spptr = new Mat_SeqAIJViennaCL();
 
   ((Mat_SeqAIJViennaCL*)B->spptr)->tempvec        = NULL;
   ((Mat_SeqAIJViennaCL*)B->spptr)->mat            = NULL;
   ((Mat_SeqAIJViennaCL*)B->spptr)->compressed_mat = NULL;
 
-  ierr = MatPinToCPU_SeqAIJViennaCL(A,PETSC_FALSE);CHKERRQ(ierr);
-  A->ops->pintocpu = MatPinToCPU_SeqAIJViennaCL;
+  ierr = MatBindToCPU_SeqAIJViennaCL(A,PETSC_FALSE);CHKERRQ(ierr);
+  A->ops->bindtocpu = MatBindToCPU_SeqAIJViennaCL;
 
   ierr = PetscObjectChangeTypeName((PetscObject)B,MATSEQAIJVIENNACL);CHKERRQ(ierr);
   ierr = PetscFree(B->defaultvectype);CHKERRQ(ierr);
   ierr = PetscStrallocpy(VECVIENNACL,&B->defaultvectype);CHKERRQ(ierr);
 
   ierr = PetscObjectComposeFunction((PetscObject)A,"MatConvert_seqaij_seqaijviennacl_C",MatConvert_SeqAIJ_SeqAIJViennaCL);CHKERRQ(ierr);
+  ierr = PetscObjectComposeFunction((PetscObject)A,"MatProductSetFromOptions_seqaijviennacl_seqdense_C",MatProductSetFromOptions_SeqAIJ_SeqDense);CHKERRQ(ierr);
+  ierr = PetscObjectComposeFunction((PetscObject)A,"MatProductSetFromOptions_seqaijviennacl_seqaij_C",MatProductSetFromOptions_SeqAIJ);CHKERRQ(ierr);
 
   B->offloadmask = PETSC_OFFLOAD_UNALLOCATED;
 

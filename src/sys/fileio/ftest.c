@@ -57,6 +57,9 @@ static PetscErrorCode PetscTestOwnership(const char fname[], char mode, uid_t fu
   int            wbit = S_IWOTH;
   int            ebit = S_IXOTH;
   PetscErrorCode ierr;
+#if !defined(PETSC_MISSING_GETGROUPS)
+  int            err;
+#endif
 
   PetscFunctionBegin;
   /* Get the number of supplementary group IDs */
@@ -73,7 +76,7 @@ static PetscErrorCode PetscTestOwnership(const char fname[], char mode, uid_t fu
 
   /* Get supplementary group IDs */
 #if !defined(PETSC_MISSING_GETGROUPS)
-  ierr = getgroups(numGroups, gid+1); if (ierr < 0) SETERRQ(PETSC_COMM_SELF,ierr, "Unable to obtain supplementary group IDs");
+  err = getgroups(numGroups, gid+1); if (err < 0) SETERRQ(PETSC_COMM_SELF,err, "Unable to obtain supplementary group IDs");
 #endif
 
   /* Test for accessibility */
@@ -254,7 +257,7 @@ PetscErrorCode  PetscLs(MPI_Comm comm,const char dirname[],char found[],size_t t
     ierr = PetscStrlen(found,&len);CHKERRQ(ierr);
     f    = fgets(found+len,tlen-len,fp);
   }
-  if (*flg) {ierr = PetscInfo2(0,"ls on %s gives \n%s\n",dirname,found);CHKERRQ(ierr);}
+  if (*flg) {ierr = PetscInfo2(NULL,"ls on %s gives \n%s\n",dirname,found);CHKERRQ(ierr);}
 #if defined(PETSC_HAVE_POPEN)
   ierr = PetscPClose(comm,fp);CHKERRQ(ierr);
 #else

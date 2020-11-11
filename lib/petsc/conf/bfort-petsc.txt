@@ -1,5 +1,6 @@
 # these include enums
 native PetscSubcommType
+native PetscInfoCommFlag
 native DMDAStencilType
 native DMDADirection
 native DMDAInterpolationType
@@ -70,6 +71,7 @@ native MatReal
 native PetscSysInt
 native MatSTRUMPACKReordering
 native PCGAMGLayoutType
+native PetscOffloadMask
 # Some structures are like arrays and can be treated as native types
 native MatInfo
 native MatStencil
@@ -157,7 +159,7 @@ nativeptr TSMonitorLGCtx
 nativeptr TSMonitorSPEigCtx
 nativeptr PetscSFNode
 
-# the following are old PETSc types - they might be requird for older versions
+# the following are old PETSc types - they might be required for older versions
 # of PETSc
 nativeptr AOData
 nativeptr AOData2dGrid

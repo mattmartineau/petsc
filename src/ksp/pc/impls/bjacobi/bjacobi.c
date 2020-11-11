@@ -200,7 +200,7 @@ static PetscErrorCode PCView_BJacobi(PC pc,PetscViewer viewer)
     ierr = PetscViewerASCIIPrintf(viewer,"  number of blocks = %D\n",jac->n);CHKERRQ(ierr);
     ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)pc),&rank);CHKERRQ(ierr);
     if (jac->same_local_solves) {
-      ierr = PetscViewerASCIIPrintf(viewer,"  Local solve is same for all blocks, in the following KSP and PC objects:\n");CHKERRQ(ierr);
+      ierr = PetscViewerASCIIPrintf(viewer,"  Local solver is the same for all blocks, as in the following KSP and PC objects on rank 0:\n");CHKERRQ(ierr);
       if (jac->ksp && !jac->psubcomm) {
         ierr = PetscViewerGetSubViewer(viewer,PETSC_COMM_SELF,&sviewer);CHKERRQ(ierr);
         if (!rank) {
@@ -286,7 +286,7 @@ static PetscErrorCode  PCBJacobiSetTotalBlocks_BJacobi(PC pc,PetscInt blocks,Pet
   PetscFunctionBegin;
   if (pc->setupcalled > 0 && jac->n!=blocks) SETERRQ(PetscObjectComm((PetscObject)pc),PETSC_ERR_ORDER,"Cannot alter number of blocks after PCSetUp()/KSPSetUp() has been called");
   jac->n = blocks;
-  if (!lens) jac->g_lens = 0;
+  if (!lens) jac->g_lens = NULL;
   else {
     ierr = PetscMalloc1(blocks,&jac->g_lens);CHKERRQ(ierr);
     ierr = PetscLogObjectMemory((PetscObject)pc,blocks*sizeof(PetscInt));CHKERRQ(ierr);
@@ -314,7 +314,7 @@ static PetscErrorCode  PCBJacobiSetLocalBlocks_BJacobi(PC pc,PetscInt blocks,con
   jac = (PC_BJacobi*)pc->data;
 
   jac->n_local = blocks;
-  if (!lens) jac->l_lens = 0;
+  if (!lens) jac->l_lens = NULL;
   else {
     ierr = PetscMalloc1(blocks,&jac->l_lens);CHKERRQ(ierr);
     ierr = PetscLogObjectMemory((PetscObject)pc,blocks*sizeof(PetscInt));CHKERRQ(ierr);
@@ -542,23 +542,24 @@ PETSC_EXTERN PetscErrorCode PCCreate_BJacobi(PC pc)
   ierr = PetscNewLog(pc,&jac);CHKERRQ(ierr);
   ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)pc),&rank);CHKERRQ(ierr);
 
-  pc->ops->apply           = 0;
-  pc->ops->applytranspose  = 0;
+  pc->ops->apply           = NULL;
+  pc->ops->matapply        = NULL;
+  pc->ops->applytranspose  = NULL;
   pc->ops->setup           = PCSetUp_BJacobi;
   pc->ops->destroy         = PCDestroy_BJacobi;
   pc->ops->setfromoptions  = PCSetFromOptions_BJacobi;
   pc->ops->view            = PCView_BJacobi;
-  pc->ops->applyrichardson = 0;
+  pc->ops->applyrichardson = NULL;
 
   pc->data               = (void*)jac;
   jac->n                 = -1;
   jac->n_local           = -1;
   jac->first_local       = rank;
-  jac->ksp               = 0;
+  jac->ksp               = NULL;
   jac->same_local_solves = PETSC_TRUE;
-  jac->g_lens            = 0;
-  jac->l_lens            = 0;
-  jac->psubcomm          = 0;
+  jac->g_lens            = NULL;
+  jac->l_lens            = NULL;
+  jac->psubcomm          = NULL;
 
   ierr = PetscObjectComposeFunction((PetscObject)pc,"PCBJacobiGetSubKSP_C",PCBJacobiGetSubKSP_BJacobi);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)pc,"PCBJacobiSetTotalBlocks_C",PCBJacobiSetTotalBlocks_BJacobi);CHKERRQ(ierr);
@@ -628,13 +629,30 @@ static PetscErrorCode PCApply_BJacobi_Singleblock(PC pc,Vec x,Vec y)
   ierr = VecGetLocalVectorRead(x, bjac->x);CHKERRQ(ierr);
   ierr = VecGetLocalVector(y, bjac->y);CHKERRQ(ierr);
  /* Since the inner KSP matrix may point directly to the diagonal block of an MPI matrix the inner
-     matrix may change even if the outter KSP/PC has not updated the preconditioner, this will trigger a rebuild
-     of the inner preconditioner automatically unless we pass down the outter preconditioners reuse flag.*/
+     matrix may change even if the outer KSP/PC has not updated the preconditioner, this will trigger a rebuild
+     of the inner preconditioner automatically unless we pass down the outer preconditioners reuse flag.*/
   ierr = KSPSetReusePreconditioner(jac->ksp[0],pc->reusepreconditioner);CHKERRQ(ierr);
   ierr = KSPSolve(jac->ksp[0],bjac->x,bjac->y);CHKERRQ(ierr);
   ierr = KSPCheckSolve(jac->ksp[0],pc,bjac->y);CHKERRQ(ierr);
   ierr = VecRestoreLocalVectorRead(x, bjac->x);CHKERRQ(ierr);
   ierr = VecRestoreLocalVector(y, bjac->y);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+static PetscErrorCode PCMatApply_BJacobi_Singleblock(PC pc,Mat X,Mat Y)
+{
+  PC_BJacobi     *jac  = (PC_BJacobi*)pc->data;
+  Mat            sX,sY;
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+ /* Since the inner KSP matrix may point directly to the diagonal block of an MPI matrix the inner
+     matrix may change even if the outer KSP/PC has not updated the preconditioner, this will trigger a rebuild
+     of the inner preconditioner automatically unless we pass down the outer preconditioners reuse flag.*/
+  ierr = KSPSetReusePreconditioner(jac->ksp[0],pc->reusepreconditioner);CHKERRQ(ierr);
+  ierr = MatDenseGetLocalMatrix(X,&sX);CHKERRQ(ierr);
+  ierr = MatDenseGetLocalMatrix(Y,&sY);CHKERRQ(ierr);
+  ierr = KSPMatSolve(jac->ksp[0],sX,sY);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -737,9 +755,7 @@ static PetscErrorCode PCSetUp_BJacobi_Singleblock(PC pc,Mat mat,Mat pmat)
   KSP                    ksp;
   PC_BJacobi_Singleblock *bjac;
   PetscBool              wasSetup = PETSC_TRUE;
-#if defined(PETSC_HAVE_CUDA) || defined(PETSC_HAVE_VIENNACL)
-  PetscBool              is_gpumatrix = PETSC_FALSE;
-#endif
+  VecType                vectype;
 
   PetscFunctionBegin;
   if (!pc->setupcalled) {
@@ -760,6 +776,7 @@ static PetscErrorCode PCSetUp_BJacobi_Singleblock(PC pc,Mat mat,Mat pmat)
       pc->ops->reset               = PCReset_BJacobi_Singleblock;
       pc->ops->destroy             = PCDestroy_BJacobi_Singleblock;
       pc->ops->apply               = PCApply_BJacobi_Singleblock;
+      pc->ops->matapply            = PCMatApply_BJacobi_Singleblock;
       pc->ops->applysymmetricleft  = PCApplySymmetricLeft_BJacobi_Singleblock;
       pc->ops->applysymmetricright = PCApplySymmetricRight_BJacobi_Singleblock;
       pc->ops->applytranspose      = PCApplyTranspose_BJacobi_Singleblock;
@@ -785,20 +802,9 @@ static PetscErrorCode PCSetUp_BJacobi_Singleblock(PC pc,Mat mat,Mat pmat)
     ierr = MatGetSize(pmat,&m,&m);CHKERRQ(ierr);
     ierr = VecCreateSeqWithArray(PETSC_COMM_SELF,1,m,NULL,&bjac->x);CHKERRQ(ierr);
     ierr = VecCreateSeqWithArray(PETSC_COMM_SELF,1,m,NULL,&bjac->y);CHKERRQ(ierr);
-#if defined(PETSC_HAVE_CUDA)
-    ierr = PetscObjectTypeCompareAny((PetscObject)pmat,&is_gpumatrix,MATAIJCUSPARSE,MATSEQAIJCUSPARSE,MATMPIAIJCUSPARSE,"");CHKERRQ(ierr);
-    if (is_gpumatrix) {
-      ierr = VecSetType(bjac->x,VECCUDA);CHKERRQ(ierr);
-      ierr = VecSetType(bjac->y,VECCUDA);CHKERRQ(ierr);
-    }
-#endif
-#if defined(PETSC_HAVE_VIENNACL)
-    ierr = PetscObjectTypeCompareAny((PetscObject)pmat,&is_gpumatrix,MATAIJVIENNACL,MATSEQAIJVIENNACL,MATMPIAIJVIENNACL,"");CHKERRQ(ierr);
-    if (is_gpumatrix) {
-      ierr = VecSetType(bjac->x,VECVIENNACL);CHKERRQ(ierr);
-      ierr = VecSetType(bjac->y,VECVIENNACL);CHKERRQ(ierr);
-    }
-#endif
+    ierr = MatGetVecType(pmat,&vectype);CHKERRQ(ierr);
+    ierr = VecSetType(bjac->x,vectype);CHKERRQ(ierr);
+    ierr = VecSetType(bjac->y,vectype);CHKERRQ(ierr);
     ierr = PetscLogObjectParent((PetscObject)pc,(PetscObject)bjac->x);CHKERRQ(ierr);
     ierr = PetscLogObjectParent((PetscObject)pc,(PetscObject)bjac->y);CHKERRQ(ierr);
   } else {
@@ -973,9 +979,7 @@ static PetscErrorCode PCSetUp_BJacobi_Multiblock(PC pc,Mat mat,Mat pmat)
   PC                    subpc;
   IS                    is;
   MatReuse              scall;
-#if defined(PETSC_HAVE_CUDA) || defined(PETSC_HAVE_VIENNACL)
-  PetscBool              is_gpumatrix = PETSC_FALSE;
-#endif
+  VecType               vectype;
 
   PetscFunctionBegin;
   ierr = MatGetLocalSize(pc->pmat,&M,&N);CHKERRQ(ierr);
@@ -995,6 +999,7 @@ static PetscErrorCode PCSetUp_BJacobi_Multiblock(PC pc,Mat mat,Mat pmat)
       pc->ops->reset         = PCReset_BJacobi_Multiblock;
       pc->ops->destroy       = PCDestroy_BJacobi_Multiblock;
       pc->ops->apply         = PCApply_BJacobi_Multiblock;
+      pc->ops->matapply      = NULL;
       pc->ops->applytranspose= PCApplyTranspose_BJacobi_Multiblock;
       pc->ops->setuponblocks = PCSetUpOnBlocks_BJacobi_Multiblock;
 
@@ -1027,6 +1032,7 @@ static PetscErrorCode PCSetUp_BJacobi_Multiblock(PC pc,Mat mat,Mat pmat)
     }
 
     start = 0;
+    ierr = MatGetVecType(pmat,&vectype);CHKERRQ(ierr);
     for (i=0; i<n_local; i++) {
       m = jac->l_lens[i];
       /*
@@ -1039,20 +1045,8 @@ static PetscErrorCode PCSetUp_BJacobi_Multiblock(PC pc,Mat mat,Mat pmat)
       */
       ierr = VecCreateSeq(PETSC_COMM_SELF,m,&x);CHKERRQ(ierr);
       ierr = VecCreateSeqWithArray(PETSC_COMM_SELF,1,m,NULL,&y);CHKERRQ(ierr);
-#if defined(PETSC_HAVE_CUDA)
-      ierr = PetscObjectTypeCompareAny((PetscObject)pmat,&is_gpumatrix,MATAIJCUSPARSE,MATSEQAIJCUSPARSE,MATMPIAIJCUSPARSE,"");CHKERRQ(ierr);
-      if (is_gpumatrix) {
-        ierr = VecSetType(x,VECCUDA);CHKERRQ(ierr);
-        ierr = VecSetType(y,VECCUDA);CHKERRQ(ierr);
-      }
-#endif
-#if defined(PETSC_HAVE_VIENNACL)
-      ierr = PetscObjectTypeCompareAny((PetscObject)pmat,&is_gpumatrix,MATAIJVIENNACL,MATSEQAIJVIENNACL,MATMPIAIJVIENNACL,"");CHKERRQ(ierr);
-      if (is_gpumatrix) {
-        ierr = VecSetType(x,VECVIENNACL);CHKERRQ(ierr);
-        ierr = VecSetType(y,VECVIENNACL);CHKERRQ(ierr);
-      }
-#endif
+      ierr = VecSetType(x,vectype);CHKERRQ(ierr);
+      ierr = VecSetType(y,vectype);CHKERRQ(ierr);
       ierr = PetscLogObjectParent((PetscObject)pc,(PetscObject)x);CHKERRQ(ierr);
       ierr = PetscLogObjectParent((PetscObject)pc,(PetscObject)y);CHKERRQ(ierr);
 
@@ -1175,6 +1169,43 @@ static PetscErrorCode PCApply_BJacobi_Multiproc(PC pc,Vec x,Vec y)
   PetscFunctionReturn(0);
 }
 
+static PetscErrorCode PCMatApply_BJacobi_Multiproc(PC pc,Mat X,Mat Y)
+{
+  PC_BJacobi           *jac   = (PC_BJacobi*)pc->data;
+  KSPConvergedReason   reason;
+  Mat                  sX,sY;
+  const PetscScalar    *x;
+  PetscScalar          *y;
+  PetscInt             m,N,lda,ldb;
+  PetscErrorCode       ierr;
+
+  PetscFunctionBegin;
+  /* apply preconditioner on each matrix block */
+  ierr = MatGetLocalSize(X,&m,NULL);CHKERRQ(ierr);
+  ierr = MatGetSize(X,NULL,&N);CHKERRQ(ierr);
+  ierr = MatDenseGetLDA(X,&lda);CHKERRQ(ierr);
+  ierr = MatDenseGetLDA(Y,&ldb);CHKERRQ(ierr);
+  ierr = MatDenseGetArrayRead(X,&x);CHKERRQ(ierr);
+  ierr = MatDenseGetArrayWrite(Y,&y);CHKERRQ(ierr);
+  ierr = MatCreateDense(PetscObjectComm((PetscObject)jac->ksp[0]),m,PETSC_DECIDE,PETSC_DECIDE,N,(PetscScalar*)x,&sX);CHKERRQ(ierr);
+  ierr = MatCreateDense(PetscObjectComm((PetscObject)jac->ksp[0]),m,PETSC_DECIDE,PETSC_DECIDE,N,y,&sY);CHKERRQ(ierr);
+  ierr = MatDenseSetLDA(sX,lda);CHKERRQ(ierr);
+  ierr = MatDenseSetLDA(sY,ldb);CHKERRQ(ierr);
+  ierr = PetscLogEventBegin(PC_ApplyOnBlocks,jac->ksp[0],X,Y,0);CHKERRQ(ierr);
+  ierr = KSPMatSolve(jac->ksp[0],sX,sY);CHKERRQ(ierr);
+  ierr = KSPCheckSolve(jac->ksp[0],pc,NULL);CHKERRQ(ierr);
+  ierr = PetscLogEventEnd(PC_ApplyOnBlocks,jac->ksp[0],X,Y,0);CHKERRQ(ierr);
+  ierr = MatDestroy(&sY);CHKERRQ(ierr);
+  ierr = MatDestroy(&sX);CHKERRQ(ierr);
+  ierr = MatDenseRestoreArrayWrite(Y,&y);CHKERRQ(ierr);
+  ierr = MatDenseRestoreArrayRead(X,&x);CHKERRQ(ierr);
+  ierr = KSPGetConvergedReason(jac->ksp[0],&reason);CHKERRQ(ierr);
+  if (reason == KSP_DIVERGED_PC_FAILED) {
+    pc->failedreason = PC_SUBPC_ERROR;
+  }
+  PetscFunctionReturn(0);
+}
+
 static PetscErrorCode PCSetUp_BJacobi_Multiproc(PC pc)
 {
   PC_BJacobi           *jac   = (PC_BJacobi*)pc->data;
@@ -1184,9 +1215,7 @@ static PetscErrorCode PCSetUp_BJacobi_Multiproc(PC pc)
   MPI_Comm             comm,subcomm=0;
   const char           *prefix;
   PetscBool            wasSetup = PETSC_TRUE;
-#if defined(PETSC_HAVE_CUDA) || defined(PETSC_HAVE_VIENNACL)
-  PetscBool              is_gpumatrix = PETSC_FALSE;
-#endif
+  VecType              vectype;
 
 
   PetscFunctionBegin;
@@ -1224,42 +1253,21 @@ static PetscErrorCode PCSetUp_BJacobi_Multiproc(PC pc)
     ierr = PCGetOptionsPrefix(pc,&prefix);CHKERRQ(ierr);
     ierr = KSPSetOptionsPrefix(jac->ksp[0],prefix);CHKERRQ(ierr);
     ierr = KSPAppendOptionsPrefix(jac->ksp[0],"sub_");CHKERRQ(ierr);
-    /*
-      PetscMPIInt rank,subsize,subrank;
-      ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
-      ierr = MPI_Comm_size(subcomm,&subsize);CHKERRQ(ierr);
-      ierr = MPI_Comm_rank(subcomm,&subrank);CHKERRQ(ierr);
-
-      ierr = MatGetLocalSize(mpjac->submats,&m,NULL);CHKERRQ(ierr);
-      ierr = MatGetSize(mpjac->submats,&n,NULL);CHKERRQ(ierr);
-      ierr = PetscSynchronizedPrintf(comm,"[%d], sub-size %d,sub-rank %d\n",rank,subsize,subrank);
-      ierr = PetscSynchronizedFlush(comm,PETSC_STDOUT);CHKERRQ(ierr);
-    */
 
     /* create dummy vectors xsub and ysub */
     ierr = MatGetLocalSize(mpjac->submats,&m,&n);CHKERRQ(ierr);
     ierr = VecCreateMPIWithArray(subcomm,1,n,PETSC_DECIDE,NULL,&mpjac->xsub);CHKERRQ(ierr);
     ierr = VecCreateMPIWithArray(subcomm,1,m,PETSC_DECIDE,NULL,&mpjac->ysub);CHKERRQ(ierr);
-#if defined(PETSC_HAVE_CUDA)
-    ierr = PetscObjectTypeCompareAny((PetscObject)mpjac->submats,&is_gpumatrix,MATAIJCUSPARSE,MATMPIAIJCUSPARSE,"");CHKERRQ(ierr);
-    if (is_gpumatrix) {
-      ierr = VecSetType(mpjac->xsub,VECMPICUDA);CHKERRQ(ierr);
-      ierr = VecSetType(mpjac->ysub,VECMPICUDA);CHKERRQ(ierr);
-    }
-#endif
-#if defined(PETSC_HAVE_VIENNACL)
-    ierr = PetscObjectTypeCompareAny((PetscObject)mpjac->submats,&is_gpumatrix,MATAIJVIENNACL,MATMPIAIJVIENNACL,"");CHKERRQ(ierr);
-    if (is_gpumatrix) {
-      ierr = VecSetType(mpjac->xsub,VECMPIVIENNACL);CHKERRQ(ierr);
-      ierr = VecSetType(mpjac->ysub,VECMPIVIENNACL);CHKERRQ(ierr);
-    }
-#endif
+    ierr = MatGetVecType(mpjac->submats,&vectype);CHKERRQ(ierr);
+    ierr = VecSetType(mpjac->xsub,vectype);CHKERRQ(ierr);
+    ierr = VecSetType(mpjac->ysub,vectype);CHKERRQ(ierr);
     ierr = PetscLogObjectParent((PetscObject)pc,(PetscObject)mpjac->xsub);CHKERRQ(ierr);
     ierr = PetscLogObjectParent((PetscObject)pc,(PetscObject)mpjac->ysub);CHKERRQ(ierr);
 
     pc->ops->reset   = PCReset_BJacobi_Multiproc;
     pc->ops->destroy = PCDestroy_BJacobi_Multiproc;
     pc->ops->apply   = PCApply_BJacobi_Multiproc;
+    pc->ops->matapply= PCMatApply_BJacobi_Multiproc;
   } else { /* pc->setupcalled */
     subcomm = PetscSubcommChild(mpjac->psubcomm);
     if (pc->flag == DIFFERENT_NONZERO_PATTERN) {

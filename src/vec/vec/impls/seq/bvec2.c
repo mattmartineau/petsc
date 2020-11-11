@@ -170,7 +170,7 @@ PetscErrorCode VecResetArray_Seq(Vec vin)
 
   PetscFunctionBegin;
   v->array         = v->unplacedarray;
-  v->unplacedarray = 0;
+  v->unplacedarray = NULL;
   PetscFunctionReturn(0);
 }
 
@@ -216,7 +216,7 @@ PetscErrorCode VecNorm_Seq(Vec xin,NormType type,PetscReal *z)
   const PetscScalar *xx;
   PetscErrorCode    ierr;
   PetscInt          n = xin->map->n;
-  PetscBLASInt      one = 1, bn;
+  PetscBLASInt      one = 1, bn = 0;
 
   PetscFunctionBegin;
   ierr = PetscBLASIntCast(n,&bn);CHKERRQ(ierr);
@@ -303,7 +303,7 @@ PetscErrorCode VecView_Seq_ASCII(Vec xin,PetscViewer viewer)
       ierr = PetscViewerASCIIPrintf(viewer,"%18.16e\n",(double)xv[i]);CHKERRQ(ierr);
 #endif
     }
-  } else if (format == PETSC_VIEWER_ASCII_VTK || format == PETSC_VIEWER_ASCII_VTK_CELL) {
+  } else if (format == PETSC_VIEWER_ASCII_VTK_DEPRECATED || format == PETSC_VIEWER_ASCII_VTK_CELL_DEPRECATED) {
     /*
        state 0: No header has been output
        state 1: Only POINT_DATA has been output
@@ -325,7 +325,7 @@ PetscErrorCode VecView_Seq_ASCII(Vec xin,PetscViewer viewer)
     ierr = PetscObjectGetName((PetscObject) xin, &name);CHKERRQ(ierr);
     ierr = VecGetBlockSize(xin, &bs);CHKERRQ(ierr);
     if ((bs < 1) || (bs > 3)) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE, "VTK can only handle 3D objects, but vector dimension is %d", bs);
-    if (format == PETSC_VIEWER_ASCII_VTK) {
+    if (format == PETSC_VIEWER_ASCII_VTK_DEPRECATED) {
       if (outputState == 0) {
         outputState = 1;
         doOutput = 1;
@@ -378,7 +378,7 @@ PetscErrorCode VecView_Seq_ASCII(Vec xin,PetscViewer viewer)
       }
       ierr = PetscViewerASCIIPrintf(viewer,"\n");CHKERRQ(ierr);
     }
-  } else if (format == PETSC_VIEWER_ASCII_VTK_COORDS) {
+  } else if (format == PETSC_VIEWER_ASCII_VTK_COORDS_DEPRECATED) {
     PetscInt bs, b;
 
     ierr = VecGetBlockSize(xin, &bs);CHKERRQ(ierr);
@@ -535,73 +535,7 @@ PetscErrorCode VecView_Seq_Draw(Vec xin,PetscViewer v)
 
 PetscErrorCode VecView_Seq_Binary(Vec xin,PetscViewer viewer)
 {
-  PetscErrorCode    ierr;
-  int               fdes;
-  PetscInt          n = xin->map->n,classid=VEC_FILE_CLASSID;
-  FILE              *file;
-  const PetscScalar *xv;
-#if defined(PETSC_HAVE_MPIIO)
-  PetscBool         isMPIIO;
-#endif
-  PetscBool         skipHeader;
-  PetscViewerFormat format;
-
-  PetscFunctionBegin;
-  /* Write vector header */
-  ierr = PetscViewerBinaryGetSkipHeader(viewer,&skipHeader);CHKERRQ(ierr);
-  if (!skipHeader) {
-    ierr = PetscViewerBinaryWrite(viewer,&classid,1,PETSC_INT,PETSC_FALSE);CHKERRQ(ierr);
-    ierr = PetscViewerBinaryWrite(viewer,&n,1,PETSC_INT,PETSC_FALSE);CHKERRQ(ierr);
-  }
-
-  /* Write vector contents */
-#if defined(PETSC_HAVE_MPIIO)
-  ierr = PetscViewerBinaryGetUseMPIIO(viewer,&isMPIIO);CHKERRQ(ierr);
-  if (!isMPIIO) {
-#endif
-    ierr = PetscViewerBinaryGetDescriptor(viewer,&fdes);CHKERRQ(ierr);
-    ierr = VecGetArrayRead(xin,&xv);CHKERRQ(ierr);
-    ierr = PetscBinaryWrite(fdes,(void*)xv,n,PETSC_SCALAR,PETSC_FALSE);CHKERRQ(ierr);
-    ierr = VecRestoreArrayRead(xin,&xv);CHKERRQ(ierr);
-    ierr = PetscViewerGetFormat(viewer,&format);CHKERRQ(ierr);
-    if (format == PETSC_VIEWER_BINARY_MATLAB) {
-      MPI_Comm   comm;
-      FILE       *info;
-      const char *name;
-
-      ierr = PetscObjectGetName((PetscObject)xin,&name);CHKERRQ(ierr);
-      ierr = PetscObjectGetComm((PetscObject)viewer,&comm);CHKERRQ(ierr);
-      ierr = PetscViewerBinaryGetInfoPointer(viewer,&info);CHKERRQ(ierr);
-      ierr = PetscFPrintf(comm,info,"#--- begin code written by PetscViewerBinary for MATLAB format ---#\n");CHKERRQ(ierr);
-      ierr = PetscFPrintf(comm,info,"#$$ Set.%s = PetscBinaryRead(fd);\n",name);CHKERRQ(ierr);
-      ierr = PetscFPrintf(comm,info,"#--- end code written by PetscViewerBinary for MATLAB format ---#\n\n");CHKERRQ(ierr);
-    }
-#if defined(PETSC_HAVE_MPIIO)
-  } else {
-    MPI_Offset   off;
-    MPI_File     mfdes;
-    PetscMPIInt  lsize;
-
-    ierr = PetscMPIIntCast(n,&lsize);CHKERRQ(ierr);
-    ierr = PetscViewerBinaryGetMPIIODescriptor(viewer,&mfdes);CHKERRQ(ierr);
-    ierr = PetscViewerBinaryGetMPIIOOffset(viewer,&off);CHKERRQ(ierr);
-    ierr = MPI_File_set_view(mfdes,off,MPIU_SCALAR,MPIU_SCALAR,(char*)"native",MPI_INFO_NULL);CHKERRQ(ierr);
-    ierr = VecGetArrayRead(xin,&xv);CHKERRQ(ierr);
-    ierr = MPIU_File_write_all(mfdes,(void*)xv,lsize,MPIU_SCALAR,MPI_STATUS_IGNORE);CHKERRQ(ierr);
-    ierr = VecRestoreArrayRead(xin,&xv);CHKERRQ(ierr);
-    ierr = PetscViewerBinaryAddMPIIOOffset(viewer,n*sizeof(PetscScalar));CHKERRQ(ierr);
-  }
-#endif
-
-  ierr = PetscViewerBinaryGetInfoPointer(viewer,&file);CHKERRQ(ierr);
-  if (file) {
-    if (((PetscObject)xin)->prefix) {
-      ierr = PetscFPrintf(PETSC_COMM_SELF,file,"-%svecload_block_size %D\n",((PetscObject)xin)->prefix,PetscAbs(xin->map->bs));CHKERRQ(ierr);
-    } else {
-      ierr = PetscFPrintf(PETSC_COMM_SELF,file,"-vecload_block_size %D\n",PetscAbs(xin->map->bs));CHKERRQ(ierr);
-    }
-  }
-  PetscFunctionReturn(0);
+  return VecView_Binary(xin,viewer);
 }
 
 #if defined(PETSC_HAVE_MATLAB_ENGINE)
@@ -708,10 +642,10 @@ PetscErrorCode VecGetValues_Seq(Vec xin,PetscInt ni,const PetscInt ix[],PetscSca
   ierr = VecGetArrayRead(xin,&xx);CHKERRQ(ierr);
   for (i=0; i<ni; i++) {
     if (xin->stash.ignorenegidx && ix[i] < 0) continue;
-#if defined(PETSC_USE_DEBUG)
-    if (ix[i] < 0) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Out of range index value %D cannot be negative",ix[i]);
-    if (ix[i] >= xin->map->n) SETERRQ2(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Out of range index value %D to large maximum allowed %D",ix[i],xin->map->n);
-#endif
+    if (PetscDefined(USE_DEBUG)) {
+      if (ix[i] < 0) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Out of range index value %D cannot be negative",ix[i]);
+      if (ix[i] >= xin->map->n) SETERRQ2(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Out of range index value %D to large maximum allowed %D",ix[i],xin->map->n);
+    }
     y[i] = xx[ix[i]];
   }
   ierr = VecRestoreArrayRead(xin,&xx);CHKERRQ(ierr);
@@ -729,19 +663,19 @@ PetscErrorCode VecSetValues_Seq(Vec xin,PetscInt ni,const PetscInt ix[],const Pe
   if (m == INSERT_VALUES) {
     for (i=0; i<ni; i++) {
       if (xin->stash.ignorenegidx && ix[i] < 0) continue;
-#if defined(PETSC_USE_DEBUG)
-      if (ix[i] < 0) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Out of range index value %D cannot be negative",ix[i]);
-      if (ix[i] >= xin->map->n) SETERRQ2(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Out of range index value %D maximum %D",ix[i],xin->map->n);
-#endif
+      if (PetscDefined(USE_DEBUG)) {
+        if (ix[i] < 0) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Out of range index value %D cannot be negative",ix[i]);
+        if (ix[i] >= xin->map->n) SETERRQ2(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Out of range index value %D maximum %D",ix[i],xin->map->n);
+      }
       xx[ix[i]] = y[i];
     }
   } else {
     for (i=0; i<ni; i++) {
       if (xin->stash.ignorenegidx && ix[i] < 0) continue;
-#if defined(PETSC_USE_DEBUG)
-      if (ix[i] < 0) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Out of range index value %D cannot be negative",ix[i]);
-      if (ix[i] >= xin->map->n) SETERRQ2(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Out of range index value %D maximum %D",ix[i],xin->map->n);
-#endif
+      if (PetscDefined(USE_DEBUG)) {
+        if (ix[i] < 0) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Out of range index value %D cannot be negative",ix[i]);
+        if (ix[i] >= xin->map->n) SETERRQ2(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Out of range index value %D maximum %D",ix[i],xin->map->n);
+      }
       xx[ix[i]] += y[i];
     }
   }
@@ -765,18 +699,14 @@ PetscErrorCode VecSetValuesBlocked_Seq(Vec xin,PetscInt ni,const PetscInt ix[],c
     for (i=0; i<ni; i++, y+=bs) {
       start = bs*ix[i];
       if (start < 0) continue;
-#if defined(PETSC_USE_DEBUG)
-      if (start >= xin->map->n) SETERRQ2(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Out of range index value %D maximum %D",start,xin->map->n);
-#endif
+      if (PetscUnlikelyDebug(start >= xin->map->n)) SETERRQ2(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Out of range index value %D maximum %D",start,xin->map->n);
       for (j=0; j<bs; j++) xx[start+j] = y[j];
     }
   } else {
     for (i=0; i<ni; i++, y+=bs) {
       start = bs*ix[i];
       if (start < 0) continue;
-#if defined(PETSC_USE_DEBUG)
-      if (start >= xin->map->n) SETERRQ2(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Out of range index value %D maximum %D",start,xin->map->n);
-#endif
+      if (PetscUnlikelyDebug(start >= xin->map->n)) SETERRQ2(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Out of range index value %D maximum %D",start,xin->map->n);
       for (j=0; j<bs; j++) xx[start+j] += y[j];
     }
   }
@@ -793,7 +723,7 @@ PetscErrorCode VecDestroy_Seq(Vec v)
 #if defined(PETSC_USE_LOG)
   PetscLogObjectState((PetscObject)v,"Length=%D",v->map->n);
 #endif
-  ierr = PetscFree(vs->array_allocated);CHKERRQ(ierr);
+  if (vs) { ierr = PetscFree(vs->array_allocated);CHKERRQ(ierr); }
   ierr = PetscFree(v->data);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -843,11 +773,12 @@ static struct _VecOps DvOps = {VecDuplicate_Seq, /* 1 */
                                VecPointwiseMult_Seq,
                                VecPointwiseDivide_Seq,
                                VecSetValues_Seq, /* 20 */
-                               0,0,
-                               0,
+                               NULL,
+                               NULL,
+                               NULL,
                                VecGetSize_Seq,
                                VecGetSize_Seq,
-                               0,
+                               NULL,
                                VecMax_Seq,
                                VecMin_Seq,
                                VecSetRandom_Seq,
@@ -865,32 +796,32 @@ static struct _VecOps DvOps = {VecDuplicate_Seq, /* 1 */
                                VecLoad_Default,
                                VecReciprocal_Default,
                                VecConjugate_Seq,
-                               0,
-                               0,
+                               NULL,
+                               NULL,
                                VecResetArray_Seq,
-                               0,
+                               NULL,
                                VecMaxPointwiseDivide_Seq,
                                VecPointwiseMax_Seq,
                                VecPointwiseMaxAbs_Seq,
                                VecPointwiseMin_Seq,
                                VecGetValues_Seq,
-                               0,
-                               0,
-                               0,
-                               0,
-                               0,
-                               0,
+                               NULL,
+                               NULL,
+                               NULL,
+                               NULL,
+                               NULL,
+                               NULL,
                                VecStrideGather_Default,
                                VecStrideScatter_Default,
-                               0,
-                               0,
-                               0,
-                               0,
-                               0,
+                               NULL,
+                               NULL,
+                               NULL,
+                               NULL,
+                               NULL,
                                VecStrideSubSetGather_Default,
                                VecStrideSubSetScatter_Default,
-                               0,
-                               0
+                               NULL,
+                               NULL
 };
 
 
@@ -909,7 +840,8 @@ PetscErrorCode VecCreate_Seq_Private(Vec v,const PetscScalar array[])
   v->data            = (void*)s;
   v->petscnative     = PETSC_TRUE;
   s->array           = (PetscScalar*)array;
-  s->array_allocated = 0;
+  s->array_allocated = NULL;
+  if (array) v->offloadmask = PETSC_OFFLOAD_CPU;
 
   ierr = PetscLayoutSetUp(v->map);CHKERRQ(ierr);
   ierr = PetscObjectChangeTypeName((PetscObject)v,VECSEQ);CHKERRQ(ierr);

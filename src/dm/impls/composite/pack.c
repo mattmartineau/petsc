@@ -864,8 +864,11 @@ PetscErrorCode  DMCreateGlobalVector_Composite(DM dm,Vec *gvec)
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(dm,DM_CLASSID,1);
+  ierr = DMSetFromOptions(dm);CHKERRQ(ierr);
   ierr = DMSetUp(dm);CHKERRQ(ierr);
-  ierr = VecCreateMPI(PetscObjectComm((PetscObject)dm),com->n,com->N,gvec);CHKERRQ(ierr);
+  ierr = VecCreate(PetscObjectComm((PetscObject)dm),gvec);CHKERRQ(ierr);
+  ierr = VecSetType(*gvec,dm->vectype);CHKERRQ(ierr);
+  ierr = VecSetSizes(*gvec,com->n,com->N);CHKERRQ(ierr);
   ierr = VecSetDM(*gvec, dm);CHKERRQ(ierr);
   ierr = VecSetOperation(*gvec,VECOP_VIEW,(void (*)(void))VecView_DMComposite);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -879,9 +882,12 @@ PetscErrorCode  DMCreateLocalVector_Composite(DM dm,Vec *lvec)
   PetscFunctionBegin;
   PetscValidHeaderSpecific(dm,DM_CLASSID,1);
   if (!com->setup) {
+    ierr = DMSetFromOptions(dm);CHKERRQ(ierr);
     ierr = DMSetUp(dm);CHKERRQ(ierr);
   }
-  ierr = VecCreateSeq(PETSC_COMM_SELF,com->nghost,lvec);CHKERRQ(ierr);
+  ierr = VecCreate(PETSC_COMM_SELF,lvec);CHKERRQ(ierr);
+  ierr = VecSetType(*lvec,dm->vectype);CHKERRQ(ierr);
+  ierr = VecSetSizes(*lvec,com->nghost,PETSC_DECIDE);CHKERRQ(ierr);
   ierr = VecSetDM(*lvec, dm);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -950,6 +956,9 @@ PetscErrorCode  DMCompositeGetISLocalToGlobalMappings(DM dm,ISLocalToGlobalMappi
     /* Shift the sub-DM definition of the global space to the composite global space */
     for (i=0; i<n; i++) {
       PetscInt subi = indices[i],lo = 0,hi = size,t;
+      /* There's no consensus on what a negative index means,
+         except for skipping when setting the values in vectors and matrices */
+      if (subi < 0) { idx[i] = subi - next->grstarts[rank]; continue; }
       /* Binary search to find which rank owns subi */
       while (hi-lo > 1) {
         t = lo + (hi-lo)/2;

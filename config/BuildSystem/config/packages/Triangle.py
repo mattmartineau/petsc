@@ -4,7 +4,9 @@ import os
 class Configure(config.package.Package):
   def __init__(self, framework):
     config.package.Package.__init__(self, framework)
-    self.download         = ['http://ftp.mcs.anl.gov/pub/petsc/externalpackages/Triangle.tar.gz']
+    self.gitcommit        = 'v1.3-p2'
+    self.download         = ['git://https://bitbucket.org/petsc/pkg-triangle','https://bitbucket.org/petsc/pkg-triangle/get/'+self.gitcommit+'.tar.gz']
+    self.downloaddirnames = ['petsc-pkg-triangle','Triangle']
     self.functions        = ['triangulate']
     self.includes         = ['triangle.h']
     self.liblist          = [['libtriangle.a']]
@@ -35,7 +37,7 @@ class Configure(config.package.Package):
     g.write('MKDIR            = '+self.programs.mkdir+'\n')
     g.write('OMAKE            = '+self.make.make+' '+self.make.noprintdirflag+'\n')
 
-    g.write('CLINKER          = '+self.setCompilers.getLinker()+'\n')
+    g.write('CLINKER          = '+self.getLinker()+'\n')
     g.write('AR               = '+self.setCompilers.AR+'\n')
     g.write('ARFLAGS          = '+self.setCompilers.AR_FLAGS+'\n')
     g.write('AR_LIB_SUFFIX    = '+self.setCompilers.AR_LIB_SUFFIX+'\n')
@@ -49,20 +51,21 @@ class Configure(config.package.Package):
     g.write('TRIANGLELIB      = libtriangle.$(AR_LIB_SUFFIX)\n')
     g.write('SHLIB            = libtriangle\n')
 
-    self.setCompilers.pushLanguage('C')
-    cflags = self.removeWarningFlags(self.setCompilers.getCompilerFlags())
+    self.pushLanguage('C')
+    cflags = self.updatePackageCFlags(self.getCompilerFlags())
     cflags += ' '+self.headers.toString('.')
     cflags += ' -fPIC'
+    cflags += ' -DNO_TIMER'
 
-    g.write('CC             = '+self.setCompilers.getCompiler()+'\n')
+    g.write('CC             = '+self.getCompiler()+'\n')
     g.write('CFLAGS         = '+cflags+'\n')
-    self.setCompilers.popLanguage()
+    self.popLanguage()
 
     if self.checkSharedLibrariesEnabled():
       import config.setCompilers
 
       g.write('BUILDSHAREDLIB = yes\n')
-      if config.setCompilers.Configure.isSolaris(self.log) and config.setCompilers.Configure.isGNU(self.framework.getCompiler(), self.log):
+      if config.setCompilers.Configure.isSolaris(self.log) and config.setCompilers.Configure.isGNU(self.getCompiler(), self.log):
         g.write('shared_arch: shared_'+sys.platform+'gnu\n')
       else:
         g.write('shared_arch: shared_'+sys.platform+'\n')
@@ -116,8 +119,8 @@ triangle_shared:
       self.installDirProvider.printSudoPasswordMessage()
       output,err,ret = config.package.Package.executeShellCommand(self.installSudo+'mkdir -p '+os.path.join(self.installDir,'lib'), timeout=2500, log=self.log)
       output,err,ret = config.package.Package.executeShellCommand(self.installSudo+'mkdir -p '+os.path.join(self.installDir,'include'), timeout=2500, log=self.log)
-      output2,err2,ret2  = config.package.Package.executeShellCommand(self.installSudo+'cp -f '+os.path.join(self.packageDir,'libtriangle.'+self.setCompilers.AR_LIB_SUFFIX)+' '+os.path.join(self.installDir,'lib'), timeout=5, log = self.log)
-      output2,err2,ret2  = config.package.Package.executeShellCommand(self.installSudo+'cp -f '+os.path.join(self.packageDir, 'src', 'triangle.h')+' '+includeDir, timeout=5, log = self.log)
+      output2,err2,ret2  = config.package.Package.executeShellCommand(self.installSudo+'cp -f '+os.path.join(self.packageDir,'libtriangle.'+self.setCompilers.AR_LIB_SUFFIX)+' '+os.path.join(self.installDir,'lib'), timeout=60, log = self.log)
+      output2,err2,ret2  = config.package.Package.executeShellCommand(self.installSudo+'cp -f '+os.path.join(self.packageDir, 'src', 'triangle.h')+' '+includeDir, timeout=60, log = self.log)
       self.postInstall(output1+err1+output2+err2,'make.inc')
     return self.installDir
 

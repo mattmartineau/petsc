@@ -58,8 +58,8 @@ static PetscErrorCode private_PetscFECreateDefault_scalar_pk1(DM dm, PetscInt di
   qorder = qorder >= 0 ? qorder : order;
   quadPointsPerEdge = PetscMax(qorder + 1,1);
   if (isSimplex) {
-    ierr = PetscDTGaussJacobiQuadrature(dim,   1, quadPointsPerEdge, -1.0, 1.0, &q);CHKERRQ(ierr);
-    ierr = PetscDTGaussJacobiQuadrature(dim-1, 1, quadPointsPerEdge, -1.0, 1.0, &fq);CHKERRQ(ierr);
+    ierr = PetscDTStroudConicalQuadrature(dim,   1, quadPointsPerEdge, -1.0, 1.0, &q);CHKERRQ(ierr);
+    ierr = PetscDTStroudConicalQuadrature(dim-1, 1, quadPointsPerEdge, -1.0, 1.0, &fq);CHKERRQ(ierr);
   }
   else {
     ierr = PetscDTGaussTensorQuadrature(dim,   1, quadPointsPerEdge, -1.0, 1.0, &q);CHKERRQ(ierr);
@@ -188,7 +188,7 @@ PetscErrorCode private_DMSwarmInsertPointsUsingCellDM_PLEX_SubDivide(DM dm,DM dm
   PetscErrorCode ierr;
   PetscInt dim,nfaces,nbasis;
   PetscInt q,npoints_q,e,nel,pcnt,ps,pe,d,k,r;
-  PetscReal *B;
+  PetscTabulation T;
   Vec coorlocal;
   PetscSection coordSection;
   PetscScalar *elcoor = NULL;
@@ -219,7 +219,7 @@ PetscErrorCode private_DMSwarmInsertPointsUsingCellDM_PLEX_SubDivide(DM dm,DM dm
   ierr = PetscFEGetQuadrature(fe,&quadrature);CHKERRQ(ierr);
   ierr = PetscQuadratureGetData(quadrature, NULL, NULL, &npoints_q, &xiq, NULL);CHKERRQ(ierr);
   ierr = PetscFEGetDimension(fe,&nbasis);CHKERRQ(ierr);
-  ierr = PetscFEGetDefaultTabulation(fe, &B, NULL, NULL);CHKERRQ(ierr);
+  ierr = PetscFEGetCellTabulation(fe, &T);CHKERRQ(ierr);
 
   /* 0->cell, 1->edge, 2->vert */
   ierr = DMPlexGetHeightStratum(dmc,0,&ps,&pe);CHKERRQ(ierr);
@@ -240,7 +240,7 @@ PetscErrorCode private_DMSwarmInsertPointsUsingCellDM_PLEX_SubDivide(DM dm,DM dm
       for (d=0; d<dim; d++) {
         swarm_coor[dim*pcnt+d] = 0.0;
         for (k=0; k<nbasis; k++) {
-          swarm_coor[dim*pcnt+d] += B[q*nbasis + k] * PetscRealPart(elcoor[dim*k+d]);
+          swarm_coor[dim*pcnt+d] += T->T[0][q*nbasis + k] * PetscRealPart(elcoor[dim*k+d]);
         }
       }
       swarm_cellid[pcnt] = e;
@@ -373,7 +373,7 @@ PetscErrorCode private_DMSwarmInsertPointsUsingCellDM_PLEX(DM dm,DM celldm,DMSwa
 
       npoints1 = layout_param;
       if (is_simplex) {
-        ierr = PetscDTGaussJacobiQuadrature(dim,1,npoints1,-1.0,1.0,&quadrature);CHKERRQ(ierr);
+        ierr = PetscDTStroudConicalQuadrature(dim,1,npoints1,-1.0,1.0,&quadrature);CHKERRQ(ierr);
       } else {
         ierr = PetscDTGaussTensorQuadrature(dim,1,npoints1,-1.0,1.0,&quadrature);CHKERRQ(ierr);
       }
@@ -597,8 +597,8 @@ PetscErrorCode DMSwarmProjectField_ApproxP1_PLEX_2D(DM swarm,PetscReal *swarm_fi
       if (PetscRealPart(Ni[k]) > (1.0+PLEX_C_EPS)) point_located = PETSC_FALSE;
     }
     if (!point_located){
-      PetscPrintf(PETSC_COMM_SELF,"[Error] xi,eta = %+1.8e, %+1.8e\n",(double)xi_p[0],(double)xi_p[1]);
-      PetscPrintf(PETSC_COMM_SELF,"[Error] Failed to locate point (%1.8e,%1.8e) in local mesh (cell %D) with triangle coords (%1.8e,%1.8e) : (%1.8e,%1.8e) : (%1.8e,%1.8e)\n",(double)coor_p[0],(double)coor_p[1],e,(double)PetscRealPart(elcoor[0]),(double)PetscRealPart(elcoor[1]),(double)PetscRealPart(elcoor[2]),(double)PetscRealPart(elcoor[3]),(double)PetscRealPart(elcoor[4]),(double)PetscRealPart(elcoor[5]));
+      ierr = PetscPrintf(PETSC_COMM_SELF,"[Error] xi,eta = %+1.8e, %+1.8e\n",(double)xi_p[0],(double)xi_p[1]);CHKERRQ(ierr);
+      ierr = PetscPrintf(PETSC_COMM_SELF,"[Error] Failed to locate point (%1.8e,%1.8e) in local mesh (cell %D) with triangle coords (%1.8e,%1.8e) : (%1.8e,%1.8e) : (%1.8e,%1.8e)\n",(double)coor_p[0],(double)coor_p[1],e,(double)PetscRealPart(elcoor[0]),(double)PetscRealPart(elcoor[1]),(double)PetscRealPart(elcoor[2]),(double)PetscRealPart(elcoor[3]),(double)PetscRealPart(elcoor[4]),(double)PetscRealPart(elcoor[5]));CHKERRQ(ierr);
     }
     if (!point_located) SETERRQ3(PETSC_COMM_SELF,PETSC_ERR_SUP,"Failed to locate point (%1.8e,%1.8e) in local mesh (cell %D)\n",(double)coor_p[0],(double)coor_p[1],e);
 
@@ -663,7 +663,8 @@ PetscErrorCode private_DMSwarmSetPointCoordinatesCellwise_PLEX(DM dm,DM dmc,Pets
   PetscInt dim,nfaces,ps,pe,p,d,nbasis,pcnt,e,k,nel;
   PetscFE fe;
   PetscQuadrature quadrature;
-  PetscReal *B,*xiq;
+  PetscTabulation T;
+  PetscReal *xiq;
   Vec coorlocal;
   PetscSection coordSection;
   PetscScalar *elcoor = NULL;
@@ -720,7 +721,7 @@ PetscErrorCode private_DMSwarmSetPointCoordinatesCellwise_PLEX(DM dm,DM dmc,Pets
   ierr = private_PetscFECreateDefault_scalar_pk1(dmc, dim, is_simplex, 0, &fe);CHKERRQ(ierr);
   ierr = PetscFESetQuadrature(fe,quadrature);CHKERRQ(ierr);
   ierr = PetscFEGetDimension(fe,&nbasis);CHKERRQ(ierr);
-  ierr = PetscFEGetDefaultTabulation(fe, &B, NULL, NULL);CHKERRQ(ierr);
+  ierr = PetscFEGetCellTabulation(fe, &T);CHKERRQ(ierr);
 
   /* for each cell, interpolate coordaintes and insert the interpolated points coordinates into swarm */
   /* 0->cell, 1->edge, 2->vert */
@@ -742,7 +743,7 @@ PetscErrorCode private_DMSwarmSetPointCoordinatesCellwise_PLEX(DM dm,DM dmc,Pets
       for (d=0; d<dim; d++) {
         swarm_coor[dim*pcnt+d] = 0.0;
         for (k=0; k<nbasis; k++) {
-          swarm_coor[dim*pcnt+d] += B[p*nbasis + k] * PetscRealPart(elcoor[dim*k+d]);
+          swarm_coor[dim*pcnt+d] += T->T[0][p*nbasis + k] * PetscRealPart(elcoor[dim*k+d]);
         }
       }
       swarm_cellid[pcnt] = e;

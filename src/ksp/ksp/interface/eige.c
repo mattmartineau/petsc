@@ -222,9 +222,6 @@ PetscErrorCode  KSPComputeEigenvaluesExplicitly(KSP ksp,PetscInt nmax,PetscReal 
     lwork    = 5*n;
     ierr     = PetscMalloc2(n,&realpart,n,&imagpart);CHKERRQ(ierr);
     ierr     = PetscMalloc1(5*n,&work);CHKERRQ(ierr);
-#if defined(PETSC_MISSING_LAPACK_GEEV)
-    SETERRQ(PetscObjectComm((PetscObject)ksp),PETSC_ERR_SUP,"GEEV - Lapack routine is unavailable\nNot able to provide eigen values.");
-#else
     {
       PetscBLASInt lierr;
       PetscScalar  sdummy;
@@ -236,7 +233,6 @@ PetscErrorCode  KSPComputeEigenvaluesExplicitly(KSP ksp,PetscInt nmax,PetscReal 
       if (lierr) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_LIB,"Error in LAPACK routine %d",(int)lierr);
       ierr = PetscFPTrapPop();CHKERRQ(ierr);
     }
-#endif
     ierr = PetscFree(work);CHKERRQ(ierr);
     ierr = PetscMalloc1(n,&perm);CHKERRQ(ierr);
 
@@ -261,9 +257,6 @@ PetscErrorCode  KSPComputeEigenvaluesExplicitly(KSP ksp,PetscInt nmax,PetscReal 
     ierr   = PetscMalloc1(5*n,&work);CHKERRQ(ierr);
     ierr   = PetscMalloc1(2*n,&rwork);CHKERRQ(ierr);
     ierr   = PetscMalloc1(n,&eigs);CHKERRQ(ierr);
-#if defined(PETSC_MISSING_LAPACK_GEEV)
-    SETERRQ(PetscObjectComm((PetscObject)ksp),PETSC_ERR_SUP,"GEEV - Lapack routine is unavailable\nNot able to provide eigen values.");
-#else
     {
       PetscBLASInt lierr;
       PetscScalar  sdummy;
@@ -274,7 +267,6 @@ PetscErrorCode  KSPComputeEigenvaluesExplicitly(KSP ksp,PetscInt nmax,PetscReal 
       if (lierr) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_LIB,"Error in LAPACK routine %d",(int)lierr);
       ierr = PetscFPTrapPop();CHKERRQ(ierr);
     }
-#endif
     ierr = PetscFree(work);CHKERRQ(ierr);
     ierr = PetscFree(rwork);CHKERRQ(ierr);
     ierr = PetscMalloc1(n,&perm);CHKERRQ(ierr);
@@ -362,7 +354,7 @@ PetscErrorCode KSPPlotEigenContours_Private(KSP ksp,PetscInt neig,const PetscRea
       value[i+j*M] = PetscLogReal(tmod) / PetscLogReal(10.0);
     }
   }
-  ierr = PetscViewerDrawOpen(PETSC_COMM_SELF,0,"Iteratively Computed Eigen-contours",PETSC_DECIDE,PETSC_DECIDE,450,450,&viewer);CHKERRQ(ierr);
+  ierr = PetscViewerDrawOpen(PETSC_COMM_SELF,NULL,"Iteratively Computed Eigen-contours",PETSC_DECIDE,PETSC_DECIDE,450,450,&viewer);CHKERRQ(ierr);
   ierr = PetscViewerDrawGetDraw(viewer,0,&draw);CHKERRQ(ierr);
   ierr = PetscDrawTensorContour(draw,M,N,NULL,NULL,value);CHKERRQ(ierr);
   if (0) {

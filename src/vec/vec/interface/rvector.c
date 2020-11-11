@@ -1,12 +1,13 @@
-
 /*
      Provides the interface functions for vector operations that have PetscScalar/PetscReal in the signature
    These are the vector functions the user calls.
 */
+#include "petsc/private/sfimpl.h"
+#include "petscsystypes.h"
 #include <petsc/private/vecimpl.h>       /*I  "petscvec.h"   I*/
 #if defined(PETSC_HAVE_CUDA)
 #include <../src/vec/vec/impls/dvecimpl.h>
-#include <../src/vec/vec/impls/seq/seqcuda/cudavecimpl.h>
+#include <petsc/private/cudavecimpl.h>
 #endif
 static PetscInt VecGetSubVectorSavedStateId = -1;
 
@@ -34,10 +35,10 @@ PETSC_EXTERN PetscErrorCode VecValidValues(Vec vec,PetscInt argnum,PetscBool beg
     }
     ierr = VecRestoreArrayRead(vec,&x);CHKERRQ(ierr);
   }
-  PetscFunctionReturn(0);
 #else
-  return 0;
+  PetscFunctionBegin;
 #endif
+  PetscFunctionReturn(0);
 }
 
 /*@
@@ -469,6 +470,7 @@ PetscErrorCode  VecScale(Vec x, PetscScalar alpha)
   if (x->stash.insertmode != NOT_SET_VALUES) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"Not for unassembled vector");
   ierr = PetscLogEventBegin(VEC_Scale,x,0,0,0);CHKERRQ(ierr);
   if (alpha != (PetscScalar)1.0) {
+    ierr = VecSetErrorIfLocked(x,1);CHKERRQ(ierr);
     /* get current stashed norms */
     for (i=0; i<4; i++) {
       ierr = PetscObjectComposedDataGetReal((PetscObject)x,NormIds[i],norms[i],flgs[i]);CHKERRQ(ierr);
@@ -591,6 +593,7 @@ PetscErrorCode  VecAXPY(Vec y,PetscScalar alpha,Vec x)
   VecCheckSameSize(x,1,y,3);
   if (x == y) SETERRQ(PetscObjectComm((PetscObject)x),PETSC_ERR_ARG_IDN,"x and y cannot be the same vector");
   PetscValidLogicalCollectiveScalar(y,alpha,2);
+  if (alpha == (PetscScalar)0.0) PetscFunctionReturn(0);
   ierr = VecSetErrorIfLocked(y,1);CHKERRQ(ierr);
 
   ierr = VecLockReadPush(x);CHKERRQ(ierr);
@@ -637,6 +640,8 @@ PetscErrorCode  VecAXPBY(Vec y,PetscScalar alpha,PetscScalar beta,Vec x)
   if (x == y) SETERRQ(PetscObjectComm((PetscObject)x),PETSC_ERR_ARG_IDN,"x and y cannot be the same vector");
   PetscValidLogicalCollectiveScalar(y,alpha,2);
   PetscValidLogicalCollectiveScalar(y,beta,3);
+  if (alpha == (PetscScalar)0.0 && beta == (PetscScalar)1.0) PetscFunctionReturn(0);
+  ierr = VecSetErrorIfLocked(y,1);CHKERRQ(ierr);
   ierr = PetscLogEventBegin(VEC_AXPY,x,y,0,0);CHKERRQ(ierr);
   ierr = (*y->ops->axpby)(y,alpha,beta,x);CHKERRQ(ierr);
   ierr = PetscLogEventEnd(VEC_AXPY,x,y,0,0);CHKERRQ(ierr);
@@ -685,6 +690,8 @@ PetscErrorCode  VecAXPBYPCZ(Vec z,PetscScalar alpha,PetscScalar beta,PetscScalar
   PetscValidLogicalCollectiveScalar(z,alpha,2);
   PetscValidLogicalCollectiveScalar(z,beta,3);
   PetscValidLogicalCollectiveScalar(z,gamma,4);
+  if (alpha == (PetscScalar)0.0 && beta == (PetscScalar)0.0 && gamma == (PetscScalar)1.0) PetscFunctionReturn(0);
+  ierr = VecSetErrorIfLocked(z,1);CHKERRQ(ierr);
 
   ierr = PetscLogEventBegin(VEC_AXPBYPCZ,x,y,z,0);CHKERRQ(ierr);
   ierr = (*y->ops->axpbypcz)(z,alpha,beta,gamma,x,y);CHKERRQ(ierr);
@@ -727,6 +734,7 @@ PetscErrorCode  VecAYPX(Vec y,PetscScalar beta,Vec x)
   VecCheckSameSize(x,1,y,3);
   if (x == y) SETERRQ(PetscObjectComm((PetscObject)x),PETSC_ERR_ARG_IDN,"x and y must be different vectors");
   PetscValidLogicalCollectiveScalar(y,beta,2);
+  ierr = VecSetErrorIfLocked(y,1);CHKERRQ(ierr);
 
   ierr = PetscLogEventBegin(VEC_AYPX,x,y,0,0);CHKERRQ(ierr);
   ierr =  (*y->ops->aypx)(y,beta,x);CHKERRQ(ierr);
@@ -775,6 +783,7 @@ PetscErrorCode  VecWAXPY(Vec w,PetscScalar alpha,Vec x,Vec y)
   if (w == y) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SUP,"Result vector w cannot be same as input vector y, suggest VecAXPY()");
   if (w == x) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SUP,"Result vector w cannot be same as input vector x, suggest VecAYPX()");
   PetscValidLogicalCollectiveScalar(y,alpha,2);
+  ierr = VecSetErrorIfLocked(w,1);CHKERRQ(ierr);
 
   ierr = PetscLogEventBegin(VEC_WAXPY,x,y,w,0);CHKERRQ(ierr);
   ierr =  (*w->ops->waxpy)(w,alpha,x,y);CHKERRQ(ierr);
@@ -831,6 +840,7 @@ PetscErrorCode  VecSetValues(Vec x,PetscInt ni,const PetscInt ix[],const PetscSc
   PetscValidIntPointer(ix,3);
   PetscValidScalarPointer(y,4);
   PetscValidType(x,1);
+
   ierr = PetscLogEventBegin(VEC_SetValues,x,0,0,0);CHKERRQ(ierr);
   ierr = (*x->ops->setvalues)(x,ni,ix,y,iora);CHKERRQ(ierr);
   ierr = PetscLogEventEnd(VEC_SetValues,x,0,0,0);CHKERRQ(ierr);
@@ -838,7 +848,7 @@ PetscErrorCode  VecSetValues(Vec x,PetscInt ni,const PetscInt ix[],const PetscSc
   PetscFunctionReturn(0);
 }
 
-/*@
+/*@C
    VecGetValues - Gets values from certain locations of a vector. Currently
           can only get values on the same processor
 
@@ -930,6 +940,7 @@ PetscErrorCode  VecSetValuesBlocked(Vec x,PetscInt ni,const PetscInt ix[],const 
   PetscValidIntPointer(ix,3);
   PetscValidScalarPointer(y,4);
   PetscValidType(x,1);
+
   ierr = PetscLogEventBegin(VEC_SetValues,x,0,0,0);CHKERRQ(ierr);
   ierr = (*x->ops->setvaluesblocked)(x,ni,ix,y,iora);CHKERRQ(ierr);
   ierr = PetscLogEventEnd(VEC_SetValues,x,0,0,0);CHKERRQ(ierr);
@@ -1183,6 +1194,7 @@ PetscErrorCode  VecMAXPY(Vec y,PetscInt nv,const PetscScalar alpha[],Vec x[])
 {
   PetscErrorCode ierr;
   PetscInt       i;
+  PetscBool      nonzero;
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(y,VEC_CLASSID,1);
@@ -1197,7 +1209,9 @@ PetscErrorCode  VecMAXPY(Vec y,PetscInt nv,const PetscScalar alpha[],Vec x[])
   PetscCheckSameTypeAndComm(y,1,*x,4);
   VecCheckSameSize(y,1,*x,4);
   for (i=0; i<nv; i++) PetscValidLogicalCollectiveScalar(y,alpha[i],3);
-
+  for (i=0, nonzero = PETSC_FALSE; i<nv && !nonzero; i++) nonzero = (PetscBool)(nonzero || alpha[i] != (PetscScalar)0.0);
+  if (!nonzero) PetscFunctionReturn(0);
+  ierr = VecSetErrorIfLocked(y,1);CHKERRQ(ierr);
   ierr = PetscLogEventBegin(VEC_MAXPY,*x,y,0,0);CHKERRQ(ierr);
   ierr = (*y->ops->maxpy)(y,nv,alpha,x);CHKERRQ(ierr);
   ierr = PetscLogEventEnd(VEC_MAXPY,*x,y,0,0);CHKERRQ(ierr);
@@ -1208,7 +1222,7 @@ PetscErrorCode  VecMAXPY(Vec y,PetscInt nv,const PetscScalar alpha[],Vec x[])
 /*@
    VecGetSubVector - Gets a vector representing part of another vector
 
-   Collective on IS
+   Collective on X and IS
 
    Input Arguments:
 + X - vector from which to extract a subvector
@@ -1221,9 +1235,11 @@ PetscErrorCode  VecMAXPY(Vec y,PetscInt nv,const PetscScalar alpha[],Vec x[])
 
    Notes:
    The subvector Y should be returned with VecRestoreSubVector().
+   X and is must be defined on the same communicator
 
    This function may return a subvector without making a copy, therefore it is not safe to use the original vector while
    modifying the subvector.  Other non-overlapping subvectors can still be obtained from X using this function.
+   The resulting subvector inherits the block size from the IS if greater than one. Otherwise, the block size is guessed from the block size of the original vec.
 
 .seealso: MatCreateSubMatrix()
 @*/
@@ -1235,51 +1251,96 @@ PetscErrorCode  VecGetSubVector(Vec X,IS is,Vec *Y)
   PetscFunctionBegin;
   PetscValidHeaderSpecific(X,VEC_CLASSID,1);
   PetscValidHeaderSpecific(is,IS_CLASSID,2);
+  PetscCheckSameComm(X,1,is,2);
   PetscValidPointer(Y,3);
   if (X->ops->getsubvector) {
     ierr = (*X->ops->getsubvector)(X,is,&Z);CHKERRQ(ierr);
   } else { /* Default implementation currently does no caching */
     PetscInt  gstart,gend,start;
-    PetscBool contiguous,gcontiguous;
-    ierr = VecGetOwnershipRange(X,&gstart,&gend);CHKERRQ(ierr);
-    ierr = ISContiguousLocal(is,gstart,gend,&start,&contiguous);CHKERRQ(ierr);
-    ierr = MPIU_Allreduce(&contiguous,&gcontiguous,1,MPIU_BOOL,MPI_LAND,PetscObjectComm((PetscObject)is));CHKERRQ(ierr);
-    if (gcontiguous) { /* We can do a no-copy implementation */
-      PetscInt n,N,bs;
-      PetscInt state;
+    PetscBool red[2] = { PETSC_TRUE, PETSC_TRUE };
+    PetscInt  n,N,ibs,vbs,bs = -1;
 
-      ierr = ISGetSize(is,&N);CHKERRQ(ierr);
-      ierr = ISGetLocalSize(is,&n);CHKERRQ(ierr);
-      ierr = VecGetBlockSize(X,&bs);CHKERRQ(ierr);
-      if (n%bs || bs == 1 || !n) bs = -1; /* Do not decide block size if we do not have to */
-      ierr = VecLockGet(X,&state);CHKERRQ(ierr);
-      if (state) {
-        const PetscScalar *x;
+    ierr = ISGetLocalSize(is,&n);CHKERRQ(ierr);
+    ierr = ISGetSize(is,&N);CHKERRQ(ierr);
+    ierr = ISGetBlockSize(is,&ibs);CHKERRQ(ierr);
+    ierr = VecGetBlockSize(X,&vbs);CHKERRQ(ierr);
+    ierr = VecGetOwnershipRange(X,&gstart,&gend);CHKERRQ(ierr);
+    ierr = ISContiguousLocal(is,gstart,gend,&start,&red[0]);CHKERRQ(ierr);
+    /* block size is given by IS if ibs > 1; otherwise, check the vector */
+    if (ibs > 1) {
+      ierr = MPIU_Allreduce(MPI_IN_PLACE,red,1,MPIU_BOOL,MPI_LAND,PetscObjectComm((PetscObject)is));CHKERRQ(ierr);
+      bs   = ibs;
+    } else {
+      if (n%vbs || vbs == 1) red[1] = PETSC_FALSE; /* this process invalidate the collectiveness of block size */
+      ierr = MPIU_Allreduce(MPI_IN_PLACE,red,2,MPIU_BOOL,MPI_LAND,PetscObjectComm((PetscObject)is));CHKERRQ(ierr);
+      if (red[0] && red[1]) bs = vbs; /* all processes have a valid block size and the access will be contiguous */
+    }
+    if (red[0]) { /* We can do a no-copy implementation */
+      const PetscScalar *x;
+      PetscInt          state = 0;
+      PetscBool         isstd;
+#if defined(PETSC_HAVE_CUDA)
+      PetscBool         iscuda;
+#endif
+
+      ierr = PetscObjectTypeCompareAny((PetscObject)X,&isstd,VECSEQ,VECMPI,VECSTANDARD,"");CHKERRQ(ierr);
+#if defined(PETSC_HAVE_CUDA)
+      ierr = PetscObjectTypeCompareAny((PetscObject)X,&iscuda,VECSEQCUDA,VECMPICUDA,"");CHKERRQ(ierr);
+      if (iscuda) {
+        const PetscScalar *x_d;
+        PetscMPIInt       size;
+        PetscOffloadMask  flg;
+
+        ierr = VecCUDAGetArrays_Private(X,&x,&x_d,&flg);CHKERRQ(ierr);
+        if (flg == PETSC_OFFLOAD_UNALLOCATED) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SUP,"Not for PETSC_OFFLOAD_UNALLOCATED");
+        if (n && !x && !x_d) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SUP,"Missing vector data");
+        if (x) x += start;
+        if (x_d) x_d += start;
+        ierr = MPI_Comm_size(PetscObjectComm((PetscObject)X),&size);CHKERRQ(ierr);
+        if (size == 1) {
+          ierr = VecCreateSeqCUDAWithArrays(PetscObjectComm((PetscObject)X),bs,n,x,x_d,&Z);CHKERRQ(ierr);
+        } else {
+          ierr = VecCreateMPICUDAWithArrays(PetscObjectComm((PetscObject)X),bs,n,N,x,x_d,&Z);CHKERRQ(ierr);
+        }
+        Z->offloadmask = flg;
+      } else if (isstd) {
+#else
+      if (isstd) { /* standard CPU: use CreateWithArray pattern */
+#endif
+        PetscMPIInt size;
+
+        ierr = MPI_Comm_size(PetscObjectComm((PetscObject)X),&size);CHKERRQ(ierr);
+        ierr = VecGetArrayRead(X,&x);CHKERRQ(ierr);
+        if (x) x += start;
+        if (size == 1) {
+          ierr = VecCreateSeqWithArray(PetscObjectComm((PetscObject)X),bs,n,x,&Z);CHKERRQ(ierr);
+        } else {
+          ierr = VecCreateMPIWithArray(PetscObjectComm((PetscObject)X),bs,n,N,x,&Z);CHKERRQ(ierr);
+        }
+        ierr = VecRestoreArrayRead(X,&x);CHKERRQ(ierr);
+      } else { /* default implementation: use place array */
         ierr = VecGetArrayRead(X,&x);CHKERRQ(ierr);
         ierr = VecCreate(PetscObjectComm((PetscObject)X),&Z);CHKERRQ(ierr);
         ierr = VecSetType(Z,((PetscObject)X)->type_name);CHKERRQ(ierr);
         ierr = VecSetSizes(Z,n,N);CHKERRQ(ierr);
         ierr = VecSetBlockSize(Z,bs);CHKERRQ(ierr);
-        ierr = VecPlaceArray(Z,(PetscScalar*)x+start);CHKERRQ(ierr);
-        ierr = VecLockReadPush(Z);CHKERRQ(ierr);
+        ierr = VecPlaceArray(Z,x ? x+start : NULL);CHKERRQ(ierr);
         ierr = VecRestoreArrayRead(X,&x);CHKERRQ(ierr);
-      } else {
-        PetscScalar *x;
-        ierr = VecGetArray(X,&x);CHKERRQ(ierr);
-        ierr = VecCreate(PetscObjectComm((PetscObject)X),&Z);CHKERRQ(ierr);
-        ierr = VecSetType(Z,((PetscObject)X)->type_name);CHKERRQ(ierr);
-        ierr = VecSetSizes(Z,n,N);CHKERRQ(ierr);
-        ierr = VecSetBlockSize(Z,bs);CHKERRQ(ierr);
-        ierr = VecPlaceArray(Z,(PetscScalar*)x+start);CHKERRQ(ierr);
-        ierr = VecRestoreArray(X,&x);CHKERRQ(ierr);
       }
+
+      /* this is relevant only in debug mode */
+      ierr = VecLockGet(X,&state);CHKERRQ(ierr);
+      if (state) {
+        ierr = VecLockReadPush(Z);CHKERRQ(ierr);
+      }
+      Z->ops->placearray = NULL;
+      Z->ops->replacearray = NULL;
     } else { /* Have to create a scatter and do a copy */
       VecScatter scatter;
-      PetscInt   n,N;
-      ierr = ISGetLocalSize(is,&n);CHKERRQ(ierr);
-      ierr = ISGetSize(is,&N);CHKERRQ(ierr);
+
       ierr = VecCreate(PetscObjectComm((PetscObject)is),&Z);CHKERRQ(ierr);
       ierr = VecSetSizes(Z,n,N);CHKERRQ(ierr);
+      ierr = VecSetBlockSize(Z,bs);CHKERRQ(ierr);
       ierr = VecSetType(Z,((PetscObject)X)->type_name);CHKERRQ(ierr);
       ierr = VecScatterCreate(X,is,Z,NULL,&scatter);CHKERRQ(ierr);
       ierr = VecScatterBegin(scatter,X,Z,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
@@ -1316,6 +1377,7 @@ PetscErrorCode  VecRestoreSubVector(Vec X,IS is,Vec *Y)
   PetscFunctionBegin;
   PetscValidHeaderSpecific(X,VEC_CLASSID,1);
   PetscValidHeaderSpecific(is,IS_CLASSID,2);
+  PetscCheckSameComm(X,1,is,2);
   PetscValidPointer(Y,3);
   PetscValidHeaderSpecific(*Y,VEC_CLASSID,3);
   if (X->ops->restoresubvector) {
@@ -1323,14 +1385,61 @@ PetscErrorCode  VecRestoreSubVector(Vec X,IS is,Vec *Y)
   } else {
     PETSC_UNUSED PetscObjectState dummystate = 0;
     PetscBool valid;
+
     ierr = PetscObjectComposedDataGetInt((PetscObject)*Y,VecGetSubVectorSavedStateId,dummystate,valid);CHKERRQ(ierr);
     if (!valid) {
       VecScatter scatter;
+      PetscInt   state;
+
+      ierr = VecLockGet(X,&state);CHKERRQ(ierr);
+      if (state != 0) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"Vec X is locked for read-only or read/write access");
 
       ierr = PetscObjectQuery((PetscObject)*Y,"VecGetSubVector_Scatter",(PetscObject*)&scatter);CHKERRQ(ierr);
       if (scatter) {
         ierr = VecScatterBegin(scatter,*Y,X,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
         ierr = VecScatterEnd(scatter,*Y,X,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+      } else {
+#if defined(PETSC_HAVE_CUDA)
+        PetscBool iscuda;
+
+        ierr = PetscObjectTypeCompareAny((PetscObject)*Y,&iscuda,VECSEQCUDA,VECMPICUDA,"");CHKERRQ(ierr);
+        if (iscuda) {
+          PetscOffloadMask ymask = (*Y)->offloadmask;
+
+          /* The offloadmask of X dictates where to move memory
+             If X GPU data is valid, then move Y data on GPU if needed
+             Otherwise, move back to the CPU */
+          switch (X->offloadmask) {
+          case PETSC_OFFLOAD_BOTH:
+            if (ymask == PETSC_OFFLOAD_CPU) {
+              ierr = VecCUDAResetArray(*Y);CHKERRQ(ierr);
+            } else if (ymask == PETSC_OFFLOAD_GPU) {
+              X->offloadmask = PETSC_OFFLOAD_GPU;
+            }
+            break;
+          case PETSC_OFFLOAD_GPU:
+            if (ymask == PETSC_OFFLOAD_CPU) {
+              ierr = VecCUDAResetArray(*Y);CHKERRQ(ierr);
+            }
+            break;
+          case PETSC_OFFLOAD_CPU:
+            if (ymask == PETSC_OFFLOAD_GPU) {
+              ierr = VecResetArray(*Y);CHKERRQ(ierr);
+            }
+            break;
+          case PETSC_OFFLOAD_UNALLOCATED:
+          case PETSC_OFFLOAD_VECKOKKOS:
+            SETERRQ(PETSC_COMM_SELF,PETSC_ERR_PLIB,"This should not happen");
+            break;
+          }
+        } else {
+#else
+        {
+#endif
+          /* If OpenCL vecs updated the device memory, this triggers a copy on the CPU */
+          ierr = VecResetArray(*Y);CHKERRQ(ierr);
+        }
+        ierr = PetscObjectStateIncrease((PetscObject)X);CHKERRQ(ierr);
       }
     }
     ierr = VecDestroy(Y);CHKERRQ(ierr);
@@ -1384,6 +1493,9 @@ PetscErrorCode VecGetLocalVectorRead(Vec v,Vec w)
     ierr = VecGetArrayRead(v,(const PetscScalar**)&a);CHKERRQ(ierr);
     ierr = VecPlaceArray(w,a);CHKERRQ(ierr);
   }
+  ierr = PetscObjectStateIncrease((PetscObject)w);CHKERRQ(ierr);
+  ierr = VecLockReadPush(v);CHKERRQ(ierr);
+  ierr = VecLockReadPush(w);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -1416,6 +1528,9 @@ PetscErrorCode VecRestoreLocalVectorRead(Vec v,Vec w)
     ierr = VecRestoreArrayRead(v,(const PetscScalar**)&a);CHKERRQ(ierr);
     ierr = VecResetArray(w);CHKERRQ(ierr);
   }
+  ierr = VecLockReadPop(v);CHKERRQ(ierr);
+  ierr = VecLockReadPop(w);CHKERRQ(ierr);
+  ierr = PetscObjectStateIncrease((PetscObject)w);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -1461,6 +1576,7 @@ PetscErrorCode VecGetLocalVector(Vec v,Vec w)
     ierr = VecGetArray(v,&a);CHKERRQ(ierr);
     ierr = VecPlaceArray(w,a);CHKERRQ(ierr);
   }
+  ierr = PetscObjectStateIncrease((PetscObject)w);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -1493,6 +1609,8 @@ PetscErrorCode VecRestoreLocalVector(Vec v,Vec w)
     ierr = VecRestoreArray(v,&a);CHKERRQ(ierr);
     ierr = VecResetArray(w);CHKERRQ(ierr);
   }
+  ierr = PetscObjectStateIncrease((PetscObject)w);CHKERRQ(ierr);
+  ierr = PetscObjectStateIncrease((PetscObject)v);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -1529,7 +1647,7 @@ $       call VecRestoreArray(x,x_array,i_x,ierr)
    For Fortran 90 see VecGetArrayF90()
 
    See the Fortran chapter of the users manual and
-   petsc/src/snes/examples/tutorials/ex5f.F for details.
+   petsc/src/snes/tutorials/ex5f.F for details.
 
    Level: beginner
 
@@ -1539,88 +1657,114 @@ $       call VecRestoreArray(x,x_array,i_x,ierr)
 PetscErrorCode VecGetArray(Vec x,PetscScalar **a)
 {
   PetscErrorCode ierr;
-#if defined(PETSC_HAVE_VIENNACL)
-  PetscBool      is_viennacltype = PETSC_FALSE;
-#endif
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(x,VEC_CLASSID,1);
   ierr = VecSetErrorIfLocked(x,1);CHKERRQ(ierr);
-  if (x->petscnative) {
-#if defined(PETSC_HAVE_VIENNACL) || defined(PETSC_HAVE_CUDA)
-    if (x->offloadmask == PETSC_OFFLOAD_GPU) {
-#if defined(PETSC_HAVE_VIENNACL)
-      ierr = PetscObjectTypeCompareAny((PetscObject)x,&is_viennacltype,VECSEQVIENNACL,VECMPIVIENNACL,VECVIENNACL,"");CHKERRQ(ierr);
-      if (is_viennacltype) {
-        ierr = VecViennaCLCopyFromGPU(x);CHKERRQ(ierr);
-      } else
-#endif
-      {
-#if defined(PETSC_HAVE_CUDA)
-        ierr = VecCUDACopyFromGPU(x);CHKERRQ(ierr);
-#endif
-      }
-    } else if (x->offloadmask == PETSC_OFFLOAD_UNALLOCATED) {
-#if defined(PETSC_HAVE_VIENNACL)
-      ierr = PetscObjectTypeCompareAny((PetscObject)x,&is_viennacltype,VECSEQVIENNACL,VECMPIVIENNACL,VECVIENNACL,"");CHKERRQ(ierr);
-      if (is_viennacltype) {
-        ierr = VecViennaCLAllocateCheckHost(x);CHKERRQ(ierr);
-      } else
-#endif
-      {
-#if defined(PETSC_HAVE_CUDA)
-        ierr = VecCUDAAllocateCheckHost(x);CHKERRQ(ierr);
-#endif
-      }
-    }
-#endif
+  if (x->ops->getarray) { /* The if-else order matters! VECNEST, VECCUDA etc should have ops->getarray while VECCUDA etc are petscnative */
+    ierr = (*x->ops->getarray)(x,a);CHKERRQ(ierr);
+  } else if (x->petscnative) { /* VECSTANDARD */
     *a = *((PetscScalar**)x->data);
-  } else {
-    if (x->ops->getarray) {
-      ierr = (*x->ops->getarray)(x,a);CHKERRQ(ierr);
-    } else SETERRQ1(PetscObjectComm((PetscObject)x),PETSC_ERR_SUP,"Cannot get array for vector type \"%s\"",((PetscObject)x)->type_name);
-  }
+  } else SETERRQ1(PetscObjectComm((PetscObject)x),PETSC_ERR_SUP,"Cannot get array for vector type \"%s\"",((PetscObject)x)->type_name);
   PetscFunctionReturn(0);
 }
 
 /*@C
-   VecGetArrayInPlace - Like VecGetArray(), but if this is a CUDA vector and it is currently offloaded to GPU,
-   the returned pointer will be a GPU pointer to the GPU memory that contains this processor's portion of the
-   vector data. Otherwise, it functions as VecGetArray().
+   VecRestoreArray - Restores a vector after VecGetArray() has been called.
 
    Logically Collective on Vec
 
-   Input Parameter:
-.  x - the vector
-
-   Output Parameter:
-.  a - location to put pointer to the array
+   Input Parameters:
++  x - the vector
+-  a - location of pointer to array obtained from VecGetArray()
 
    Level: beginner
 
-.seealso: VecRestoreArrayInPlace(), VecRestoreArrayInPlace(), VecRestoreArray(), VecGetArrayRead(), VecGetArrays(), VecGetArrayF90(), VecGetArrayReadF90(),
-          VecPlaceArray(), VecGetArray2d(), VecGetArrayPair(), VecRestoreArrayPair(), VecGetArrayWrite(), VecRestoreArrayWrite()
+.seealso: VecGetArray(), VecRestoreArrayRead(), VecRestoreArrays(), VecRestoreArrayF90(), VecRestoreArrayReadF90(), VecPlaceArray(), VecRestoreArray2d(),
+          VecGetArrayPair(), VecRestoreArrayPair()
 @*/
-PetscErrorCode VecGetArrayInPlace(Vec x,PetscScalar **a)
+PetscErrorCode VecRestoreArray(Vec x,PetscScalar **a)
 {
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(x,VEC_CLASSID,1);
-  ierr = VecSetErrorIfLocked(x,1);CHKERRQ(ierr);
+  if (x->ops->restorearray) { /* VECNEST, VECCUDA etc */
+    ierr = (*x->ops->restorearray)(x,a);CHKERRQ(ierr);
+  } else if (x->petscnative) { /* VECSTANDARD */
+    /* nothing */
+  } else SETERRQ1(PetscObjectComm((PetscObject)x),PETSC_ERR_SUP,"Cannot restore array for vector type \"%s\"",((PetscObject)x)->type_name);
+  if (a) *a = NULL;
+  ierr = PetscObjectStateIncrease((PetscObject)x);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+/*@C
+   VecGetArrayRead - Get read-only pointer to contiguous array containing this processor's portion of the vector data.
 
-#if defined(PETSC_HAVE_CUDA)
-  if (x->petscnative && (x->offloadmask & PETSC_OFFLOAD_GPU)) { /* Prefer working on GPU when offloadmask is PETSC_OFFLOAD_BOTH */
-    PetscBool is_cudatype = PETSC_FALSE;
-    ierr = PetscObjectTypeCompareAny((PetscObject)x,&is_cudatype,VECSEQCUDA,VECMPICUDA,VECCUDA,"");CHKERRQ(ierr);
-    if (is_cudatype) {
-      ierr = VecCUDAGetArray(x,a);CHKERRQ(ierr);
-      x->offloadmask = PETSC_OFFLOAD_GPU; /* Change the mask once GPU gets write access, don't wait until restore array */
-      PetscFunctionReturn(0);
-    }
+   Not Collective
+
+   Input Parameter:
+.  x - the vector
+
+   Output Parameter:
+.  a - the array
+
+   Level: beginner
+
+   Notes:
+   The array must be returned using a matching call to VecRestoreArrayRead().
+
+   Unlike VecGetArray(), this routine is not collective and preserves cached information like vector norms.
+
+   Standard PETSc vectors use contiguous storage so that this routine does not perform a copy.  Other vector
+   implementations may require a copy, but must such implementations should cache the contiguous representation so that
+   only one copy is performed when this routine is called multiple times in sequence.
+
+.seealso: VecGetArray(), VecRestoreArray(), VecGetArrayPair(), VecRestoreArrayPair()
+@*/
+PetscErrorCode VecGetArrayRead(Vec x,const PetscScalar **a)
+{
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(x,VEC_CLASSID,1);
+  if (x->ops->getarrayread) { /* VECNODE; TODO: Delete this line after we remove VECNODE */
+    ierr = (*x->ops->getarrayread)(x,a);CHKERRQ(ierr);
+  } else if (x->ops->getarray) { /* VECNEST, VECCUDA, VECKOKKOS etc */
+    ierr = (*x->ops->getarray)(x,(PetscScalar**)a);CHKERRQ(ierr);
+  } else if (x->petscnative) { /* VECSTANDARD */
+    *a = *((PetscScalar**)x->data);
+  } else SETERRQ1(PetscObjectComm((PetscObject)x),PETSC_ERR_SUP,"Cannot get array read for vector type \"%s\"",((PetscObject)x)->type_name);
+  PetscFunctionReturn(0);
+}
+
+/*@C
+   VecRestoreArrayRead - Restore array obtained with VecGetArrayRead()
+
+   Not Collective
+
+   Input Parameters:
++  vec - the vector
+-  array - the array
+
+   Level: beginner
+
+.seealso: VecGetArray(), VecRestoreArray(), VecGetArrayPair(), VecRestoreArrayPair()
+@*/
+PetscErrorCode VecRestoreArrayRead(Vec x,const PetscScalar **a)
+{
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(x,VEC_CLASSID,1);
+  if (x->petscnative) { /* VECSTANDARD, VECCUDA, VECKOKKOS etc */
+    /* nothing */
+  } else if (x->ops->restorearrayread) { /* VECNEST */
+    ierr = (*x->ops->restorearrayread)(x,a);CHKERRQ(ierr);
+  } else { /* No one? */
+    ierr = (*x->ops->restorearray)(x,(PetscScalar**)a);CHKERRQ(ierr);
   }
-#endif
-  ierr = VecGetArray(x,a);CHKERRQ(ierr);
+  if (a) *a = NULL;
   PetscFunctionReturn(0);
 }
 
@@ -1654,110 +1798,41 @@ PetscErrorCode VecGetArrayWrite(Vec x,PetscScalar **a)
   PetscFunctionBegin;
   PetscValidHeaderSpecific(x,VEC_CLASSID,1);
   ierr = VecSetErrorIfLocked(x,1);CHKERRQ(ierr);
-  if (!x->ops->getarraywrite) {
-    ierr = VecGetArray(x,a);CHKERRQ(ierr);
-  } else {
+  if (x->ops->getarraywrite) {
     ierr = (*x->ops->getarraywrite)(x,a);CHKERRQ(ierr);
-  }
-  PetscFunctionReturn(0);
-}
-
-/*@C
-   VecGetArrayRead - Get read-only pointer to contiguous array containing this processor's portion of the vector data.
-
-   Not Collective
-
-   Input Parameters:
-.  x - the vector
-
-   Output Parameter:
-.  a - the array
-
-   Level: beginner
-
-   Notes:
-   The array must be returned using a matching call to VecRestoreArrayRead().
-
-   Unlike VecGetArray(), this routine is not collective and preserves cached information like vector norms.
-
-   Standard PETSc vectors use contiguous storage so that this routine does not perform a copy.  Other vector
-   implementations may require a copy, but must such implementations should cache the contiguous representation so that
-   only one copy is performed when this routine is called multiple times in sequence.
-
-.seealso: VecGetArray(), VecRestoreArray(), VecGetArrayPair(), VecRestoreArrayPair()
-@*/
-PetscErrorCode VecGetArrayRead(Vec x,const PetscScalar **a)
-{
-  PetscErrorCode ierr;
-#if defined(PETSC_HAVE_VIENNACL)
-  PetscBool      is_viennacltype = PETSC_FALSE;
-#endif
-
-  PetscFunctionBegin;
-  PetscValidHeaderSpecific(x,VEC_CLASSID,1);
-  if (x->petscnative) {
-#if defined(PETSC_HAVE_VIENNACL) || defined(PETSC_HAVE_CUDA)
-    if (x->offloadmask == PETSC_OFFLOAD_GPU) {
-#if defined(PETSC_HAVE_VIENNACL)
-      ierr = PetscObjectTypeCompareAny((PetscObject)x,&is_viennacltype,VECSEQVIENNACL,VECMPIVIENNACL,VECVIENNACL,"");CHKERRQ(ierr);
-      if (is_viennacltype) {
-        ierr = VecViennaCLCopyFromGPU(x);CHKERRQ(ierr);
-      } else
-#endif
-      {
-#if defined(PETSC_HAVE_CUDA)
-        ierr = VecCUDACopyFromGPU(x);CHKERRQ(ierr);
-#endif
-      }
-    }
-#endif
-    *a = *((PetscScalar **)x->data);
-  } else if (x->ops->getarrayread) {
-    ierr = (*x->ops->getarrayread)(x,a);CHKERRQ(ierr);
   } else {
-    ierr = (*x->ops->getarray)(x,(PetscScalar**)a);CHKERRQ(ierr);
+    ierr = VecGetArray(x,a);CHKERRQ(ierr);
   }
   PetscFunctionReturn(0);
 }
 
 /*@C
-   VecGetArrayReadInPlace - Like VecGetArrayRead(), but if this is a CUDA vector and it is currently offloaded to GPU,
-   the returned pointer will be a GPU pointer to the GPU memory that contains this processor's portion of the
-   vector data. Otherwise, it functions as VecGetArrayRead().
+   VecRestoreArrayWrite - Restores a vector after VecGetArrayWrite() has been called.
 
-   Not Collective
+   Logically Collective on Vec
 
    Input Parameters:
-.  x - the vector
-
-   Output Parameter:
-.  a - the array
++  x - the vector
+-  a - location of pointer to array obtained from VecGetArray()
 
    Level: beginner
 
-   Notes:
-   The array must be returned using a matching call to VecRestoreArrayReadInPlace().
-
-
-.seealso: VecRestoreArrayReadInPlace(), VecGetArray(), VecRestoreArray(), VecGetArrayPair(), VecRestoreArrayPair(), VecGetArrayInPlace()
+.seealso: VecGetArray(), VecRestoreArrayRead(), VecRestoreArrays(), VecRestoreArrayF90(), VecRestoreArrayReadF90(), VecPlaceArray(), VecRestoreArray2d(),
+          VecGetArrayPair(), VecRestoreArrayPair(), VecGetArrayWrite()
 @*/
-PetscErrorCode VecGetArrayReadInPlace(Vec x,const PetscScalar **a)
+PetscErrorCode VecRestoreArrayWrite(Vec x,PetscScalar **a)
 {
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(x,VEC_CLASSID,1);
-#if defined(PETSC_HAVE_CUDA)
-  if (x->petscnative && x->offloadmask & PETSC_OFFLOAD_GPU) {
-    PetscBool is_cudatype = PETSC_FALSE;
-    ierr = PetscObjectTypeCompareAny((PetscObject)x,&is_cudatype,VECSEQCUDA,VECMPICUDA,VECCUDA,"");CHKERRQ(ierr);
-    if (is_cudatype) {
-      ierr = VecCUDAGetArrayRead(x,a);CHKERRQ(ierr);
-      PetscFunctionReturn(0);
-    }
+  if (x->ops->restorearraywrite) {
+    ierr = (*x->ops->restorearraywrite)(x,a);CHKERRQ(ierr);
+  } else if (x->ops->restorearray) {
+    ierr = (*x->ops->restorearray)(x,a);CHKERRQ(ierr);
   }
-#endif
-  ierr = VecGetArrayRead(x,a);CHKERRQ(ierr);
+  if (a) *a = NULL;
+  ierr = PetscObjectStateIncrease((PetscObject)x);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -1768,7 +1843,7 @@ PetscErrorCode VecGetArrayReadInPlace(Vec x,const PetscScalar **a)
 
    Logically Collective on Vec
 
-   Input Parameter:
+   Input Parameters:
 +  x - the vectors
 -  n - the number of vectors
 
@@ -1844,140 +1919,119 @@ PetscErrorCode  VecRestoreArrays(const Vec x[],PetscInt n,PetscScalar **a[])
 }
 
 /*@C
-   VecRestoreArray - Restores a vector after VecGetArray() has been called.
+   VecGetArrayAndMemType - Like VecGetArray(), but if this is a GPU vector and it is currently offloaded to GPU,
+   the returned pointer will be a GPU pointer to the GPU memory that contains this processor's portion of the
+   vector data. Otherwise, it functions as VecGetArray().
 
    Logically Collective on Vec
 
-   Input Parameters:
-+  x - the vector
--  a - location of pointer to array obtained from VecGetArray()
+   Input Parameter:
+.  x - the vector
+
+   Output Parameters:
++  a - location to put pointer to the array
+-  mtype - memory type of the array
 
    Level: beginner
 
-.seealso: VecGetArray(), VecRestoreArrayRead(), VecRestoreArrays(), VecRestoreArrayF90(), VecRestoreArrayReadF90(), VecPlaceArray(), VecRestoreArray2d(),
-          VecGetArrayPair(), VecRestoreArrayPair()
+.seealso: VecRestoreArrayAndMemType(), VecRestoreArrayAndMemType(), VecRestoreArray(), VecGetArrayRead(), VecGetArrays(), VecGetArrayF90(), VecGetArrayReadF90(),
+          VecPlaceArray(), VecGetArray2d(), VecGetArrayPair(), VecRestoreArrayPair(), VecGetArrayWrite(), VecRestoreArrayWrite()
 @*/
-PetscErrorCode VecRestoreArray(Vec x,PetscScalar **a)
+PetscErrorCode VecGetArrayAndMemType(Vec x,PetscScalar **a,PetscMemType *mtype)
 {
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(x,VEC_CLASSID,1);
-  if (x->petscnative) {
-#if defined(PETSC_HAVE_VIENNACL) || defined(PETSC_HAVE_CUDA)
-    x->offloadmask = PETSC_OFFLOAD_CPU;
-#endif
-  } else {
-    ierr = (*x->ops->restorearray)(x,a);CHKERRQ(ierr);
+  PetscValidType(x,1);
+  ierr = VecSetErrorIfLocked(x,1);CHKERRQ(ierr);
+  if (x->ops->getarrayandmemtype) { /* VECCUDA, VECKOKKOS etc */
+    ierr = (*x->ops->getarrayandmemtype)(x,a,mtype);CHKERRQ(ierr);
+  } else { /* VECSTANDARD, VECNEST, VECVIENNACL */
+    ierr = VecGetArray(x,a);CHKERRQ(ierr);
+    if (mtype) *mtype = PETSC_MEMTYPE_HOST;
   }
-  if (a) *a = NULL;
-  ierr = PetscObjectStateIncrease((PetscObject)x);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
 /*@C
-   VecRestoreArrayInPlace - Restores a vector after VecGetArrayInPlace() has been called.
+   VecRestoreArrayAndMemType - Restores a vector after VecGetArrayAndMemType() has been called.
 
    Logically Collective on Vec
 
    Input Parameters:
 +  x - the vector
--  a - location of pointer to array obtained from VecGetArrayInPlace()
+-  a - location of pointer to array obtained from VecGetArrayAndMemType()
 
    Level: beginner
 
-.seealso: VecGetArrayInPlace(), VecGetArray(), VecRestoreArrayRead(), VecRestoreArrays(), VecRestoreArrayF90(), VecRestoreArrayReadF90(),
+.seealso: VecGetArrayAndMemType(), VecGetArray(), VecRestoreArrayRead(), VecRestoreArrays(), VecRestoreArrayF90(), VecRestoreArrayReadF90(),
           VecPlaceArray(), VecRestoreArray2d(), VecGetArrayPair(), VecRestoreArrayPair()
 @*/
-PetscErrorCode VecRestoreArrayInPlace(Vec x,PetscScalar **a)
+PetscErrorCode VecRestoreArrayAndMemType(Vec x,PetscScalar **a)
 {
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(x,VEC_CLASSID,1);
-#if defined(PETSC_HAVE_CUDA)
-  if (x->petscnative && x->offloadmask == PETSC_OFFLOAD_GPU) {
-    PetscBool is_cudatype = PETSC_FALSE;
-    ierr = PetscObjectTypeCompareAny((PetscObject)x,&is_cudatype,VECSEQCUDA,VECMPICUDA,VECCUDA,"");CHKERRQ(ierr);
-    if (is_cudatype) {
-      ierr = VecCUDARestoreArray(x,a);CHKERRQ(ierr);
-      PetscFunctionReturn(0);
-    }
-  }
-#endif
-  ierr = VecRestoreArray(x,a);CHKERRQ(ierr);
-  PetscFunctionReturn(0);
-}
-
-
-/*@C
-   VecRestoreArrayWrite - Restores a vector after VecGetArrayWrite() has been called.
-
-   Logically Collective on Vec
-
-   Input Parameters:
-+  x - the vector
--  a - location of pointer to array obtained from VecGetArray()
-
-   Level: beginner
-
-.seealso: VecGetArray(), VecRestoreArrayRead(), VecRestoreArrays(), VecRestoreArrayF90(), VecRestoreArrayReadF90(), VecPlaceArray(), VecRestoreArray2d(),
-          VecGetArrayPair(), VecRestoreArrayPair(), VecGetArrayWrite()
-@*/
-PetscErrorCode VecRestoreArrayWrite(Vec x,PetscScalar **a)
-{
-  PetscErrorCode ierr;
-
-  PetscFunctionBegin;
-  PetscValidHeaderSpecific(x,VEC_CLASSID,1);
-  if (x->petscnative) {
-#if defined(PETSC_HAVE_VIENNACL) || defined(PETSC_HAVE_CUDA)
-    x->offloadmask = PETSC_OFFLOAD_CPU;
-#endif
-  } else {
-    if (x->ops->restorearraywrite) {
-      ierr = (*x->ops->restorearraywrite)(x,a);CHKERRQ(ierr);
-    } else {
-      ierr = (*x->ops->restorearray)(x,a);CHKERRQ(ierr);
-    }
-  }
+  PetscValidType(x,1);
+  if (x->ops->restorearrayandmemtype) { /* VECCUDA, VECKOKKOS etc */
+    ierr = (*x->ops->restorearrayandmemtype)(x,a);CHKERRQ(ierr);
+  } else if (x->ops->restorearray) { /* VECNEST, VECVIENNACL */
+    ierr = (*x->ops->restorearray)(x,a);CHKERRQ(ierr);
+  } /* VECSTANDARD does nothing */
   if (a) *a = NULL;
   ierr = PetscObjectStateIncrease((PetscObject)x);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
 /*@C
-   VecRestoreArrayRead - Restore array obtained with VecGetArrayRead()
+   VecGetArrayReadAndMemType - Like VecGetArrayRead(), but if this is a CUDA vector and it is currently offloaded to GPU,
+   the returned pointer will be a GPU pointer to the GPU memory that contains this processor's portion of the
+   vector data. Otherwise, it functions as VecGetArrayRead().
 
    Not Collective
 
-   Input Parameters:
-+  vec - the vector
--  array - the array
+   Input Parameter:
+.  x - the vector
+
+   Output Parameters:
++  a - the array
+-  mtype - memory type of the array
 
    Level: beginner
 
-.seealso: VecGetArray(), VecRestoreArray(), VecGetArrayPair(), VecRestoreArrayPair()
+   Notes:
+   The array must be returned using a matching call to VecRestoreArrayReadAndMemType().
+
+
+.seealso: VecRestoreArrayReadAndMemType(), VecGetArray(), VecRestoreArray(), VecGetArrayPair(), VecRestoreArrayPair(), VecGetArrayAndMemType()
 @*/
-PetscErrorCode VecRestoreArrayRead(Vec x,const PetscScalar **a)
+PetscErrorCode VecGetArrayReadAndMemType(Vec x,const PetscScalar **a,PetscMemType *mtype)
 {
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(x,VEC_CLASSID,1);
-  if (x->petscnative) {
-    /* nothing */
-  } else if (x->ops->restorearrayread) {
-    ierr = (*x->ops->restorearrayread)(x,a);CHKERRQ(ierr);
-  } else {
-    ierr = (*x->ops->restorearray)(x,(PetscScalar**)a);CHKERRQ(ierr);
-  }
-  if (a) *a = NULL;
+  PetscValidType(x,1);
+ #if defined(PETSC_USE_DEBUG)
+  if (x->ops->getarrayreadandmemtype) SETERRQ1(PetscObjectComm((PetscObject)x),PETSC_ERR_SUP,"Not expected vector type \"%s\" has ops->getarrayreadandmemtype",((PetscObject)x)->type_name);
+ #endif
+
+  if (x->ops->getarrayandmemtype) { /* VECCUDA, VECKOKKOS etc, though they are also petscnative */
+    ierr = (*x->ops->getarrayandmemtype)(x,(PetscScalar**)a,mtype);CHKERRQ(ierr);
+  } else if (x->ops->getarray) { /* VECNEST, VECVIENNACL */
+    ierr = (*x->ops->getarray)(x,(PetscScalar**)a);CHKERRQ(ierr);
+    if (mtype) *mtype = PETSC_MEMTYPE_HOST;
+  } else if (x->petscnative) { /* VECSTANDARD */
+    *a = *((PetscScalar**)x->data);
+    if (mtype) *mtype = PETSC_MEMTYPE_HOST;
+  } else SETERRQ1(PetscObjectComm((PetscObject)x),PETSC_ERR_SUP,"Cannot get array read in place for vector type \"%s\"",((PetscObject)x)->type_name);
   PetscFunctionReturn(0);
 }
 
 /*@C
-   VecRestoreArrayReadInPlace - Restore array obtained with VecGetArrayReadInPlace()
+   VecRestoreArrayReadAndMemType - Restore array obtained with VecGetArrayReadAndMemType()
 
    Not Collective
 
@@ -1987,14 +2041,21 @@ PetscErrorCode VecRestoreArrayRead(Vec x,const PetscScalar **a)
 
    Level: beginner
 
-.seealso: VecGetArrayReadInPlace(), VecRestoreArrayInPlace(), VecGetArray(), VecRestoreArray(), VecGetArrayPair(), VecRestoreArrayPair()
+.seealso: VecGetArrayReadAndMemType(), VecRestoreArrayAndMemType(), VecGetArray(), VecRestoreArray(), VecGetArrayPair(), VecRestoreArrayPair()
 @*/
-PetscErrorCode VecRestoreArrayReadInPlace(Vec x,const PetscScalar **a)
+PetscErrorCode VecRestoreArrayReadAndMemType(Vec x,const PetscScalar **a)
 {
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
-  ierr = VecRestoreArrayRead(x,a);CHKERRQ(ierr);
+  PetscValidHeaderSpecific(x,VEC_CLASSID,1);
+  PetscValidType(x,1);
+  if (x->petscnative) { /* VECSTANDARD, VECCUDA, VECKOKKOS, VECVIENNACL etc */
+    /* nothing */
+  } else if (x->ops->restorearrayread) { /* VECNEST */
+    ierr = (*x->ops->restorearrayread)(x,a);CHKERRQ(ierr);
+  } else SETERRQ1(PetscObjectComm((PetscObject)x),PETSC_ERR_SUP,"Cannot restore array read in place for vector type \"%s\"",((PetscObject)x)->type_name);
+  if (a) *a = NULL;
   PetscFunctionReturn(0);
 }
 
@@ -2048,7 +2109,7 @@ PetscErrorCode  VecPlaceArray(Vec vec,const PetscScalar array[])
    with the old array.
 
    The memory passed in MUST be obtained with PetscMalloc() and CANNOT be
-   freed by the user. It will be freed when the vector is destroy.
+   freed by the user. It will be freed when the vector is destroyed.
 
    Not supported from Fortran
 
@@ -2106,17 +2167,15 @@ PetscErrorCode  VecReplaceArray(Vec vec,const PetscScalar array[])
 @*/
 PETSC_EXTERN PetscErrorCode VecCUDAGetArray(Vec v, PetscScalar **a)
 {
-#if defined(PETSC_HAVE_CUDA)
-  PetscErrorCode ierr;
-#endif
-
   PetscFunctionBegin;
   PetscCheckTypeNames(v,VECSEQCUDA,VECMPICUDA);
-#if defined(PETSC_HAVE_CUDA)
-  *a   = 0;
-  ierr = VecCUDACopyToGPU(v);CHKERRQ(ierr);
-  *a   = ((Vec_CUDA*)v->spptr)->GPUarray;
-#endif
+ #if defined(PETSC_HAVE_CUDA)
+  {
+    PetscErrorCode ierr;
+    ierr = VecCUDACopyToGPU(v);CHKERRQ(ierr);
+    *a   = ((Vec_CUDA*)v->spptr)->GPUarray;
+  }
+ #endif
   PetscFunctionReturn(0);
 }
 
@@ -2148,7 +2207,6 @@ PETSC_EXTERN PetscErrorCode VecCUDARestoreArray(Vec v, PetscScalar **a)
 #if defined(PETSC_HAVE_CUDA)
   v->offloadmask = PETSC_OFFLOAD_GPU;
 #endif
-
   ierr = PetscObjectStateIncrease((PetscObject)v);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -2184,20 +2242,12 @@ PETSC_EXTERN PetscErrorCode VecCUDARestoreArray(Vec v, PetscScalar **a)
 
 .seealso: VecCUDARestoreArrayRead(), VecCUDAGetArray(), VecCUDAGetArrayWrite(), VecGetArray(), VecGetArrayRead()
 @*/
-PETSC_EXTERN PetscErrorCode VecCUDAGetArrayRead(Vec v, const PetscScalar **a)
+PETSC_EXTERN PetscErrorCode VecCUDAGetArrayRead(Vec v,const PetscScalar** a)
 {
-#if defined(PETSC_HAVE_CUDA)
-  PetscErrorCode ierr;
-#endif
-
-  PetscFunctionBegin;
-  PetscCheckTypeNames(v,VECSEQCUDA,VECMPICUDA);
-#if defined(PETSC_HAVE_CUDA)
-  *a   = 0;
-  ierr = VecCUDACopyToGPU(v);CHKERRQ(ierr);
-  *a   = ((Vec_CUDA*)v->spptr)->GPUarray;
-#endif
-  PetscFunctionReturn(0);
+   PetscErrorCode ierr;
+   PetscFunctionBegin;
+   ierr = VecCUDAGetArray(v,(PetscScalar**)a);CHKERRQ(ierr);
+   PetscFunctionReturn(0);
 }
 
 /*@C
@@ -2259,17 +2309,15 @@ PETSC_EXTERN PetscErrorCode VecCUDARestoreArrayRead(Vec v, const PetscScalar **a
 @*/
 PETSC_EXTERN PetscErrorCode VecCUDAGetArrayWrite(Vec v, PetscScalar **a)
 {
-#if defined(PETSC_HAVE_CUDA)
-  PetscErrorCode ierr;
-#endif
-
   PetscFunctionBegin;
   PetscCheckTypeNames(v,VECSEQCUDA,VECMPICUDA);
-#if defined(PETSC_HAVE_CUDA)
-  *a   = 0;
-  ierr = VecCUDAAllocateCheck(v);CHKERRQ(ierr);
-  *a   = ((Vec_CUDA*)v->spptr)->GPUarray;
-#endif
+ #if defined(PETSC_HAVE_CUDA)
+  {
+    PetscErrorCode ierr;
+    ierr = VecCUDAAllocateCheck(v);CHKERRQ(ierr);
+    *a   = ((Vec_CUDA*)v->spptr)->GPUarray;
+  }
+ #endif
   PetscFunctionReturn(0);
 }
 
@@ -2298,10 +2346,10 @@ PETSC_EXTERN PetscErrorCode VecCUDARestoreArrayWrite(Vec v, PetscScalar **a)
 
   PetscFunctionBegin;
   PetscCheckTypeNames(v,VECSEQCUDA,VECMPICUDA);
-#if defined(PETSC_HAVE_CUDA)
+ #if defined(PETSC_HAVE_CUDA)
   v->offloadmask = PETSC_OFFLOAD_GPU;
-#endif
-
+  a              = NULL;
+ #endif
   ierr = PetscObjectStateIncrease((PetscObject)v);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -2327,7 +2375,7 @@ PETSC_EXTERN PetscErrorCode VecCUDARestoreArrayWrite(Vec v, PetscScalar **a)
 .seealso: VecPlaceArray(), VecGetArray(), VecRestoreArray(), VecReplaceArray(), VecResetArray(), VecCUDAResetArray(), VecCUDAReplaceArray()
 
 @*/
-PetscErrorCode VecCUDAPlaceArray(Vec vin,PetscScalar *a)
+PetscErrorCode VecCUDAPlaceArray(Vec vin,const PetscScalar a[])
 {
   PetscErrorCode ierr;
 
@@ -2337,7 +2385,7 @@ PetscErrorCode VecCUDAPlaceArray(Vec vin,PetscScalar *a)
   ierr = VecCUDACopyToGPU(vin);CHKERRQ(ierr);
   if (((Vec_Seq*)vin->data)->unplacedarray) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"VecCUDAPlaceArray()/VecPlaceArray() was already called on this vector, without a call to VecCUDAResetArray()/VecResetArray()");
   ((Vec_Seq*)vin->data)->unplacedarray  = (PetscScalar *) ((Vec_CUDA*)vin->spptr)->GPUarray; /* save previous GPU array so reset can bring it back */
-  ((Vec_CUDA*)vin->spptr)->GPUarray = a;
+  ((Vec_CUDA*)vin->spptr)->GPUarray = (PetscScalar*)a;
   vin->offloadmask = PETSC_OFFLOAD_GPU;
 #endif
   ierr = PetscObjectStateIncrease((PetscObject)vin);CHKERRQ(ierr);
@@ -2369,7 +2417,7 @@ PetscErrorCode VecCUDAPlaceArray(Vec vin,PetscScalar *a)
 .seealso: VecGetArray(), VecRestoreArray(), VecPlaceArray(), VecResetArray(), VecCUDAResetArray(), VecCUDAPlaceArray(), VecReplaceArray()
 
 @*/
-PetscErrorCode VecCUDAReplaceArray(Vec vin,PetscScalar *a)
+PetscErrorCode VecCUDAReplaceArray(Vec vin,const PetscScalar a[])
 {
 #if defined(PETSC_HAVE_CUDA)
   cudaError_t err;
@@ -2380,7 +2428,7 @@ PetscErrorCode VecCUDAReplaceArray(Vec vin,PetscScalar *a)
   PetscCheckTypeNames(vin,VECSEQCUDA,VECMPICUDA);
 #if defined(PETSC_HAVE_CUDA)
   err = cudaFree(((Vec_CUDA*)vin->spptr)->GPUarray);CHKERRCUDA(err);
-  ((Vec_CUDA*)vin->spptr)->GPUarray = a;
+  ((Vec_CUDA*)vin->spptr)->GPUarray = (PetscScalar*)a;
   vin->offloadmask = PETSC_OFFLOAD_GPU;
 #endif
   ierr = PetscObjectStateIncrease((PetscObject)vin);CHKERRQ(ierr);
@@ -2416,9 +2464,6 @@ PetscErrorCode VecCUDAResetArray(Vec vin)
   ierr = PetscObjectStateIncrease((PetscObject)vin);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
-
-
-
 
 /*MC
     VecDuplicateVecsF90 - Creates several vectors of the same type as an existing vector

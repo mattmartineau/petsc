@@ -18,6 +18,7 @@
 #define VecType character*(80)
 #define VecOperation PetscEnum
 #define VecTaggerCDFMethod PetscEnum
+#define PetscOffloadMask PetscEnum
 
 #define VECSEQ 'seq'
 #define VECMPI 'mpi'
@@ -27,6 +28,10 @@
 #define VECMPIVIENNACL 'mpiviennacl'
 #define VECVIENNACL    'viennacl'
 #define VECNEST 'nest'
+#define VECSEQCUDA 'seqcuda'
+#define VECMPICUDA 'mpicuda'
+#define VECCUDA 'cuda'
+#define VECNODE 'node'
 
 #define VecScatterType character*(80)
 

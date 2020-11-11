@@ -77,13 +77,18 @@ static PetscErrorCode ISGetIndices_Block(IS in,const PetscInt *idx[])
   n   /= bs;
   if (bs == 1) *idx = sub->idx;
   else {
-    ierr = PetscMalloc1(bs*n,&jj);CHKERRQ(ierr);
-    *idx = jj;
-    k    = 0;
-    ii   = sub->idx;
-    for (i=0; i<n; i++)
-      for (j=0; j<bs; j++)
-        jj[k++] = bs*ii[i] + j;
+    if (n) {
+      ierr = PetscMalloc1(bs*n,&jj);CHKERRQ(ierr);
+      *idx = jj;
+      k    = 0;
+      ii   = sub->idx;
+      for (i=0; i<n; i++)
+        for (j=0; j<bs; j++)
+          jj[k++] = bs*ii[i] + j;
+    } else {
+      /* do not malloc for zero size because F90Array1dCreate() inside ISRestoreArrayF90() does not keep array when zero length array */
+      *idx = NULL;
+    }
   }
   PetscFunctionReturn(0);
 }
@@ -99,7 +104,8 @@ static PetscErrorCode ISRestoreIndices_Block(IS is,const PetscInt *idx[])
   if (bs != 1) {
     ierr = PetscFree(*(void**)idx);CHKERRQ(ierr);
   } else {
-    if (*idx != sub->idx) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Must restore with value from ISGetIndices()");
+    /* F90Array1dCreate() inside ISRestoreArrayF90() does not keep array when zero length array */
+    if (is->map->n > 0  && *idx != sub->idx) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Must restore with value from ISGetIndices()");
   }
   PetscFunctionReturn(0);
 }
@@ -130,13 +136,14 @@ static PetscErrorCode ISView_Block(IS is, PetscViewer viewer)
   IS_Block       *sub = (IS_Block*)is->data;
   PetscErrorCode ierr;
   PetscInt       i,bs,n,*idx = sub->idx;
-  PetscBool      iascii;
+  PetscBool      iascii,ibinary;
 
   PetscFunctionBegin;
   ierr = PetscLayoutGetBlockSize(is->map, &bs);CHKERRQ(ierr);
   ierr = PetscLayoutGetLocalSize(is->map, &n);CHKERRQ(ierr);
   n   /= bs;
   ierr = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&iascii);CHKERRQ(ierr);
+  ierr = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERBINARY,&ibinary);CHKERRQ(ierr);
   if (iascii) {
     PetscViewerFormat fmt;
 
@@ -170,6 +177,8 @@ static PetscErrorCode ISView_Block(IS is, PetscViewer viewer)
       ierr = PetscViewerFlush(viewer);CHKERRQ(ierr);
       ierr = PetscViewerASCIIPopSynchronized(viewer);CHKERRQ(ierr);
     }
+  } else if (ibinary) {
+    ierr = ISView_Binary(is,viewer);CHKERRQ(ierr);
   }
   PetscFunctionReturn(0);
 }
@@ -183,7 +192,7 @@ static PetscErrorCode ISSort_Block(IS is)
   PetscFunctionBegin;
   ierr = PetscLayoutGetBlockSize(is->map, &bs);CHKERRQ(ierr);
   ierr = PetscLayoutGetLocalSize(is->map, &n);CHKERRQ(ierr);
-  ierr = PetscSortInt(n/bs,sub->idx);CHKERRQ(ierr);
+  ierr = PetscIntSortSemiOrdered(n/bs,sub->idx);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -251,7 +260,7 @@ static PetscErrorCode ISUniqueLocal_Block(IS is,PetscBool *flg)
   if (!sortedLocal) {
     ierr = PetscMalloc1(n, &idxcopy);CHKERRQ(ierr);
     ierr = PetscArraycpy(idxcopy, idx, n);CHKERRQ(ierr);
-    ierr = PetscSortInt(n, idxcopy);CHKERRQ(ierr);
+    ierr = PetscIntSortSemiOrdered(n, idxcopy);CHKERRQ(ierr);
     idx = idxcopy;
   }
   for (i = 1; i < n; i++) if (idx[i] == idx[i - 1]) break;
@@ -277,7 +286,7 @@ static PetscErrorCode ISPermutationLocal_Block(IS is,PetscBool *flg)
   if (!sortedLocal) {
     ierr = PetscMalloc1(n, &idxcopy);CHKERRQ(ierr);
     ierr = PetscArraycpy(idxcopy, idx, n);CHKERRQ(ierr);
-    ierr = PetscSortInt(n, idxcopy);CHKERRQ(ierr);
+    ierr = PetscIntSortSemiOrdered(n, idxcopy);CHKERRQ(ierr);
     idx = idxcopy;
   }
   for (i = 0; i < n; i++) if (idx[i] != i) break;
@@ -355,6 +364,7 @@ static PetscErrorCode ISSetBlockSize_Block(IS is,PetscInt bs)
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
+  if (is->map->bs > 0 && bs != is->map->bs) SETERRQ2(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"Cannot change blocksize %D (to %D) if ISType is ISBLOCK",is->map->bs,bs);
   ierr = PetscLayoutSetBlockSize(is->map, bs);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -397,7 +407,7 @@ static struct _ISOps myops = { ISGetIndices_Block,
                                ISToGeneral_Block,
                                ISOnComm_Block,
                                ISSetBlockSize_Block,
-                               0,
+                               NULL,
                                ISLocate_Block,
                                /* we can have specialized local routines for determining properties,
                                 * but unless the block size is the same on each process (which is not guaranteed at

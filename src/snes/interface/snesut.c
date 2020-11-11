@@ -65,7 +65,7 @@ PetscErrorCode  SNESMonitorResidual(SNES snes,PetscInt its,PetscReal fgnorm,Pets
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,4);
-  ierr = SNESGetFunction(snes,&x,0,0);CHKERRQ(ierr);
+  ierr = SNESGetFunction(snes,&x,NULL,NULL);CHKERRQ(ierr);
   ierr = PetscViewerPushFormat(viewer,vf->format);CHKERRQ(ierr);
   ierr = VecView(x,viewer);CHKERRQ(ierr);
   ierr = PetscViewerPopFormat(viewer);CHKERRQ(ierr);
@@ -287,7 +287,7 @@ PetscErrorCode  SNESMonitorDefault(SNES snes,PetscInt its,PetscReal fgnorm,Petsc
   ierr = PetscViewerASCIIAddTab(viewer,((PetscObject)snes)->tablevel);CHKERRQ(ierr);
   ierr = PetscViewerASCIIPrintf(viewer,"%3D SNES Function norm %14.12e \n",its,(double)fgnorm);CHKERRQ(ierr);
   ierr = PetscViewerASCIISubtractTab(viewer,((PetscObject)snes)->tablevel);CHKERRQ(ierr);
-  ierr = PetscViewerPopFormat(viewer);CHKERRQ(ierr) ;
+  ierr = PetscViewerPopFormat(viewer);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -328,16 +328,14 @@ PetscErrorCode  SNESMonitorScaling(SNES snes,PetscInt its,PetscReal fgnorm,Petsc
   ierr = PetscViewerASCIIPrintf(viewer,"%3D SNES Jacobian maximum row entries \n");CHKERRQ(ierr);
   ierr = VecView(v,viewer);CHKERRQ(ierr);
   ierr = PetscViewerASCIISubtractTab(viewer,((PetscObject)snes)->tablevel);CHKERRQ(ierr);
-  ierr = PetscViewerPopFormat(viewer);CHKERRQ(ierr) ;
+  ierr = PetscViewerPopFormat(viewer);CHKERRQ(ierr);
   ierr = VecDestroy(&v);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
 PetscErrorCode SNESMonitorJacUpdateSpectrum(SNES snes,PetscInt it,PetscReal fnorm,PetscViewerAndFormat *vf)
 {
-#if defined(PETSC_MISSING_LAPACK_GEEV)
-  SETERRQ(PetscObjectComm((PetscObject)snes),PETSC_ERR_SUP,"GEEV - Lapack routine is unavailable\nNot able to provide eigen values.");
-#elif defined(PETSC_HAVE_ESSL)
+#if defined(PETSC_HAVE_ESSL)
   SETERRQ(PetscObjectComm((PetscObject)snes),PETSC_ERR_SUP,"GEEV - No support for ESSL Lapack Routines");
 #else
   Vec            X;
@@ -345,7 +343,7 @@ PetscErrorCode SNESMonitorJacUpdateSpectrum(SNES snes,PetscInt it,PetscReal fnor
   PetscErrorCode ierr;
   PetscErrorCode (*func)(SNES,Vec,Mat,Mat,void*);
   PetscInt       n,i;
-  PetscBLASInt   nb,lwork;
+  PetscBLASInt   nb = 0,lwork;
   PetscReal      *eigr,*eigi;
   PetscScalar    *work;
   PetscScalar    *a;
@@ -404,7 +402,7 @@ PetscErrorCode  SNESMonitorRange_Private(SNES snes,PetscInt it,PetscReal *per)
   PetscScalar    *r;
 
   PetscFunctionBegin;
-  ierr  = SNESGetFunction(snes,&resid,0,0);CHKERRQ(ierr);
+  ierr  = SNESGetFunction(snes,&resid,NULL,NULL);CHKERRQ(ierr);
   ierr  = VecNorm(resid,NORM_INFINITY,&rmax);CHKERRQ(ierr);
   ierr  = VecGetLocalSize(resid,&n);CHKERRQ(ierr);
   ierr  = VecGetSize(resid,&N);CHKERRQ(ierr);
@@ -615,8 +613,8 @@ PetscErrorCode SNESMonitorDefaultField(SNES snes, PetscInt its, PetscReal fgnorm
 }
 /* ---------------------------------------------------------------- */
 /*@C
-   SNESConvergedDefault - Convergence test of the solvers for
-   systems of nonlinear equations (default).
+   SNESConvergedDefault - Default onvergence test of the solvers for
+   systems of nonlinear equations.
 
    Collective on SNES
 
@@ -636,18 +634,28 @@ $  SNES_CONVERGED_FNORM_RELATIVE  - (fnorm < rtol*fnorm0),
 $  SNES_DIVERGED_FUNCTION_COUNT   - (nfct > maxf),
 $  SNES_DIVERGED_FNORM_NAN        - (fnorm == NaN),
 $  SNES_CONVERGED_ITERATING       - (otherwise),
+$  SNES_DIVERGED_DTOL             - (fnorm > divtol*snes->fnorm0)
 
    where
-+    maxf - maximum number of function evaluations,
-            set with SNESSetTolerances()
++    maxf - maximum number of function evaluations,  set with SNESSetTolerances()
 .    nfct - number of function evaluations,
-.    abstol - absolute function norm tolerance,
-            set with SNESSetTolerances()
--    rtol - relative function norm tolerance, set with SNESSetTolerances()
+.    abstol - absolute function norm tolerance, set with SNESSetTolerances()
+.    rtol - relative function norm tolerance, set with SNESSetTolerances()
+.    divtol - divergence tolerance, set with SNESSetDivergenceTolerance()
+-    fnorm0 - 2-norm of the function at the initial solution (initial guess; zeroth iteration)
+
+  Options Database Keys:
++  -snes_stol - convergence tolerance in terms of the norm  of the change in the solution between steps
+.  -snes_atol <abstol> - absolute tolerance of residual norm
+.  -snes_rtol <rtol> - relative decrease in tolerance norm from the initial 2-norm of the solution
+.  -snes_divergence_tolerance <divtol> - if the residual goes above divtol*rnorm0, exit with divergence
+.  -snes_max_funcs <max_funcs> - maximum number of function evaluations
+.  -snes_max_fail <max_fail> - maximum number of line search failures allowed before stopping, default is none
+-  -snes_max_linear_solve_fail - number of linear solver failures before SNESSolve() stops
 
    Level: intermediate
 
-.seealso: SNESSetConvergenceTest()
+.seealso: SNESSetConvergenceTest(), SNESConvergedSkip(), SNESSetTolerances(), SNESSetDivergenceTolerance()
 @*/
 PetscErrorCode  SNESConvergedDefault(SNES snes,PetscInt it,PetscReal xnorm,PetscReal snorm,PetscReal fnorm,SNESConvergedReason *reason,void *dummy)
 {
@@ -713,7 +721,7 @@ PetscErrorCode  SNESConvergedDefault(SNES snes,PetscInt it,PetscReal xnorm,Petsc
 
    Level: advanced
 
-.seealso: SNESSetConvergenceTest()
+.seealso: SNESConvergedDefault(), SNESSetConvergenceTest()
 @*/
 PetscErrorCode  SNESConvergedSkip(SNES snes,PetscInt it,PetscReal xnorm,PetscReal snorm,PetscReal fnorm,SNESConvergedReason *reason,void *dummy)
 {

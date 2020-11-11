@@ -17,6 +17,7 @@ struct _n_DSBoundary {
   PetscInt    numcomps;
   PetscInt   *comps;
   void      (*func)(void);
+  void      (*func_t)(void);
   PetscInt    numids;
   PetscInt   *ids;
   void       *ctx;
@@ -51,39 +52,42 @@ struct _p_PetscDS {
   PetscPointJac        *gt;            /* Weak form integrands for dF/du_t, g_0, g_1, g_2, g_3 */
   PetscBdPointFunc     *fBd;           /* Weak form boundary integrands F_bd, f_0, f_1 */
   PetscBdPointJac      *gBd;           /* Weak form boundary integrands J_bd = dF_bd/du, g_0, g_1, g_2, g_3 */
+  PetscBdPointJac      *gpBd;          /* Weak form integrands for preconditioner for J_bd, g_0, g_1, g_2, g_3 */
   PetscRiemannFunc     *r;             /* Riemann solvers */
   PetscPointFunc       *update;        /* Direct update of field coefficients */
   PetscSimplePointFunc *exactSol;      /* Exact solutions for each field */
   void                **exactCtx;      /* Contexts for the exact solution functions */
+  PetscSimplePointFunc *exactSol_t;    /* Time derivative of the exact solutions for each field */
+  void                **exactCtx_t;    /* Contexts for the time derivative of the exact solution functions */
   PetscInt              numConstants;  /* Number of constants passed to point functions */
   PetscScalar          *constants;     /* Array of constants passed to point functions */
   void                 **ctx;          /* User contexts for each field */
   /* Computed sizes */
-  PetscInt     totDim;            /* Total system dimension */
-  PetscInt     totComp;           /* Total field components */
-  PetscInt    *Nc;                /* Number of components for each field */
-  PetscInt    *Nb;                /* Number of basis functions for each field */
-  PetscInt    *off;               /* Offsets for each field */
-  PetscInt    *offDer;            /* Derivative offsets for each field */
-  PetscReal  **basis;             /* Default basis tabulation for each field */
-  PetscReal  **basisDer;          /* Default basis derivative tabulation for each field */
-  PetscReal  **basisFace;         /* Basis tabulation for each local face and field */
-  PetscReal  **basisDerFace;      /* Basis derivative tabulation for each local face and field */
+  PetscInt         totDim;             /* Total system dimension */
+  PetscInt         totComp;            /* Total field components */
+  PetscInt        *Nc;                 /* Number of components for each field */
+  PetscInt        *Nb;                 /* Number of basis functions for each field */
+  PetscInt        *off;                /* Offsets for each field */
+  PetscInt        *offDer;             /* Derivative offsets for each field */
+  PetscTabulation *T;                  /* Basis function and derivative tabulation for each field */
+  PetscTabulation *Tf;                 /* Basis function and derivative tabulation for each local face and field */
   /* Work space */
-  PetscScalar *u;                 /* Field evaluation */
-  PetscScalar *u_t;               /* Field time derivative evaluation */
-  PetscScalar *u_x;               /* Field gradient evaluation */
-  PetscScalar *basisReal;         /* Workspace for pushforward */
-  PetscScalar *basisDerReal;      /* Workspace for derivative pushforward */
-  PetscScalar *testReal;          /* Workspace for pushforward */
-  PetscScalar *testDerReal;       /* Workspace for derivative pushforward */
-  PetscReal   *x;                 /* Workspace for computing real coordinates */
-  PetscScalar *f0, *f1;           /* Point evaluations of weak form residual integrands */
-  PetscScalar *g0, *g1, *g2, *g3; /* Point evaluations of weak form Jacobian integrands */
+  PetscScalar *u;                      /* Field evaluation */
+  PetscScalar *u_t;                    /* Field time derivative evaluation */
+  PetscScalar *u_x;                    /* Field gradient evaluation */
+  PetscScalar *basisReal;              /* Workspace for pushforward */
+  PetscScalar *basisDerReal;           /* Workspace for derivative pushforward */
+  PetscScalar *testReal;               /* Workspace for pushforward */
+  PetscScalar *testDerReal;            /* Workspace for derivative pushforward */
+  PetscReal   *x;                      /* Workspace for computing real coordinates */
+  PetscScalar *f0, *f1;                /* Point evaluations of weak form residual integrands */
+  PetscScalar *g0, *g1, *g2, *g3;      /* Point evaluations of weak form Jacobian integrands */
 };
 
 typedef struct {
   PetscInt dummy; /* */
 } PetscDS_Basic;
+
+PETSC_INTERN PetscErrorCode PetscDSGetDiscType_Internal(PetscDS, PetscInt, PetscDiscType *);
 
 #endif

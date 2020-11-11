@@ -18,6 +18,9 @@ configure_options = [
   '--with-scalar-type=complex',
   '--with-64-bit-indices=1',
 
+  '--with-log=0',
+  '--with-info=0',  
+
   '--download-hypre=1',
   '--download-mpich=1',
   '--download-cmake=1',
@@ -25,6 +28,7 @@ configure_options = [
   '--download-metis=1',
   '--download-parmetis=1',
   '--download-pastix=1',
+  '--download-hwloc',
   '--download-ptscotch=1',
   '--download-superlu_dist=1',
   '--download-elemental=1',

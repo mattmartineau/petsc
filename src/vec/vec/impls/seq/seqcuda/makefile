@@ -4,9 +4,9 @@ ALL: lib
 CFLAGS   =
 FFLAGS   =
 SOURCEC  = veccuda.c
-SOURCECU = veccuda2.cu vecscattercuda.cu
+SOURCECU = veccuda2.cu
 SOURCEF  =
-SOURCEH  = cudavecimpl.h
+SOURCEH  = ../../../../../../include/petsc/private/cudavecimpl.h
 LIBBASE  = libpetscvec
 MANSEC   = Vec
 LOCDIR   = src/vec/vec/impls/seq/seqcuda/

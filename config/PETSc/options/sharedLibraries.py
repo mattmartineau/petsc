@@ -11,13 +11,8 @@ class Configure(config.base.Configure):
     return
 
   def __str1__(self):
-    if not hasattr(self, 'useShared'):
-      return ''
-    txt = ''
-    if self.useShared:
-      txt += '  shared libraries: enabled\n'
-    else:
-      txt += '  shared libraries: disabled\n'
+    txt =  '  Single library: %s\n' % ('yes' if self.framework.argDB['with-single-library'] else 'no')
+    txt += '  Shared libraries: %s\n' % ('yes' if self.useShared else 'no')
     return txt
 
   def setupHelp(self, help):
@@ -74,6 +69,7 @@ class Configure(config.base.Configure):
       elif self.setCompilers.CC.find('win32fe') >=0:
         self.addMakeMacro('SONAME_FUNCTION', '$(1).dll')
         self.addMakeMacro('SL_LINKER_FUNCTION', '-LD')
+        self.addMakeMacro('PETSC_DLL_EXPORTS', '1')
       else:
         # TODO: check that -Wl,-soname,${LIBNAME}.${SL_LINKER_SUFFIX} can be passed (might fail on Intel)
         # TODO: check whether to use -qmkshrobj or -shared (maybe we can just use self.setCompilers.sharedLibraryFlags)
@@ -81,6 +77,8 @@ class Configure(config.base.Configure):
         self.addMakeRule('shared_arch','shared_linux')
         self.addMakeMacro('SONAME_FUNCTION', '$(1).so.$(2)')
         self.addMakeMacro('SL_LINKER_FUNCTION', '-shared -Wl,-soname,$(call SONAME_FUNCTION,$(notdir $(1)),$(2))')
+        if config.setCompilers.Configure.isMINGW(self.framework.getCompiler(),self.log):
+          self.addMakeMacro('PETSC_DLL_EXPORTS', '1')
       self.addMakeMacro('BUILDSHAREDLIB','yes')
     else:
       self.addMakeRule('shared_arch','')

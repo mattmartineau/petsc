@@ -132,6 +132,8 @@ def main():
         'changes/310.html',
         'changes/311.html',
         'changes/312.html',
+        'changes/313.html',
+        'changes/314.html',
         'changes/dev.html',
         'changes/index.html',
         'installation.html']

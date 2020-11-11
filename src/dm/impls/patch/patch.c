@@ -50,12 +50,13 @@ PetscErrorCode DMPatchZoom(DM dm, Vec X, MatStencil lower, MatStencil upper, MPI
   PetscInt        dim, dof;
   PetscInt        M, N, P, rM, rN, rP, halo = 1, sxb, syb, szb, sxr, syr, szr, exr, eyr, ezr, mxb, myb, mzb, i, j, k, q;
   PetscMPIInt     size;
+  PetscBool       patchis_offproc = PETSC_TRUE;
   PetscErrorCode  ierr;
 
   PetscFunctionBegin;
   ierr = MPI_Comm_size(PetscObjectComm((PetscObject)dm), &size);CHKERRQ(ierr);
   /* Create patch DM */
-  ierr = DMDAGetInfo(dm, &dim, &M, &N, &P, 0,0,0, &dof, 0,0,0,0, &st);CHKERRQ(ierr);
+  ierr = DMDAGetInfo(dm, &dim, &M, &N, &P, NULL,NULL,NULL, &dof, NULL,NULL,NULL,NULL, &st);CHKERRQ(ierr);
 
   /* Get piece for rank r, expanded by halo */
   bupper.i = PetscMin(M, upper.i + halo); blower.i = PetscMax(lower.i - halo, 0);
@@ -96,7 +97,7 @@ PetscErrorCode DMPatchZoom(DM dm, Vec X, MatStencil lower, MatStencil upper, MPI
   loclower.j = blower.j + syr; locupper.j = blower.j + eyr;
   loclower.k = blower.k + szr; locupper.k = blower.k + ezr;
 
-  ierr = DMDACreatePatchIS(dm, &loclower, &locupper, &is);CHKERRQ(ierr);
+  ierr = DMDACreatePatchIS(dm, &loclower, &locupper, &is, patchis_offproc);CHKERRQ(ierr);
   ierr = ISGetIndices(is, &indices);CHKERRQ(ierr);
 
   q = 0;
@@ -129,7 +130,7 @@ PetscErrorCode DMPatchZoom(DM dm, Vec X, MatStencil lower, MatStencil upper, MPI
   loclower.j = blower.j + syb; locupper.j = blower.j + syb+myb;
   loclower.k = blower.k + szb; locupper.k = blower.k + szb+mzb;
 
-  ierr = DMDACreatePatchIS(dm, &loclower, &locupper, &is);CHKERRQ(ierr);
+  ierr = DMDACreatePatchIS(dm, &loclower, &locupper, &is, patchis_offproc);CHKERRQ(ierr);
   ierr = ISGetIndices(is, &indices);CHKERRQ(ierr);
 
   q = 0;
@@ -171,7 +172,7 @@ PetscErrorCode DMPatchSolve(DM dm)
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
-  ierr = PetscObjectGetComm((PetscObject)dm,&comm);CHKERRQ(ierr);  
+  ierr = PetscObjectGetComm((PetscObject)dm,&comm);CHKERRQ(ierr);
   ierr = MPI_Comm_rank(comm, &rank);CHKERRQ(ierr);
   ierr = MPI_Comm_size(comm, &size);CHKERRQ(ierr);
   ierr = DMPatchGetCoarse(dm, &dmc);CHKERRQ(ierr);
@@ -179,7 +180,7 @@ PetscErrorCode DMPatchSolve(DM dm)
   ierr = DMPatchGetCommSize(dm, &commSize);CHKERRQ(ierr);
   ierr = DMPatchGetCommSize(dm, &commSize);CHKERRQ(ierr);
   ierr = DMGetGlobalVector(dmc, &XC);CHKERRQ(ierr);
-  ierr = DMDAGetInfo(dmc, 0, &M, &N, &P, &l, &m, &n, 0,0,0,0,0,0);CHKERRQ(ierr);
+  ierr = DMDAGetInfo(dmc, NULL, &M, &N, &P, &l, &m, &n, NULL,NULL,NULL,NULL,NULL,NULL);CHKERRQ(ierr);
   M    = PetscMax(M, 1); l = PetscMax(l, 1);
   N    = PetscMax(N, 1); m = PetscMax(m, 1);
   P    = PetscMax(P, 1); n = PetscMax(n, 1);

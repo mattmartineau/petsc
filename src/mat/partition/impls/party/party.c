@@ -42,6 +42,7 @@ static PetscErrorCode MatPartitioningApply_Party(MatPartitioning part,IS *partit
 #endif
 
   PetscFunctionBegin;
+  if (part->use_edge_weights) SETERRQ(PetscObjectComm((PetscObject)part),PETSC_ERR_SUP,"Party does not support edge weights");
   ierr = MPI_Comm_size(PetscObjectComm((PetscObject)mat),&size);CHKERRQ(ierr);
   ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)mat),&rank);CHKERRQ(ierr);
   ierr = PetscObjectTypeCompare((PetscObject)mat,MATMPIADJ,&flg);CHKERRQ(ierr);
@@ -361,9 +362,9 @@ PetscErrorCode MatPartitioningSetFromOptions_Party(PetscOptionItems *PetscOption
 
   PetscFunctionBegin;
   ierr = PetscOptionsHead(PetscOptionsObject,"Set Party partitioning options");CHKERRQ(ierr);
-  ierr = PetscOptionsString("-mat_partitioning_party_global","Global method","MatPartitioningPartySetGlobal",party->global,value,256,&flag);CHKERRQ(ierr);
+  ierr = PetscOptionsString("-mat_partitioning_party_global","Global method","MatPartitioningPartySetGlobal",party->global,value,sizeof(value),&flag);CHKERRQ(ierr);
   if (flag) { ierr = MatPartitioningPartySetGlobal(part,value);CHKERRQ(ierr); }
-  ierr = PetscOptionsString("-mat_partitioning_party_local","Local method","MatPartitioningPartySetLocal",party->local,value,256,&flag);CHKERRQ(ierr);
+  ierr = PetscOptionsString("-mat_partitioning_party_local","Local method","MatPartitioningPartySetLocal",party->local,value,sizeof(value),&flag);CHKERRQ(ierr);
   if (flag) { ierr = MatPartitioningPartySetLocal(part,value);CHKERRQ(ierr); }
   ierr = PetscOptionsReal("-mat_partitioning_party_coarse","Coarse level","MatPartitioningPartySetCoarseLevel",0.0,&r,&flag);CHKERRQ(ierr);
   if (flag) { ierr = MatPartitioningPartySetCoarseLevel(part,r);CHKERRQ(ierr); }
@@ -397,6 +398,8 @@ PetscErrorCode MatPartitioningDestroy_Party(MatPartitioning part)
 
    Notes:
     See http://wwwcs.upb.de/fachbereich/AG/monien/RESEARCH/PART/party.html
+
+    Does not support using MatPartitioningSetUseEdgeWeights()
 
 .seealso: MatPartitioningSetType(), MatPartitioningType
 

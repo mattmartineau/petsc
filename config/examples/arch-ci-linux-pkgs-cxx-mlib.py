@@ -33,11 +33,15 @@ configure_options = [
   '--download-adios=1',
   '--with-zlib=1',
   '--download-szlib=1',
+  '--download-zstd=1',
   '--download-moab=1',
   '--download-petsc4py=1',
   '--download-mpi4py=1',
   '--download-saws',
+  '--download-egads',
   '--package-prefix-hash='+petsc_hash_pkgs,
+  '--download-adolc',
+  '--download-colpack',
   ]
 
 if __name__ == '__main__':

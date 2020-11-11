@@ -6,6 +6,7 @@ TIMEOUT=60
 
 if test "$PWD"!=`dirname $0`; then
   cd `dirname $0`
+  abspath_scriptdir=$PWD
 fi
 if test -d "${rundir}" && test -n "${rundir}"; then
   rm -f ${rundir}/*.tmp ${rundir}/*.err ${rundir}/*.out
@@ -30,7 +31,8 @@ Usage: $0 [options]
 
 OPTIONS
   -a <args> ......... Override default arguments
-  -c <cleanup> ...... Cleanup (remove generated files)
+  -c ................ Cleanup (remove generated files)
+  -C ................ Compile
   -d ................ Launch in debugger
   -e <args> ......... Add extra arguments to default
   -f ................ force attempt to run test that would otherwise be skipped
@@ -41,7 +43,9 @@ OPTIONS
   -m ................ Update results using petscdiff
   -M ................ Update alt files using petscdiff
   -o <arg> .......... Output format: 'interactive', 'err_only'
+  -p ................ Print command:  Print first command and exit
   -t ................ Override the default timeout (default=$TIMEOUT sec)
+  -U ................ run cUda-memcheck
   -V ................ run Valgrind
   -v ................ Verbose: Print commands
 EOF
@@ -55,25 +59,30 @@ EOF
 output_fmt="interactive"
 verbose=false
 cleanup=false
+compile=false
 debugger=false
+printcmd=false
 force=false
 diff_flags=""
-while getopts "a:cde:fhjJ:mMn:o:t:vV" arg
+while getopts "a:cCde:fhjJ:mMn:o:pt:UvV" arg
 do
   case $arg in
     a ) args="$OPTARG"       ;;  
     c ) cleanup=true         ;;  
+    C ) compile=true         ;;  
     d ) debugger=true        ;;  
     e ) extra_args="$OPTARG" ;;  
     f ) force=true           ;;
     h ) print_usage; exit    ;;  
     n ) nsize="$OPTARG"      ;;  
-    j ) diff_flags="-j"      ;;  
-    J ) diff_flags="-J $OPTARG" ;;  
-    m ) diff_flags="-m"      ;;  
-    M ) diff_flags="-M"      ;;  
+    j ) diff_flags=$diff_flags" -j"      ;;  
+    J ) diff_flags=$diff_flags" -J $OPTARG" ;;  
+    m ) diff_flags=$diff_flags" -m"      ;;  
+    M ) diff_flags=$diff_flags" -M"      ;;  
     o ) output_fmt=$OPTARG   ;;  
+    p ) printcmd=true        ;;
     t ) TIMEOUT=$OPTARG      ;;  
+    U ) mpiexec="petsc_mpiexec_cudamemcheck $mpiexec" ;;  
     V ) mpiexec="petsc_mpiexec_valgrind $mpiexec" ;;  
     v ) verbose=true         ;;  
     *)  # To take care of any extra args
@@ -96,6 +105,12 @@ if test -n "$extra_args"; then
 fi
 if $debugger; then
   args="-start_in_debugger $args"
+fi
+if test -n "$filter"; then
+  diff_flags=$diff_flags" -F \$'$filter'"
+fi
+if test -n "$filter_output"; then
+  diff_flags=$diff_flags" -f \$'$filter_output'"
 fi
 
 
@@ -127,26 +142,40 @@ function petsc_report_tapoutput() {
   fi
 }
 
+function printcmd() {
+  # Print command that can be run from PETSC_DIR
+  cmd="$1"
+  basedir=`dirname ${PWD} | sed "s#${petsc_dir}/##"`
+  modcmd=`echo ${cmd} | sed -e "s#\.\.#${basedir}#" | sed s#\>.*##`
+  printf "${modcmd}\n" 
+  exit
+}
+
 function petsc_testrun() {
   # First arg = Basic command
   # Second arg = stdout file
   # Third arg = stderr file
   # Fourth arg = label for reporting
-  # Fifth arg = Filter
   rmfiles="${rmfiles} $2 $3"
   tlabel=$4
-  filter=$5
+  error=$5
   cmd="$1 > $2 2> $3"
-  if test -n "$filter"; then
-    if test "${filter:0:6}"=="Error:"; then
-      filter=${filter##Error:}
-      cmd="$1 2>&1 | cat > $2"
-    fi
+  if test -n "$error"; then
+    cmd="$1 2>&1 | cat > $2"
   fi
   echo "$cmd" > ${tlabel}.sh; chmod 755 ${tlabel}.sh
+  if $printcmd; then
+     printcmd "$cmd"
+  fi
 
   eval "{ time -p $cmd ; } 2>> timing.out"
   cmd_res=$?
+  #  If it is a lack of GPU resources, then try once more
+  #  See: src/sys/error/err.c
+  if [ $cmd_res -eq 96 -o $cmd_res -eq 97 ]; then
+    eval "{ time -p $cmd ; } 2>> timing.out"
+    cmd_res=$?
+  fi
   touch "$2" "$3"
   # ETIMEDOUT=110 on most systems (used by Open MPI 3.0).  MPICH uses
   # 255.  Earlier Open MPI returns 1 but outputs about MPIEXEC_TIMEOUT.
@@ -160,13 +189,6 @@ function petsc_testrun() {
     if [ $cmd_res -eq 0 ]; then
       cmd_res=1
     fi
-  fi
-
-  # Handle filters separately and assume no timeout check needed
-  if test -n "$filter"; then
-    cmd="cat $2 | $filter > $2.tmp 2>> $3 ; mv $2.tmp $2"
-    echo "$cmd" >> ${tlabel}.sh
-    eval "$cmd"
   fi
 
   # Report errors
@@ -191,7 +213,10 @@ function petsc_testrun() {
       # mpi_abort go to stderr which throws this test off.  Show both
       # with stdout first
       awk '{print "#\t" $0}' < $2 | tee -a ${testlogerrfile}
-      awk '{print "#\t" $0}' < $3 | tee -a ${testlogerrfile}
+      # if statement is for diff tests
+      if test "$2" != "$3"; then
+        awk '{print "#\t" $0}' < $3 | tee -a ${testlogerrfile}
+      fi
     fi
     let failed=$failed+1
     failures="$failures $tlabel"
@@ -228,13 +253,34 @@ function petsc_testend() {
   fi
 }
 
+function petsc_mpiexec_cudamemcheck() {
+  _mpiexec=$1;shift
+  npopt=$1;shift
+  np=$1;shift
+
+  cudamemchk="cuda-memcheck"
+
+  $_mpiexec $npopt $np $cudamemchk $*
+}
+export LC_ALL=C
+
+if $compile; then
+    curexec=`basename ${exec}`
+    (cd $petsc_dir && make -f gmakefile.test ${abspath_scriptdir}/${curexec})
+fi
 function petsc_mpiexec_valgrind() {
-  mpiexec=$1;shift
+  _mpiexec=$1;shift
   npopt=$1;shift
   np=$1;shift
 
   valgrind="valgrind -q --tool=memcheck --leak-check=yes --num-callers=20 --track-origins=yes --suppressions=$petsc_bindir/maint/petsc-val.supp --error-exitcode=10"
 
-  $mpiexec $npopt $np $valgrind $*
+  $_mpiexec $npopt $np $valgrind "$@"
 }
 export LC_ALL=C
+
+if $compile; then
+    curexec=`basename ${exec}`
+    (cd $petsc_dir && make -f gmakefile.test ${abspath_scriptdir}/${curexec})
+fi
+

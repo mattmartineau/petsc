@@ -72,6 +72,7 @@ typedef const char* PCType;
 #define PCDEFLATION       "deflation"
 #define PCHPDDM           "hpddm"
 #define PCAMGX            "amgx"
+#define PCHARA            "hara"
 
 /*E
     PCSide - If the preconditioner is to be applied to the left, right
@@ -219,7 +220,7 @@ typedef enum {PC_PARMS_GLOBAL_RAS,PC_PARMS_GLOBAL_SCHUR,PC_PARMS_GLOBAL_BJ} PCPA
 E*/
 typedef enum {PC_PARMS_LOCAL_ILU0,PC_PARMS_LOCAL_ILUK,PC_PARMS_LOCAL_ILUT,PC_PARMS_LOCAL_ARMS} PCPARMSLocalType;
 
-/*E
+/*J
     PCGAMGType - type of generalized algebraic multigrid (PCGAMG) method
 
     Level: intermediate
@@ -229,7 +230,7 @@ $   PCGAMGGEO - geometric coarsening, uses mesh generator to produce coarser mes
 $   PCGAMGCLASSICAL - classical algebraic multigrid preconditioner, incomplete, poorly tested
 
 .seealso: PCMG, PCSetType(), PCGAMGSetThreshold(), PCGAMGSetThreshold(), PCGAMGSetReuseInterpolation()
-E*/
+J*/
 typedef const char *PCGAMGType;
 #define PCGAMGAGG         "agg"
 #define PCGAMGGEO         "geo"
@@ -320,6 +321,15 @@ typedef enum {
 } PCBDDCInterfaceExtType;
 
 /*E
+  PCMGCoarseSpaceType - Function space for coarse space for adaptive interpolation
+
+  Level: beginner
+
+.seealso: PCMGSetAdaptCoarseSpaceType(), PCMG
+E*/
+typedef enum { PCMG_POLYNOMIAL, PCMG_HARMONIC, PCMG_EIGENVECTOR, PCMG_GENERALIZED_EIGENVECTOR } PCMGCoarseSpaceType;
+
+/*E
     PCPatchConstructType - The algorithm used to construct patches for the preconditioner
 
    Level: beginner
@@ -382,7 +392,7 @@ typedef enum { PC_HPDDM_COARSE_CORRECTION_DEFLATED, PC_HPDDM_COARSE_CORRECTION_A
 
     Any additions/changes here MUST also be made in include/petsc/finclude/petscpc.h
 E*/
-typedef enum {PC_NOERROR,PC_FACTOR_STRUCT_ZEROPIVOT,PC_FACTOR_NUMERIC_ZEROPIVOT,PC_FACTOR_OUTMEMORY,PC_FACTOR_OTHER,PC_SUBPC_ERROR} PCFailedReason;
+typedef enum {PC_SETUP_ERROR = -1,PC_NOERROR,PC_FACTOR_STRUCT_ZEROPIVOT,PC_FACTOR_NUMERIC_ZEROPIVOT,PC_FACTOR_OUTMEMORY,PC_FACTOR_OTHER,PC_SUBPC_ERROR} PCFailedReason;
 
 /*E
     PCGAMGLayoutType - Layout for reduced grids

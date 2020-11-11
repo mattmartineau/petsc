@@ -59,7 +59,7 @@ import pickle
 try:
   from hashlib import md5 as new_md5
 except ImportError:
-  from md5 import new as new_md5
+  from md5 import new as new_md5 # novermin
 
 
 class Framework(config.base.Configure, script.LanguageProcessor):
@@ -107,6 +107,7 @@ class Framework(config.base.Configure, script.LanguageProcessor):
     self.createChildren()
     # Create argDB for user specified options only
     self.clArgDB = dict([(nargs.Arg.parseArgument(arg)[0], arg) for arg in self.clArgs])
+    self.defineDict = {}
     return
 
   def __getstate__(self):
@@ -148,7 +149,6 @@ class Framework(config.base.Configure, script.LanguageProcessor):
       self._tmpDir = tempfile.mkdtemp(prefix = 'petsc-')
       if not os.access(self._tmpDir, os.X_OK):
         raise RuntimeError('Cannot execute things in tmp directory '+self._tmpDir+'. Consider setting TMPDIR to something else.')
-      self.logPrint('All intermediate test results are stored in '+self._tmpDir)
     return self._tmpDir
   def setTmpDir(self, temp):
     if hasattr(self, '_tmpDir'):
@@ -192,6 +192,7 @@ class Framework(config.base.Configure, script.LanguageProcessor):
     if not hasattr(self, '_doCleanup'):
       return self.argDB['doCleanup']
     return self._doCleanup
+
   def setCleanup(self, doCleanup):
     self._doCleanup = doCleanup
     return
@@ -207,6 +208,27 @@ class Framework(config.base.Configure, script.LanguageProcessor):
     for child in self.childGraph.vertices:
       if hasattr(child, 'setupHelp'): child.setupHelp(self.help)
     return argDB
+
+  def outputBasics(self):
+    buf = 'Environmental variables'
+    for key,val in os.environ.items():
+      buf += '\n'+str(key)+'='+str(val)
+    self.logPrint(buf)
+    def logPrintFilesInPath(path):
+      for d in path:
+        try:
+          self.logWrite('      '+d+': '+' '.join(os.listdir(d))+'\n')
+        except Exception as e:
+          self.logWrite('      Warning accessing '+d+' gives errors: '+str(e)+'\n')
+      return
+    if os.environ['PATH'].split(os.path.pathsep):
+      self.logWrite('    Files in path provided by default path\n')
+      logPrintFilesInPath(os.environ['PATH'].split(os.path.pathsep))
+    dirs = self.argDB['with-executables-search-path']
+    if not isinstance(dirs, list): dirs = [dirs]
+    if dirs:
+      self.logWrite('    Files in path provided by --with-executables-search-path\n')
+      logPrintFilesInPath(dirs)
 
   def dumpConfFiles(self):
     '''Performs:
@@ -323,7 +345,7 @@ class Framework(config.base.Configure, script.LanguageProcessor):
       self.getChild(moduleName)
     return
 
-  def require(self, moduleName, depChild, keywordArgs = {}):
+  def require(self, moduleName, depChild = None, keywordArgs = {}):
     '''Return a child from moduleName, creating it if necessary and making sure it runs before depChild'''
     config = self.getChild(moduleName, keywordArgs)
     if not config is depChild:
@@ -405,13 +427,14 @@ class Framework(config.base.Configure, script.LanguageProcessor):
 
   def filterPreprocessOutput(self,output, log = None):
     if log is None: log = self.log
-    log.write("Preprocess stderr before filtering:"+output+":\n")
+    log.write("Preprocess stderr before filtering:\n"+output+":\n")
     # Another PGI license warning, multiline so have to discard all
     if output.find('your evaluation license will expire') > -1 and output.lower().find('error') == -1:
       output = ''
     lines = output.splitlines()
     # Intel
     lines = [s for s in lines if s.find("icc: command line remark #10148: option '-i-dynamic' not supported") < 0]
+    lines = [s for s in lines if s.find("[: unexpected operator") < 0]  # Deals with error in mpiicc and mpiicpc wrappers from some versions of Intel MPI.
     # IBM:
     lines = [s for s in lines if not s.startswith('cc_r:')]
     # PGI: Ignore warning about temporary license
@@ -421,8 +444,14 @@ class Framework(config.base.Configure, script.LanguageProcessor):
     lines = [s for s in lines if s.find('INFO: linux target') < 0]
     # Lahey/Fujitsu
     lines = [s for s in lines if s.find('Encountered 0 errors') < 0]
-    output = reduce(lambda s, t: s+t, lines, '')
-    log.write("Preprocess stderr after filtering:"+output+":\n")
+    # Cray GPU system at Nersc
+    lines = [s for s in lines if s.find('No supported cpu target is set, CRAY_CPU_TARGET=x86-64 will be used.') < 0]
+    lines = [s for s in lines if s.find('Load a valid targeting module or set CRAY_CPU_TARGET') < 0]
+    # pgi dumps filename on stderr - but returns 0 errorcode'
+    lines = [s for s in lines if lines != 'conftest.c:']
+    if lines: output = reduce(lambda s, t: s+t, lines, '\n')
+    else: output = ''
+    log.write("Preprocess stderr after filtering:\n"+output+":\n")
     return output
 
   def filterCompileOutput(self, output):
@@ -437,6 +466,7 @@ class Framework(config.base.Configure, script.LanguageProcessor):
     elif self.argDB['ignoreCompileOutput']:
       output = ''
     elif output:
+      log.write("Compiler stderr before filtering:\n"+output+":\n")
       lines = output.splitlines()
       if self.argDB['ignoreWarnings']:
         # EXCEPT warnings that those bastards say we want
@@ -463,7 +493,14 @@ class Framework(config.base.Configure, script.LanguageProcessor):
       lines = [s for s in lines if s.find('Successful compile:') < 0]
       # Lahey/Fujitsu
       lines = [s for s in lines if s.find('Encountered 0 errors') < 0]
-      output = reduce(lambda s, t: s+t, lines, '')
+      # Cray GPU system at Nersc
+      lines = [s for s in lines if s.find('No supported cpu target is set, CRAY_CPU_TARGET=x86-64 will be used.') < 0]
+      lines = [s for s in lines if s.find('Load a valid targeting module or set CRAY_CPU_TARGET') < 0]
+      # pgi dumps filename on stderr - but returns 0 errorcode'
+      lines = [s for s in lines if lines != 'conftest.c:']
+      if lines: output = reduce(lambda s, t: s+t, lines, '\n')
+      else: output = ''
+      log.write("Compiler stderr after filtering:\n"+output+":\n")
     return output
 
   def filterLinkOutput(self, output):
@@ -471,9 +508,10 @@ class Framework(config.base.Configure, script.LanguageProcessor):
     elif self.argDB['ignoreLinkOutput']:
       output = ''
     elif output:
-      hasIbmCrap = output.find('in statically linked applications requires at runtime the shared libraries from the glibc version used for linking') >= 0
+      log.write("Linker stderr before filtering:\n"+output+":\n")
+      hasIbmstuff = output.find('in statically linked applications requires at runtime the shared libraries from the glibc version used for linking') >= 0
       lines = output.splitlines()
-      if self.argDB['ignoreWarnings'] and not hasIbmCrap:
+      if self.argDB['ignoreWarnings'] and not hasIbmstuff:
         lines = [s for s in lines if not self.warningRE.search(s)]
       # PGI: Ignore warning about temporary license
       lines = [s for s in lines if s.find('license.dat') < 0]
@@ -482,7 +520,14 @@ class Framework(config.base.Configure, script.LanguageProcessor):
       lines = [s for s in lines if s.find('INFO: linux target') < 0]
       # Lahey/Fujitsu
       lines = [s for s in lines if s.find('Encountered 0 errors') < 0]
-      output = reduce(lambda s, t: s+t, lines, '')
+      # Cray GPU system at Nersc
+      lines = [s for s in lines if s.find('No supported cpu target is set, CRAY_CPU_TARGET=x86-64 will be used.') < 0]
+      lines = [s for s in lines if s.find('Load a valid targeting module or set CRAY_CPU_TARGET') < 0]
+      # pgi dumps filename on stderr - but returns 0 errorcode'
+      lines = [s for s in lines if lines != 'conftest.c:']
+      if lines: output = reduce(lambda s, t: s+t, lines, '\n')
+      else: output = ''
+      log.write("Linker stderr after filtering:\n"+output+":\n")
     return output
 
   ###############################################
@@ -620,16 +665,13 @@ class Framework(config.base.Configure, script.LanguageProcessor):
     self.actions.addArgument('Framework', 'RDict update', 'Substitutions were stored in RDict with parent '+str(argDB.parentDirectory))
     return
 
-  def outputDefine(self, f, name, value = None, comment = ''):
+  def outputDefine(self, f, name, value = None):
     '''Define "name" to "value" in the configuration header'''
     # we need to keep the libraries in this list and simply not print them at the end
     # because libraries.havelib() is used to find library in this list we had to list the libraries in the
     # list even though we don't need them in petscconf.h
     # two packages have LIB in there name so we have to include them here
     if (name.startswith('PETSC_HAVE_LIB') and not name in ['PETSC_HAVE_LIBPNG','PETSC_HAVE_LIBJPEG']) or (name.startswith('PETSC_HAVE_') and name.endswith('LIB')): return
-    if comment:
-      for line in comment.split('\n'):
-        if line: f.write('/* '+line+' */\n')
     if value:
       f.write('#define '+name+' '+str(value)+'\n')
     else:
@@ -677,27 +719,24 @@ class Framework(config.base.Configure, script.LanguageProcessor):
     if prefix:         prefix = prefix+'_'
     return prefix+name
 
-  def outputDefines(self, f, child, prefix = None):
+  def processDefines(self, child, prefix = None):
     '''If the child contains a dictionary named "defines", the entries are output as defines in the config header.
     The prefix to each define is calculated as follows:
     - If the prefix argument is given, this is used, otherwise
     - If the child contains "headerPrefix", this is used, otherwise
     - If the module containing the child class is not "__main__", this is used, otherwise
     - No prefix is used
-    If the child contains a dictionary named "help", then a help string will be added before the define
     '''
     if not hasattr(child, 'defines') or not isinstance(child.defines, dict): return
-    if hasattr(child, 'help') and isinstance(child.help, dict):
-      help = child.help
-    else:
-      help = {}
-    for pair in sorted(child.defines.items()):
+    for pair in child.defines.items():
       if not pair[1]: continue
-      if pair[0] in help:
-        self.outputDefine(f, self.getFullDefineName(child, pair[0], prefix), pair[1], help[pair[0]])
-      else:
-        self.outputDefine(f, self.getFullDefineName(child, pair[0], prefix), pair[1])
+      item = (self.getFullDefineName(child, pair[0], prefix), pair[1])
+      self.defineDict.update({item[0] : item})
     return
+
+  def outputDefines(self, f):
+    for item in sorted(self.defineDict):
+      self.outputDefine(f, *self.defineDict[item])
 
   def outputPkgVersion(self, f, child):
     '''If the child contains a tuple named "version_tuple", the entries are output in the config package header.'''
@@ -808,9 +847,10 @@ class Framework(config.base.Configure, script.LanguageProcessor):
     f.write('#define '+guard+'\n\n')
     if hasattr(self, 'headerTop'):
       f.write(str(self.headerTop)+'\n')
-    self.outputDefines(f, self, prefix)
+    self.processDefines(self, prefix)
     for child in self.childGraph.vertices:
-      self.outputDefines(f, child, prefix)
+      self.processDefines(child, prefix)
+    self.outputDefines(f)
     if hasattr(self, 'headerBottom'):
       f.write(str(self.headerBottom)+'\n')
     f.write('#endif\n')
@@ -1020,7 +1060,7 @@ class Framework(config.base.Configure, script.LanguageProcessor):
   #  the only allow non-blocking IO operations etc, they don't provide real parallelism
   #  Also changing values in LIBS is currently buggy for threads as are possible other variables
   def parallelQueueEvaluation(self, depGraph, numThreads = 1):
-    import Queue
+    import Queue # novermin
     from threading import Thread
 
     if numThreads < 1: raise RuntimeError('Parallel configure must use at least one thread')
@@ -1113,7 +1153,7 @@ class Framework(config.base.Configure, script.LanguageProcessor):
         # Udpate queue
         #self.logPrint('PUSH  %s to DONE ' % child.__class__.__module__)
         done.put((ret, out, emsg, child))
-        q.task_done()
+        q.task_done() # novermin
         if ret: break
       return
 
@@ -1142,17 +1182,54 @@ class Framework(config.base.Configure, script.LanguageProcessor):
         if push:
           #self.logPrint('PUSH %s to   TODO' % child.__class__.__module__)
           todo.put(child)
-      done.task_done()
-    todo.join()
-    done.join()
+      done.task_done() # novermin
+    todo.join() # novermin
+    done.join() # novermin
     return
 
   def serialEvaluation(self, depGraph):
     import graph
 
+    ndepGraph = graph.DirectedGraph.topologicalSort(depGraph)
+    for child in ndepGraph:
+      if hasattr(child,'setCompilers'): setCompilers = child.setCompilers
+
+    ndepGraph = graph.DirectedGraph.topologicalSort(depGraph)
+    for child in ndepGraph:
+      if (self.argDB['with-batch'] and
+          hasattr(child,'package') and
+          'download-'+child.package in self.framework.clArgDB and
+          self.argDB['download-'+child.package] and not
+          (hasattr(setCompilers,'cross_cc') or child.installwithbatch)): raise RuntimeError('--download-'+child.package+' cannot be used on this batch systems\n')
+
+      # note, only classes derived from package.py have this attribute
+      if hasattr(child,'deps'):
+        found = 0
+        if child.required or child.lookforbydefault: found = 1
+        if 'download-'+child.package in self.framework.clArgDB and self.argDB['download-'+child.package]: found = 1
+        if 'with-'+child.package in self.framework.clArgDB and self.argDB['with-'+child.package]: found = 1
+        if 'with-'+child.package+'-lib' in self.framework.clArgDB and self.argDB['with-'+child.package+'-lib']: found = 1
+        if 'with-'+child.package+'-dir' in self.framework.clArgDB and self.argDB['with-'+child.package+'-dir']: found = 1
+        if not found: continue
+        msg = ''
+        for dep in child.deps:
+          found = 0
+          if dep.required or dep.lookforbydefault: found = 1
+          if 'download-'+dep.package in self.framework.clArgDB and self.argDB['download-'+dep.package]: found = 1
+          if 'with-'+dep.package in self.framework.clArgDB and self.argDB['with-'+dep.package]: found = 1
+          if 'with-'+dep.package+'-lib' in self.framework.clArgDB and self.argDB['with-'+dep.package+'-lib']: found = 1
+          if 'with-'+dep.package+'-dir' in self.framework.clArgDB and self.argDB['with-'+dep.package+'-dir']: found = 1
+          if not found:
+            if dep.download: emsg = '--download-'+dep.package+' or '
+            else: emsg = ''
+            msg += 'Package '+child.package+' requested but dependency '+dep.package+' not requested. \n  Perhaps you want '+emsg+'--with-'+dep.package+'-dir=directory or  --with-'+dep.package+'-lib=libraries and --with-'+dep.package+'-include=directory\n'
+        if msg: raise RuntimeError(msg)
+        if child.cxx and ('with-cxx' in self.framework.clArgDB) and (self.argDB['with-cxx'] == '0'): raise RuntimeError('Package '+child.package+' requested requires C++ but compiler turned off.')
+        if child.fc and ('with-fc' in self.framework.clArgDB) and (self.argDB['with-fc'] == '0'): raise RuntimeError('Package '+child.package+' requested requires Fortran but compiler turned off.')
+
+    depGraph = graph.DirectedGraph.topologicalSort(depGraph)
     totaltime = 0
     starttime = time.time()
-    depGraph = graph.DirectedGraph.topologicalSort(depGraph)
     for child in depGraph:
       start = time.time()
       if not hasattr(child, '_configured'):
@@ -1174,9 +1251,9 @@ class Framework(config.base.Configure, script.LanguageProcessor):
     useParallel = False
     if script.useParallel:
       try:
-        import Queue
+        import Queue # novermin
         from threading import Thread
-        if hasattr(Queue.Queue(), 'join'): useParallel = True
+        if hasattr(Queue.Queue(), 'join'): useParallel = True # novermin
       except: pass
     if useParallel:
       self.parallelQueueEvaluation(self.childGraph, script.useParallel)
@@ -1191,6 +1268,7 @@ class Framework(config.base.Configure, script.LanguageProcessor):
     self.setup()
     self.outputBanner()
     self.updateDependencies()
+    self.outputBasics()
     self.executeTest(self.configureExternalPackagesDir)
     self.processChildren()
     if self.argDB['with-batch']:

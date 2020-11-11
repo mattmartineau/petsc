@@ -6,7 +6,231 @@
 #include <exodusII.h>
 #endif
 
+#include <petsc/private/viewerimpl.h>
+#include <petsc/private/viewerexodusiiimpl.h>
 #if defined(PETSC_HAVE_EXODUSII)
+/*
+  PETSC_VIEWER_EXODUSII_ - Creates an ExodusII PetscViewer shared by all processors in a communicator.
+
+  Collective
+
+  Input Parameter:
+. comm - the MPI communicator to share the ExodusII PetscViewer
+
+  Level: intermediate
+
+  Notes:
+    misses Fortran bindings
+
+  Notes:
+  Unlike almost all other PETSc routines, PETSC_VIEWER_EXODUSII_ does not return
+  an error code.  The GLVIS PetscViewer is usually used in the form
+$       XXXView(XXX object, PETSC_VIEWER_EXODUSII_(comm));
+
+.seealso: PetscViewerExodusIIOpen(), PetscViewerType, PetscViewerCreate(), PetscViewerDestroy()
+*/
+PetscViewer PETSC_VIEWER_EXODUSII_(MPI_Comm comm)
+{
+  PetscViewer    viewer;
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  ierr = PetscViewerExodusIIOpen(comm, "mesh.exo", FILE_MODE_WRITE, &viewer);
+  if (ierr) {PetscError(PETSC_COMM_SELF,__LINE__,"PETSC_VIEWER_EXODUSII_",__FILE__,PETSC_ERR_PLIB,PETSC_ERROR_INITIAL," ");PetscFunctionReturn(0);}
+  ierr = PetscObjectRegisterDestroy((PetscObject) viewer);
+  if (ierr) {PetscError(PETSC_COMM_SELF,__LINE__,"PETSC_VIEWER_EXODUSII_",__FILE__,PETSC_ERR_PLIB,PETSC_ERROR_INITIAL," ");PetscFunctionReturn(0);}
+  PetscFunctionReturn(viewer);
+}
+
+static PetscErrorCode PetscViewerView_ExodusII(PetscViewer v, PetscViewer viewer)
+{
+  PetscViewer_ExodusII *exo = (PetscViewer_ExodusII *) viewer->data;
+  PetscErrorCode        ierr;
+
+  PetscFunctionBegin;
+  if (exo->filename) {ierr = PetscViewerASCIIPrintf(viewer, "Filename: %s\n", exo->filename);CHKERRQ(ierr);}
+  PetscFunctionReturn(0);
+}
+
+static PetscErrorCode PetscViewerSetFromOptions_ExodusII(PetscOptionItems *PetscOptionsObject, PetscViewer v)
+{
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  ierr = PetscOptionsHead(PetscOptionsObject, "ExodusII PetscViewer Options");CHKERRQ(ierr);
+  ierr = PetscOptionsTail();CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+static PetscErrorCode PetscViewerSetUp_ExodusII(PetscViewer viewer)
+{
+  PetscFunctionBegin;
+  PetscFunctionReturn(0);
+}
+
+static PetscErrorCode PetscViewerDestroy_ExodusII(PetscViewer viewer)
+{
+  PetscViewer_ExodusII *exo = (PetscViewer_ExodusII *) viewer->data;
+  PetscErrorCode        ierr;
+
+  PetscFunctionBegin;
+  if (exo->exoid >= 0) {ierr = ex_close(exo->exoid);CHKERRQ(ierr);}
+  ierr = PetscFree(exo);CHKERRQ(ierr);
+  ierr = PetscObjectComposeFunction((PetscObject)viewer,"PetscViewerFileSetName_C",NULL);CHKERRQ(ierr);
+  ierr = PetscObjectComposeFunction((PetscObject)viewer,"PetscViewerFileGetName_C",NULL);CHKERRQ(ierr);
+  ierr = PetscObjectComposeFunction((PetscObject)viewer,"PetscViewerFileSetMode_C",NULL);CHKERRQ(ierr);
+  ierr = PetscObjectComposeFunction((PetscObject)viewer,"PetscViewerExodusIIGetId",NULL);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+static PetscErrorCode PetscViewerFileSetName_ExodusII(PetscViewer viewer, const char name[])
+{
+  PetscViewer_ExodusII *exo = (PetscViewer_ExodusII *) viewer->data;
+  PetscMPIInt           rank;
+  int                   CPU_word_size, IO_word_size, EXO_mode;
+  PetscErrorCode        ierr;
+
+
+  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject) viewer), &rank);CHKERRQ(ierr);
+  CPU_word_size = sizeof(PetscReal);
+  IO_word_size  = sizeof(PetscReal);
+
+  PetscFunctionBegin;
+  if (exo->exoid >= 0) {ex_close(exo->exoid); exo->exoid = -1;}
+  if (exo->filename) {ierr = PetscFree(exo->filename);CHKERRQ(ierr);}
+  ierr = PetscStrallocpy(name, &exo->filename);CHKERRQ(ierr);
+  /* Create or open the file collectively */
+  switch (exo->btype) {
+  case FILE_MODE_READ:
+    EXO_mode = EX_CLOBBER;
+    break;
+  case FILE_MODE_APPEND:
+    EXO_mode = EX_CLOBBER;
+    break;
+  case FILE_MODE_WRITE:
+    EXO_mode = EX_CLOBBER;
+    break;
+  default:
+    SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ORDER, "Must call PetscViewerFileSetMode() before PetscViewerFileSetName()");
+  }
+  #if defined(PETSC_USE_64BIT_INDICES)
+  EXO_mode += EX_ALL_INT64_API;
+  #endif
+  exo->exoid = ex_create(name, EXO_mode, &CPU_word_size, &IO_word_size);
+  if (exo->exoid < 0) SETERRQ1(PETSC_COMM_SELF, PETSC_ERR_LIB, "ex_create failed for %s", name);
+  PetscFunctionReturn(0);
+}
+
+static PetscErrorCode PetscViewerFileGetName_ExodusII(PetscViewer viewer, const char **name)
+{
+  PetscViewer_ExodusII *exo = (PetscViewer_ExodusII *) viewer->data;
+
+  PetscFunctionBegin;
+  *name = exo->filename;
+  PetscFunctionReturn(0);
+}
+
+static PetscErrorCode PetscViewerFileSetMode_ExodusII(PetscViewer viewer, PetscFileMode type)
+{
+  PetscViewer_ExodusII *exo = (PetscViewer_ExodusII *) viewer->data;
+
+  PetscFunctionBegin;
+  exo->btype = type;
+  PetscFunctionReturn(0);
+}
+
+static PetscErrorCode PetscViewerFileGetMode_ExodusII(PetscViewer viewer, PetscFileMode *type)
+{
+  PetscViewer_ExodusII *exo = (PetscViewer_ExodusII *) viewer->data;
+
+  PetscFunctionBegin;
+  *type = exo->btype;
+  PetscFunctionReturn(0);
+}
+
+static PetscErrorCode PetscViewerExodusIIGetId_ExodusII(PetscViewer viewer, int *exoid)
+{
+  PetscViewer_ExodusII *exo = (PetscViewer_ExodusII *) viewer->data;
+
+  PetscFunctionBegin;
+  *exoid = exo->exoid;
+  PetscFunctionReturn(0);
+}
+
+/*@C
+   PetscViewerExodusIIOpen - Opens a file for ExodusII input/output.
+
+   Collective
+
+   Input Parameters:
++  comm - MPI communicator
+.  name - name of file
+-  type - type of file
+$    FILE_MODE_WRITE - create new file for binary output
+$    FILE_MODE_READ - open existing file for binary input
+$    FILE_MODE_APPEND - open existing file for binary output
+
+   Output Parameter:
+.  exo - PetscViewer for Exodus II input/output to use with the specified file
+
+   Level: beginner
+
+   Note:
+   This PetscViewer should be destroyed with PetscViewerDestroy().
+
+
+.seealso: PetscViewerPushFormat(), PetscViewerDestroy(),
+          DMLoad(), PetscFileMode, PetscViewer, PetscViewerSetType(), PetscViewerFileSetMode(), PetscViewerFileSetName()
+@*/
+PetscErrorCode PetscViewerExodusIIOpen(MPI_Comm comm, const char name[], PetscFileMode type, PetscViewer *exo)
+{
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  ierr = PetscViewerCreate(comm, exo);CHKERRQ(ierr);
+  ierr = PetscViewerSetType(*exo, PETSCVIEWEREXODUSII);CHKERRQ(ierr);
+  ierr = PetscViewerFileSetMode(*exo, type);CHKERRQ(ierr);
+  ierr = PetscViewerFileSetName(*exo, name);CHKERRQ(ierr);
+  ierr = PetscViewerSetFromOptions(*exo);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+/*MC
+   PETSCVIEWEREXODUSII - A viewer that writes to an Exodus II file
+
+
+.seealso:  PetscViewerExodusIIOpen(), PetscViewerCreate(), PETSCVIEWERBINARY, PETSCVIEWERHDF5, DMView(),
+           PetscViewerFileSetName(), PetscViewerFileSetMode(), PetscViewerFormat, PetscViewerType, PetscViewerSetType()
+
+  Level: beginner
+M*/
+
+PETSC_EXTERN PetscErrorCode PetscViewerCreate_ExodusII(PetscViewer v)
+{
+  PetscViewer_ExodusII *exo;
+  PetscErrorCode        ierr;
+
+  PetscFunctionBegin;
+  ierr = PetscNewLog(v,&exo);CHKERRQ(ierr);
+
+  v->data                = (void*) exo;
+  v->ops->destroy        = PetscViewerDestroy_ExodusII;
+  v->ops->setfromoptions = PetscViewerSetFromOptions_ExodusII;
+  v->ops->setup          = PetscViewerSetUp_ExodusII;
+  v->ops->view           = PetscViewerView_ExodusII;
+  v->ops->flush          = 0;
+  exo->btype             = (PetscFileMode) -1;
+  exo->filename          = 0;
+  exo->exoid             = -1;
+
+  ierr = PetscObjectComposeFunction((PetscObject)v,"PetscViewerFileSetName_C",PetscViewerFileSetName_ExodusII);CHKERRQ(ierr);
+  ierr = PetscObjectComposeFunction((PetscObject)v,"PetscViewerFileGetName_C",PetscViewerFileGetName_ExodusII);CHKERRQ(ierr);
+  ierr = PetscObjectComposeFunction((PetscObject)v,"PetscViewerFileSetMode_C",PetscViewerFileSetMode_ExodusII);CHKERRQ(ierr);
+  ierr = PetscObjectComposeFunction((PetscObject)v,"PetscViewerFileGetMode_C",PetscViewerFileGetMode_ExodusII);CHKERRQ(ierr);
+  ierr = PetscObjectComposeFunction((PetscObject)v,"PetscViewerExodusIIGetId_C",PetscViewerExodusIIGetId_ExodusII);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
 /*
   EXOGetVarIndex - Locate a result in an exodus file based on its name
 
@@ -316,10 +540,12 @@ PetscErrorCode DMPlexView_ExodusII_Internal(DM dm, int exoid, PetscInt degree)
   /* --- Coordinates --- */
   ierr = PetscSectionCreate(comm, &section);CHKERRQ(ierr);
   ierr = PetscSectionSetChart(section, pStart, pEnd);CHKERRQ(ierr);
-  for (d = 0; d < depth; ++d) {
-    ierr = DMPlexGetDepthStratum(dm, d, &pStart, &pEnd);CHKERRQ(ierr);
-    for (p = pStart; p < pEnd; ++p) {
-      ierr = PetscSectionSetDof(section, p, nodes[0][d] > 0);CHKERRQ(ierr);
+  if (num_cs) {
+    for (d = 0; d < depth; ++d) {
+      ierr = DMPlexGetDepthStratum(dm, d, &pStart, &pEnd);CHKERRQ(ierr);
+      for (p = pStart; p < pEnd; ++p) {
+        ierr = PetscSectionSetDof(section, p, nodes[0][d] > 0);CHKERRQ(ierr);
+      }
     }
   }
   for (cs = 0; cs < num_cs; ++cs) {
@@ -544,7 +770,7 @@ PetscErrorCode VecViewPlex_ExodusII_Nodal_Internal(Vec v, int exoid, int step)
     IS       compIS;
     PetscInt c;
 
-    ierr = ISCreateStride(PETSC_COMM_SELF, (xe-xs)/bs, xs, bs, &compIS);CHKERRQ(ierr);
+    ierr = ISCreateStride(comm, (xe-xs)/bs, xs, bs, &compIS);CHKERRQ(ierr);
     for (c = 0; c < bs; ++c) {
       ierr = ISStrideSetStride(compIS, (xe-xs)/bs, xs+c, bs);CHKERRQ(ierr);
       ierr = VecGetSubVector(vNatural, compIS, &vComp);CHKERRQ(ierr);
@@ -615,7 +841,7 @@ PetscErrorCode VecLoadPlex_ExodusII_Nodal_Internal(Vec v, int exoid, int step)
     IS       compIS;
     PetscInt c;
 
-    ierr = ISCreateStride(PETSC_COMM_SELF, (xe-xs)/bs, xs, bs, &compIS);CHKERRQ(ierr);
+    ierr = ISCreateStride(comm, (xe-xs)/bs, xs, bs, &compIS);CHKERRQ(ierr);
     for (c = 0; c < bs; ++c) {
       ierr = ISStrideSetStride(compIS, (xe-xs)/bs, xs+c, bs);CHKERRQ(ierr);
       ierr = VecGetSubVector(vNatural, compIS, &vComp);CHKERRQ(ierr);
@@ -838,6 +1064,31 @@ PetscErrorCode VecLoadPlex_ExodusII_Zonal_Internal(Vec v, int exoid, int step)
 }
 #endif
 
+/*@
+  PetscViewerExodusIIGetId - Get the file id of the ExodusII file
+
+  Logically Collective on PetscViewer
+
+  Input Parameter:
+.  viewer - the PetscViewer
+
+  Output Parameter:
+-  exoid - The ExodusII file id
+
+  Level: intermediate
+
+.seealso: PetscViewerFileSetMode(), PetscViewerCreate(), PetscViewerSetType(), PetscViewerBinaryOpen()
+@*/
+PetscErrorCode PetscViewerExodusIIGetId(PetscViewer viewer, int *exoid)
+{
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(viewer, PETSC_VIEWER_CLASSID, 1);
+  ierr = PetscTryMethod(viewer, "PetscViewerExodusIIGetId_C",(PetscViewer,int*),(viewer,exoid));CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
 /*@C
   DMPlexCreateExodusFromFile - Create a DMPlex mesh from an ExodusII file.
 
@@ -880,6 +1131,42 @@ PetscErrorCode DMPlexCreateExodusFromFile(MPI_Comm comm, const char filename[], 
   PetscFunctionReturn(0);
 }
 
+#if defined(PETSC_HAVE_EXODUSII)
+static PetscErrorCode ExodusGetCellType_Private(const char *elem_type, DMPolytopeType *ct)
+{
+  PetscBool      flg;
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  *ct = DM_POLYTOPE_UNKNOWN;
+  ierr = PetscStrcmp(elem_type, "TRI", &flg);CHKERRQ(ierr);
+  if (flg) {*ct = DM_POLYTOPE_TRIANGLE; goto done;}
+  ierr = PetscStrcmp(elem_type, "TRI3", &flg);CHKERRQ(ierr);
+  if (flg) {*ct = DM_POLYTOPE_TRIANGLE; goto done;}
+  ierr = PetscStrcmp(elem_type, "QUAD", &flg);CHKERRQ(ierr);
+  if (flg) {*ct = DM_POLYTOPE_QUADRILATERAL; goto done;}
+  ierr = PetscStrcmp(elem_type, "QUAD4", &flg);CHKERRQ(ierr);
+  if (flg) {*ct = DM_POLYTOPE_QUADRILATERAL; goto done;}
+  ierr = PetscStrcmp(elem_type, "SHELL4", &flg);CHKERRQ(ierr);
+  if (flg) {*ct = DM_POLYTOPE_QUADRILATERAL; goto done;}
+  ierr = PetscStrcmp(elem_type, "TETRA", &flg);CHKERRQ(ierr);
+  if (flg) {*ct = DM_POLYTOPE_TETRAHEDRON; goto done;}
+  ierr = PetscStrcmp(elem_type, "TET4", &flg);CHKERRQ(ierr);
+  if (flg) {*ct = DM_POLYTOPE_TETRAHEDRON; goto done;}
+  ierr = PetscStrcmp(elem_type, "WEDGE", &flg);CHKERRQ(ierr);
+  if (flg) {*ct = DM_POLYTOPE_TRI_PRISM; goto done;}
+  ierr = PetscStrcmp(elem_type, "HEX", &flg);CHKERRQ(ierr);
+  if (flg) {*ct = DM_POLYTOPE_HEXAHEDRON; goto done;}
+  ierr = PetscStrcmp(elem_type, "HEX8", &flg);CHKERRQ(ierr);
+  if (flg) {*ct = DM_POLYTOPE_HEXAHEDRON; goto done;}
+  ierr = PetscStrcmp(elem_type, "HEXAHEDRON", &flg);CHKERRQ(ierr);
+  if (flg) {*ct = DM_POLYTOPE_HEXAHEDRON; goto done;}
+  SETERRQ1(PETSC_COMM_SELF, PETSC_ERR_ARG_WRONG, "Unrecognized element type %s", elem_type);
+  done:
+  PetscFunctionReturn(0);
+}
+#endif
+
 /*@
   DMPlexCreateExodus - Create a DMPlex mesh from an ExodusII file ID.
 
@@ -908,7 +1195,7 @@ PetscErrorCode DMPlexCreateExodus(MPI_Comm comm, PetscInt exoid, PetscBool inter
   PetscErrorCode ierr;
   /* Read from ex_get_init() */
   char title[PETSC_MAX_PATH_LEN+1];
-  int  dim    = 0, numVertices = 0, numCells = 0, numHybridCells = 0;
+  int  dim    = 0, dimEmbed = 0, numVertices = 0, numCells = 0, numHybridCells = 0;
   int  num_cs = 0, num_vs = 0, num_fs = 0;
 #endif
 
@@ -921,14 +1208,15 @@ PetscErrorCode DMPlexCreateExodus(MPI_Comm comm, PetscInt exoid, PetscBool inter
   /* Open EXODUS II file and read basic informations on rank 0, then broadcast to all processors */
   if (!rank) {
     ierr = PetscMemzero(title,PETSC_MAX_PATH_LEN+1);CHKERRQ(ierr);
-    PetscStackCallStandard(ex_get_init,(exoid, title, &dim, &numVertices, &numCells, &num_cs, &num_vs, &num_fs));
+    PetscStackCallStandard(ex_get_init,(exoid, title, &dimEmbed, &numVertices, &numCells, &num_cs, &num_vs, &num_fs));
     if (!num_cs) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SUP,"Exodus file does not contain any cell set\n");
   }
   ierr = MPI_Bcast(title, PETSC_MAX_PATH_LEN+1, MPI_CHAR, 0, comm);CHKERRQ(ierr);
   ierr = MPI_Bcast(&dim, 1, MPI_INT, 0, comm);CHKERRQ(ierr);
   ierr = PetscObjectSetName((PetscObject) *dm, title);CHKERRQ(ierr);
-  ierr = DMSetDimension(*dm, dim);CHKERRQ(ierr);
   ierr = DMPlexSetChart(*dm, 0, numCells+numVertices);CHKERRQ(ierr);
+  /*   We do not want this label automatically computed, instead we compute it here */
+  ierr = DMCreateLabel(*dm, "celltype");CHKERRQ(ierr);
 
   /* Read cell sets information */
   if (!rank) {
@@ -949,34 +1237,41 @@ PetscErrorCode DMPlexCreateExodus(MPI_Comm comm, PetscInt exoid, PetscBool inter
        EXO standard requires that cells in cell sets be numbered sequentially and be pairwise disjoint. */
     /* Check for a hybrid mesh */
     for (cs = 0, num_hybrid = 0; cs < num_cs; ++cs) {
+      DMPolytopeType ct;
+      char           elem_type[PETSC_MAX_PATH_LEN];
+
+      ierr = PetscArrayzero(elem_type, sizeof(elem_type));CHKERRQ(ierr);
+      PetscStackCallStandard(ex_get_elem_type,(exoid, cs_id[cs], elem_type));
+      ierr = ExodusGetCellType_Private(elem_type, &ct);CHKERRQ(ierr);
+      dim  = PetscMax(dim, DMPolytopeTypeGetDim(ct));
       PetscStackCallStandard(ex_get_block,(exoid, EX_ELEM_BLOCK, cs_id[cs], buffer, &num_cell_in_set,&num_vertex_per_cell, 0, 0, &num_attr));
-      switch (dim) {
-        case 3:
-        switch (num_vertex_per_cell) {
-          case 6:
-            cs_order[cs] = cs;
-            numHybridCells += num_cell_in_set;
-            ++num_hybrid;
+      switch (ct) {
+        case DM_POLYTOPE_TRI_PRISM:
+          cs_order[cs] = cs;
+          numHybridCells += num_cell_in_set;
+          ++num_hybrid;
           break;
-          default:
-            for (c = cs; c > cs-num_hybrid; --c) cs_order[c] = cs_order[c-1];
-            cs_order[cs-num_hybrid] = cs;
-        }
-        break;
-      default:
-        for (c = cs; c > cs-num_hybrid; --c) cs_order[c] = cs_order[c-1];
-        cs_order[cs-num_hybrid] = cs;
+        default:
+          for (c = cs; c > cs-num_hybrid; --c) cs_order[c] = cs_order[c-1];
+          cs_order[cs-num_hybrid] = cs;
       }
     }
-    if (num_hybrid) {ierr = DMPlexSetHybridBounds(*dm, numCells-numHybridCells, PETSC_DETERMINE, PETSC_DETERMINE, PETSC_DETERMINE);CHKERRQ(ierr);}
     /* First set sizes */
     for (ncs = 0, c = 0; ncs < num_cs; ++ncs) {
+      DMPolytopeType ct;
+      char           elem_type[PETSC_MAX_PATH_LEN];
       const PetscInt cs = cs_order[ncs];
+
+      ierr = PetscArrayzero(elem_type, sizeof(elem_type));CHKERRQ(ierr);
+      PetscStackCallStandard(ex_get_elem_type,(exoid, cs_id[cs], elem_type));
+      ierr = ExodusGetCellType_Private(elem_type, &ct);CHKERRQ(ierr);
       PetscStackCallStandard(ex_get_block,(exoid, EX_ELEM_BLOCK, cs_id[cs], buffer, &num_cell_in_set,&num_vertex_per_cell, 0, 0, &num_attr));
       for (c_loc = 0; c_loc < num_cell_in_set; ++c_loc, ++c) {
         ierr = DMPlexSetConeSize(*dm, c, num_vertex_per_cell);CHKERRQ(ierr);
+        ierr = DMPlexSetCellType(*dm, c, ct);CHKERRQ(ierr);
       }
     }
+    for (v = numCells; v < numCells+numVertices; ++v) {ierr = DMPlexSetCellType(*dm, v, DM_POLYTOPE_POINT);CHKERRQ(ierr);}
     ierr = DMSetUp(*dm);CHKERRQ(ierr);
     for (ncs = 0, c = 0; ncs < num_cs; ++ncs) {
       const PetscInt cs = cs_order[ncs];
@@ -985,29 +1280,28 @@ PetscErrorCode DMPlexCreateExodus(MPI_Comm comm, PetscInt exoid, PetscBool inter
       PetscStackCallStandard(ex_get_conn,(exoid, EX_ELEM_BLOCK, cs_id[cs], cs_connect,NULL,NULL));
       /* EXO uses Fortran-based indexing, DMPlex uses C-style and numbers cell first then vertices. */
       for (c_loc = 0, v = 0; c_loc < num_cell_in_set; ++c_loc, ++c) {
+        DMPolytopeType ct;
+
         for (v_loc = 0; v_loc < num_vertex_per_cell; ++v_loc, ++v) {
           cone[v_loc] = cs_connect[v]+numCells-1;
         }
-        if (dim == 3) {
-          /* Tetrahedra are inverted */
-          if (num_vertex_per_cell == 4) {
-            PetscInt tmp = cone[0];
-            cone[0] = cone[1];
-            cone[1] = tmp;
-          }
-          /* Hexahedra are inverted */
-          if (num_vertex_per_cell == 8) {
-            PetscInt tmp = cone[1];
-            cone[1] = cone[3];
-            cone[3] = tmp;
-          }
-        }
+        ierr = DMPlexGetCellType(*dm, c, &ct);CHKERRQ(ierr);
+        ierr = DMPlexInvertCell(ct, cone);CHKERRQ(ierr);
         ierr = DMPlexSetCone(*dm, c, cone);CHKERRQ(ierr);
         ierr = DMSetLabelValue(*dm, "Cell Sets", c, cs_id[cs]);CHKERRQ(ierr);
       }
       ierr = PetscFree2(cs_connect,cone);CHKERRQ(ierr);
     }
     ierr = PetscFree2(cs_id, cs_order);CHKERRQ(ierr);
+  }
+  {
+    PetscInt ints[] = {dim, dimEmbed};
+
+    ierr = MPI_Bcast(ints, 2, MPIU_INT, 0, comm);CHKERRQ(ierr);
+    ierr = DMSetDimension(*dm, ints[0]);CHKERRQ(ierr);
+    ierr = DMSetCoordinateDim(*dm, ints[1]);CHKERRQ(ierr);
+    dim      = ints[0];
+    dimEmbed = ints[1];
   }
   ierr = DMPlexSymmetrize(*dm);CHKERRQ(ierr);
   ierr = DMPlexStratify(*dm);CHKERRQ(ierr);
@@ -1046,18 +1340,18 @@ PetscErrorCode DMPlexCreateExodus(MPI_Comm comm, PetscInt exoid, PetscBool inter
   /* Read coordinates */
   ierr = DMGetCoordinateSection(*dm, &coordSection);CHKERRQ(ierr);
   ierr = PetscSectionSetNumFields(coordSection, 1);CHKERRQ(ierr);
-  ierr = PetscSectionSetFieldComponents(coordSection, 0, dim);CHKERRQ(ierr);
+  ierr = PetscSectionSetFieldComponents(coordSection, 0, dimEmbed);CHKERRQ(ierr);
   ierr = PetscSectionSetChart(coordSection, numCells, numCells + numVertices);CHKERRQ(ierr);
   for (v = numCells; v < numCells+numVertices; ++v) {
-    ierr = PetscSectionSetDof(coordSection, v, dim);CHKERRQ(ierr);
-    ierr = PetscSectionSetFieldDof(coordSection, v, 0, dim);CHKERRQ(ierr);
+    ierr = PetscSectionSetDof(coordSection, v, dimEmbed);CHKERRQ(ierr);
+    ierr = PetscSectionSetFieldDof(coordSection, v, 0, dimEmbed);CHKERRQ(ierr);
   }
   ierr = PetscSectionSetUp(coordSection);CHKERRQ(ierr);
   ierr = PetscSectionGetStorageSize(coordSection, &coordSize);CHKERRQ(ierr);
   ierr = VecCreate(PETSC_COMM_SELF, &coordinates);CHKERRQ(ierr);
   ierr = PetscObjectSetName((PetscObject) coordinates, "coordinates");CHKERRQ(ierr);
   ierr = VecSetSizes(coordinates, coordSize, PETSC_DETERMINE);CHKERRQ(ierr);
-  ierr = VecSetBlockSize(coordinates, dim);CHKERRQ(ierr);
+  ierr = VecSetBlockSize(coordinates, dimEmbed);CHKERRQ(ierr);
   ierr = VecSetType(coordinates,VECSTANDARD);CHKERRQ(ierr);
   ierr = VecGetArray(coordinates, &coords);CHKERRQ(ierr);
   if (!rank) {
@@ -1065,14 +1359,14 @@ PetscErrorCode DMPlexCreateExodus(MPI_Comm comm, PetscInt exoid, PetscBool inter
 
     ierr = PetscMalloc3(numVertices,&x,numVertices,&y,numVertices,&z);CHKERRQ(ierr);
     PetscStackCallStandard(ex_get_coord,(exoid, x, y, z));
-    if (dim > 0) {
-      for (v = 0; v < numVertices; ++v) coords[v*dim+0] = x[v];
+    if (dimEmbed > 0) {
+      for (v = 0; v < numVertices; ++v) coords[v*dimEmbed+0] = x[v];
     }
-    if (dim > 1) {
-      for (v = 0; v < numVertices; ++v) coords[v*dim+1] = y[v];
+    if (dimEmbed > 1) {
+      for (v = 0; v < numVertices; ++v) coords[v*dimEmbed+1] = y[v];
     }
-    if (dim > 2) {
-      for (v = 0; v < numVertices; ++v) coords[v*dim+2] = z[v];
+    if (dimEmbed > 2) {
+      for (v = 0; v < numVertices; ++v) coords[v*dimEmbed+2] = z[v];
     }
     ierr = PetscFree3(x,y,z);CHKERRQ(ierr);
   }

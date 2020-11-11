@@ -26,6 +26,7 @@ static PetscErrorCode DMCreateMatrix_Redundant(DM dm,Mat *J)
 
   ierr = DMGetLocalToGlobalMapping(dm,&ltog);CHKERRQ(ierr);
   ierr = MatSetLocalToGlobalMapping(*J,ltog,ltog);CHKERRQ(ierr);
+  ierr = MatSetDM(*J,dm);CHKERRQ(ierr);
 
   ierr = PetscMalloc2(red->N,&cols,red->N,&vals);CHKERRQ(ierr);
   for (i=0; i<red->N; i++) {
@@ -64,7 +65,7 @@ static PetscErrorCode DMCreateGlobalVector_Redundant(DM dm,Vec *gvec)
   PetscFunctionBegin;
   PetscValidHeaderSpecific(dm,DM_CLASSID,1);
   PetscValidPointer(gvec,2);
-  *gvec = 0;
+  *gvec = NULL;
   ierr  = VecCreate(PetscObjectComm((PetscObject)dm),gvec);CHKERRQ(ierr);
   ierr  = VecSetSizes(*gvec,red->n,red->N);CHKERRQ(ierr);
   ierr  = VecSetType(*gvec,dm->vectype);CHKERRQ(ierr);
@@ -82,7 +83,7 @@ static PetscErrorCode DMCreateLocalVector_Redundant(DM dm,Vec *lvec)
   PetscFunctionBegin;
   PetscValidHeaderSpecific(dm,DM_CLASSID,1);
   PetscValidPointer(lvec,2);
-  *lvec = 0;
+  *lvec = NULL;
   ierr  = VecCreate(PETSC_COMM_SELF,lvec);CHKERRQ(ierr);
   ierr  = VecSetSizes(*lvec,red->N,red->N);CHKERRQ(ierr);
   ierr  = VecSetType(*lvec,dm->vectype);CHKERRQ(ierr);
@@ -173,14 +174,7 @@ static PetscErrorCode DMGlobalToLocalEnd_Redundant(DM dm,Vec g,InsertMode imode,
 
 static PetscErrorCode DMSetUp_Redundant(DM dm)
 {
-  PetscErrorCode ierr;
-  DM_Redundant   *red = (DM_Redundant*)dm->data;
-  PetscInt       i,*globals;
-
   PetscFunctionBegin;
-  ierr = PetscMalloc1(red->N,&globals);CHKERRQ(ierr);
-  for (i=0; i<red->N; i++) globals[i] = i;
-  ierr = ISLocalToGlobalMappingCreate(PETSC_COMM_SELF,1,red->N,globals,PETSC_OWN_POINTER,&dm->ltogmap);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -270,8 +264,8 @@ static PetscErrorCode DMCreateInterpolation_Redundant(DM dmc,DM dmf,Mat *P,Vec *
   ierr = MatCreate(PetscObjectComm((PetscObject)dmc),P);CHKERRQ(ierr);
   ierr = MatSetSizes(*P,redc->n,redc->n,redc->N,redc->N);CHKERRQ(ierr);
   ierr = MatSetType(*P,MATAIJ);CHKERRQ(ierr);
-  ierr = MatSeqAIJSetPreallocation(*P,1,0);CHKERRQ(ierr);
-  ierr = MatMPIAIJSetPreallocation(*P,1,0,0,0);CHKERRQ(ierr);
+  ierr = MatSeqAIJSetPreallocation(*P,1,NULL);CHKERRQ(ierr);
+  ierr = MatMPIAIJSetPreallocation(*P,1,NULL,0,NULL);CHKERRQ(ierr);
   ierr = MatGetOwnershipRange(*P,&rstart,&rend);CHKERRQ(ierr);
   for (i=rstart; i<rend; i++) {ierr = MatSetValue(*P,i,i,1.0,INSERT_VALUES);CHKERRQ(ierr);}
   ierr = MatAssemblyBegin(*P,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
@@ -339,12 +333,19 @@ static PetscErrorCode DMRedundantSetSize_Redundant(DM dm,PetscMPIInt rank,PetscI
   DM_Redundant   *red = (DM_Redundant*)dm->data;
   PetscErrorCode ierr;
   PetscMPIInt    myrank;
+  PetscInt       i,*globals;
 
   PetscFunctionBegin;
   ierr      = MPI_Comm_rank(PetscObjectComm((PetscObject)dm),&myrank);CHKERRQ(ierr);
   red->rank = rank;
   red->N    = N;
   red->n    = (myrank == rank) ? N : 0;
+
+  /* mapping is setup here */
+  ierr = PetscMalloc1(red->N,&globals);CHKERRQ(ierr);
+  for (i=0; i<red->N; i++) globals[i] = i;
+  ierr = ISLocalToGlobalMappingDestroy(&dm->ltogmap);CHKERRQ(ierr);
+  ierr = ISLocalToGlobalMappingCreate(PetscObjectComm((PetscObject)dm),1,red->N,globals,PETSC_OWN_POINTER,&dm->ltogmap);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 

@@ -50,6 +50,11 @@
 #define PetscFloorReal(a)   floorf(a)
 #define PetscFmodReal(a,b)  fmodf(a,b)
 #define PetscTGamma(a)      tgammaf(a)
+#if defined(PETSC_HAVE_LGAMMA_IS_GAMMA)
+#define PetscLGamma(a)      gammaf(a)
+#else
+#define PetscLGamma(a)      lgammaf(a)
+#endif
 
 #elif defined(PETSC_USE_REAL_DOUBLE)
 #define PetscSqrtReal(a)    sqrt(a)
@@ -77,6 +82,11 @@
 #define PetscFloorReal(a)   floor(a)
 #define PetscFmodReal(a,b)  fmod(a,b)
 #define PetscTGamma(a)      tgamma(a)
+#if defined(PETSC_HAVE_LGAMMA_IS_GAMMA)
+#define PetscLGamma(a)      gamma(a)
+#else
+#define PetscLGamma(a)      lgamma(a)
+#endif
 
 #elif defined(PETSC_USE_REAL___FLOAT128)
 #define PetscSqrtReal(a)    sqrtq(a)
@@ -104,6 +114,11 @@
 #define PetscFloorReal(a)   floorq(a)
 #define PetscFmodReal(a,b)  fmodq(a,b)
 #define PetscTGamma(a)      tgammaq(a)
+#if defined(PETSC_HAVE_LGAMMA_IS_GAMMA)
+#define PetscLGamma(a)      gammaq(a)
+#else
+#define PetscLGamma(a)      lgammaq(a)
+#endif
 
 #elif defined(PETSC_USE_REAL___FP16)
 #define PetscSqrtReal(a)    sqrtf(a)
@@ -131,6 +146,11 @@
 #define PetscFloorReal(a)   floorf(a)
 #define PetscFmodReal(a,b)  fmodf(a,b)
 #define PetscTGamma(a)      tgammaf(a)
+#if defined(PETSC_HAVE_LGAMMA_IS_GAMMA)
+#define PetscLGamma(a)      gammaf(a)
+#else
+#define PetscLGamma(a)      lgammaf(a)
+#endif
 
 #endif /* PETSC_USE_REAL_* */
 
@@ -634,7 +654,7 @@ M*/
    Not Collective
 
    Input Parameter:
-+  x - value to use if within interval (a,b)
++  x - value to use if within interval [a,b]
 .  a - lower end of interval
 -  b - upper end of interval
 
@@ -743,6 +763,7 @@ M*/
 #define PETSC_MAX_INT            9223372036854775807L
 #define PETSC_MIN_INT            (-PETSC_MAX_INT - 1)
 #endif
+#define PETSC_MAX_UINT16         65535
 
 #if defined(PETSC_USE_REAL_SINGLE)
 #  define PETSC_MAX_REAL                3.40282346638528860e+38F
@@ -807,6 +828,17 @@ PETSC_EXTERN MPI_Datatype MPIU_2INT PetscAttrMPITypeTagLayoutCompatible(struct p
 PETSC_STATIC_INLINE PetscInt PetscPowInt(PetscInt base,PetscInt power)
 {
   PetscInt result = 1;
+  while (power) {
+    if (power & 1) result *= base;
+    power >>= 1;
+    base *= base;
+  }
+  return result;
+}
+
+PETSC_STATIC_INLINE PetscInt64 PetscPowInt64(PetscInt base,PetscInt power)
+{
+  PetscInt64 result = 1;
   while (power) {
     if (power & 1) result *= base;
     power >>= 1;

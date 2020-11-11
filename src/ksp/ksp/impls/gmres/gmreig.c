@@ -4,14 +4,6 @@
 
 PetscErrorCode KSPComputeExtremeSingularValues_GMRES(KSP ksp,PetscReal *emax,PetscReal *emin)
 {
-#if defined(PETSC_MISSING_LAPACK_GESVD)
-  PetscFunctionBegin;
-  /*
-      The Cray math libraries on T3D/T3E, and early versions of Intel Math Kernel Libraries (MKL)
-      for PCs do not seem to have the DGESVD() lapack routines
-  */
-  SETERRQ(PetscObjectComm((PetscObject)ksp),PETSC_ERR_SUP,"GESVD - Lapack routine is unavailable\nNot able to provide singular value estimates.");
-#else
   KSP_GMRES      *gmres = (KSP_GMRES*)ksp->data;
   PetscErrorCode ierr;
   PetscInt       n = gmres->it + 1,i,N = gmres->max_k + 2;
@@ -46,7 +38,6 @@ PetscErrorCode KSPComputeExtremeSingularValues_GMRES(KSP ksp,PetscReal *emax,Pet
 
   *emin = realpart[n-1];
   *emax = realpart[0];
-#endif
   PetscFunctionReturn(0);
 }
 
@@ -113,9 +104,6 @@ PetscErrorCode KSPComputeEigenvalues_GMRES(KSP ksp,PetscInt nmax,PetscReal *r,Pe
   }
 #endif
   ierr = PetscFree(perm);CHKERRQ(ierr);
-#elif defined(PETSC_MISSING_LAPACK_GEEV)
-  PetscFunctionBegin;
-  SETERRQ(PetscObjectComm((PetscObject)ksp),PETSC_ERR_SUP,"GEEV - Lapack routine is unavailable\nNot able to provide eigen values.");
 #elif !defined(PETSC_USE_COMPLEX)
   KSP_GMRES      *gmres = (KSP_GMRES*)ksp->data;
   PetscErrorCode ierr;
@@ -204,7 +192,7 @@ PetscErrorCode KSPComputeRitz_GMRES(KSP ksp,PetscBool ritz,PetscBool small,Petsc
   PetscFunctionBegin;
   /* n: size of the Hessenberg matrix */
   if (gmres->fullcycle) n = N-1;
-  /* NbrRitz: number of (harmonic) Ritz pairs to extract */ 
+  /* NbrRitz: number of (harmonic) Ritz pairs to extract */
   NbrRitz = PetscMin(*nrit,n);
 
   /* Definition of PetscBLASInt for lapack routines*/
@@ -239,14 +227,11 @@ PetscErrorCode KSPComputeRitz_GMRES(KSP ksp,PetscBool ritz,PetscBool small,Petsc
     ierr = PetscCalloc1(bn,&t);CHKERRQ(ierr);
     /* t = h^2_{m+1,m}e_m */
     if (gmres->fullcycle) {
-      t[bn-1] = PetscSqr(gmres->hes_ritz[(bn-1)*bN+bn]); 
+      t[bn-1] = PetscSqr(gmres->hes_ritz[(bn-1)*bN+bn]);
     } else {
-      t[bn-1] = PetscSqr(gmres->hes_origin[(bn-1)*bN+bn]); 
+      t[bn-1] = PetscSqr(gmres->hes_origin[(bn-1)*bN+bn]);
     }
     /* Call the LAPACK routine dgesv to compute t = H^{-T}*t */
-#if   defined(PETSC_MISSING_LAPACK_GESV)
-    SETERRQ(PetscObjectComm((PetscObject)ksp),PETSC_ERR_SUP,"GESV - Lapack routine is unavailable.");
-#else
     {
       PetscBLASInt info;
       PetscBLASInt nrhs = 1;
@@ -257,23 +242,18 @@ PetscErrorCode KSPComputeRitz_GMRES(KSP ksp,PetscBool ritz,PetscBool small,Petsc
       ierr = PetscFree(ipiv);CHKERRQ(ierr);
       ierr = PetscFree(Ht);CHKERRQ(ierr);
     }
-#endif
     /* Now form H + H^{-T}*h^2_{m+1,m}e_m*e_m^T */
     for (i=0; i<bn; i++) H[(bn-1)*bn+i] += t[i];
     ierr = PetscFree(t);CHKERRQ(ierr);
   }
 
   /* Compute (harmonic) Ritz pairs */
-#if defined(PETSC_MISSING_LAPACK_HSEQR)
-  SETERRQ(PetscObjectComm((PetscObject)ksp),PETSC_ERR_SUP,"GEEV - Lapack routine is unavailable\nNot able to provide eigen values.");
-#else
   {
     PetscBLASInt info;
     ierr = PetscFPTrapPush(PETSC_FP_TRAP_OFF);CHKERRQ(ierr);
     PetscStackCallBLAS("LAPACKgeev",LAPACKgeev_("N","V",&bn,H,&bN,wr,wi,&sdummy,&idummy,Q,&bn,work,&lwork,&info));
     if (info) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_LIB,"Error in LAPACK routine");
   }
-#endif
   /* sort the (harmonic) Ritz values */
   ierr = PetscMalloc1(n,&modul);CHKERRQ(ierr);
   ierr = PetscMalloc1(n,&perm);CHKERRQ(ierr);
@@ -305,18 +285,18 @@ PetscErrorCode KSPComputeRitz_GMRES(KSP ksp,PetscBool ritz,PetscBool small,Petsc
     }
   }
   ierr = PetscFree(modul);CHKERRQ(ierr);
-  ierr = PetscFree(perm);CHKERRQ(ierr);  
+  ierr = PetscFree(perm);CHKERRQ(ierr);
 
-  /* Form the Ritz or Harmonic Ritz vectors S=VV*Sr, 
+  /* Form the Ritz or Harmonic Ritz vectors S=VV*Sr,
     where the columns of VV correspond to the basis of the Krylov subspace */
   if (gmres->fullcycle) {
     for (j=0; j<nb; j++) {
-      ierr = VecZeroEntries(S[j]);CHKERRQ(ierr);  
-      ierr = VecMAXPY(S[j],n,&SR[j*n],gmres->vecb);CHKERRQ(ierr); 
-    } 
+      ierr = VecZeroEntries(S[j]);CHKERRQ(ierr);
+      ierr = VecMAXPY(S[j],n,&SR[j*n],gmres->vecb);CHKERRQ(ierr);
+    }
   } else {
     for (j=0; j<nb; j++) {
-      ierr = VecZeroEntries(S[j]);CHKERRQ(ierr);  
+      ierr = VecZeroEntries(S[j]);CHKERRQ(ierr);
       ierr = VecMAXPY(S[j],n,&SR[j*n],&VEC_VV(0));CHKERRQ(ierr);
     }
   }
@@ -329,5 +309,3 @@ PetscErrorCode KSPComputeRitz_GMRES(KSP ksp,PetscBool ritz,PetscBool small,Petsc
   PetscFunctionReturn(0);
 }
 #endif
-
-

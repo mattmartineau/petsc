@@ -1,5 +1,5 @@
 #include <petsc/private/petscfvimpl.h> /*I "petscfv.h" I*/
-#include <petsc/private/dmpleximpl.h> /* For CellRefiner */
+#include <petscdmplex.h>
 #include <petscds.h>
 
 PetscClassId PETSCLIMITER_CLASSID = 0;
@@ -252,7 +252,7 @@ PetscErrorCode PetscLimiterDestroy(PetscLimiter *lim)
   if (!*lim) PetscFunctionReturn(0);
   PetscValidHeaderSpecific((*lim), PETSCLIMITER_CLASSID, 1);
 
-  if (--((PetscObject)(*lim))->refct > 0) {*lim = 0; PetscFunctionReturn(0);}
+  if (--((PetscObject)(*lim))->refct > 0) {*lim = NULL; PetscFunctionReturn(0);}
   ((PetscObject) (*lim))->refct = 0;
 
   if ((*lim)->ops->destroy) {ierr = (*(*lim)->ops->destroy)(*lim);CHKERRQ(ierr);}
@@ -1178,7 +1178,7 @@ PetscErrorCode PetscFVDestroy(PetscFV *fvm)
   if (!*fvm) PetscFunctionReturn(0);
   PetscValidHeaderSpecific((*fvm), PETSCFV_CLASSID, 1);
 
-  if (--((PetscObject)(*fvm))->refct > 0) {*fvm = 0; PetscFunctionReturn(0);}
+  if (--((PetscObject)(*fvm))->refct > 0) {*fvm = NULL; PetscFunctionReturn(0);}
   ((PetscObject) (*fvm))->refct = 0;
 
   for (i = 0; i < (*fvm)->numComponents; i++) {
@@ -1189,7 +1189,7 @@ PetscErrorCode PetscFVDestroy(PetscFV *fvm)
   ierr = PetscDualSpaceDestroy(&(*fvm)->dualSpace);CHKERRQ(ierr);
   ierr = PetscFree((*fvm)->fluxWork);CHKERRQ(ierr);
   ierr = PetscQuadratureDestroy(&(*fvm)->quadrature);CHKERRQ(ierr);
-  ierr = PetscFVRestoreTabulation((*fvm), 0, NULL, &(*fvm)->B, &(*fvm)->D, NULL /*&(*fvm)->H*/);CHKERRQ(ierr);
+  ierr = PetscTabulationDestroy(&(*fvm)->T);CHKERRQ(ierr);
 
   if ((*fvm)->ops->destroy) {ierr = (*(*fvm)->ops->destroy)(*fvm);CHKERRQ(ierr);}
   ierr = PetscHeaderDestroy(fvm);CHKERRQ(ierr);
@@ -1588,6 +1588,7 @@ PetscErrorCode PetscFVGetDualSpace(PetscFV fvm, PetscDualSpace *sp)
       ierr = PetscDualSpaceSimpleSetFunctional(fvm->dualSpace, c, qc);CHKERRQ(ierr);
       ierr = PetscQuadratureDestroy(&qc);CHKERRQ(ierr);
     }
+    ierr = PetscDualSpaceSetUp(fvm->dualSpace);CHKERRQ(ierr);
   }
   *sp = fvm->dualSpace;
   PetscFunctionReturn(0);
@@ -1622,28 +1623,26 @@ PetscErrorCode PetscFVSetDualSpace(PetscFV fvm, PetscDualSpace sp)
 }
 
 /*@C
-  PetscFVGetDefaultTabulation - Returns the tabulation of the basis functions at the quadrature points
+  PetscFVGetCellTabulation - Returns the tabulation of the basis functions at the quadrature points
 
   Not collective
 
   Input Parameter:
 . fvm - The PetscFV object
 
-  Output Parameters:
-+ B - The basis function values at quadrature points
-. D - The basis function derivatives at quadrature points
-- H - The basis function second derivatives at quadrature points
+  Output Parameter:
+. T - The basis function values and derviatives at quadrature points
 
   Note:
-$ B[(p*pdim + i)*Nc + c] is the value at point p for basis function i and component c
-$ D[((p*pdim + i)*Nc + c)*dim + d] is the derivative value at point p for basis function i, component c, in direction d
-$ H[(((p*pdim + i)*Nc + c)*dim + d)*dim + e] is the value at point p for basis function i, component c, in directions d and e
+$ T->T[0] = B[(p*pdim + i)*Nc + c] is the value at point p for basis function i and component c
+$ T->T[1] = D[((p*pdim + i)*Nc + c)*dim + d] is the derivative value at point p for basis function i, component c, in direction d
+$ T->T[2] = H[(((p*pdim + i)*Nc + c)*dim + d)*dim + e] is the value at point p for basis function i, component c, in directions d and e
 
   Level: intermediate
 
-.seealso: PetscFEGetDefaultTabulation(), PetscFEGetTabulation(), PetscFERestoreTabulation(), PetscFVGetQuadrature(), PetscQuadratureGetData()
+.seealso: PetscFEGetCellTabulation(), PetscFVCreateTabulation(), PetscFVGetQuadrature(), PetscQuadratureGetData()
 @*/
-PetscErrorCode PetscFVGetDefaultTabulation(PetscFV fvm, PetscReal **B, PetscReal **D, PetscReal **H)
+PetscErrorCode PetscFVGetCellTabulation(PetscFV fvm, PetscTabulation *T)
 {
   PetscInt         npoints;
   const PetscReal *points;
@@ -1651,97 +1650,69 @@ PetscErrorCode PetscFVGetDefaultTabulation(PetscFV fvm, PetscReal **B, PetscReal
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(fvm, PETSCFV_CLASSID, 1);
-  if (B) PetscValidPointer(B, 2);
-  if (D) PetscValidPointer(D, 3);
-  if (H) PetscValidPointer(H, 4);
+  PetscValidPointer(T, 2);
   ierr = PetscQuadratureGetData(fvm->quadrature, NULL, NULL, &npoints, &points, NULL);CHKERRQ(ierr);
-  if (!fvm->B) {ierr = PetscFVGetTabulation(fvm, npoints, points, &fvm->B, &fvm->D, NULL/*&fvm->H*/);CHKERRQ(ierr);}
-  if (B) *B = fvm->B;
-  if (D) *D = fvm->D;
-  if (H) *H = fvm->H;
+  if (!fvm->T) {ierr = PetscFVCreateTabulation(fvm, 1, npoints, points, 1, &fvm->T);CHKERRQ(ierr);}
+  *T = fvm->T;
   PetscFunctionReturn(0);
 }
 
 /*@C
-  PetscFVGetTabulation - Tabulates the basis functions, and perhaps derivatives, at the points provided.
+  PetscFVCreateTabulation - Tabulates the basis functions, and perhaps derivatives, at the points provided.
 
   Not collective
 
   Input Parameters:
 + fvm     - The PetscFV object
-. npoints - The number of tabulation points
-- points  - The tabulation point coordinates
+. nrepl   - The number of replicas
+. npoints - The number of tabulation points in a replica
+. points  - The tabulation point coordinates
+- K       - The order of derivative to tabulate
 
-  Output Parameters:
-+ B - The basis function values at tabulation points
-. D - The basis function derivatives at tabulation points
-- H - The basis function second derivatives at tabulation points
+  Output Parameter:
+. T - The basis function values and derviative at tabulation points
 
   Note:
-$ B[(p*pdim + i)*Nc + c] is the value at point p for basis function i and component c
-$ D[((p*pdim + i)*Nc + c)*dim + d] is the derivative value at point p for basis function i, component c, in direction d
-$ H[(((p*pdim + i)*Nc + c)*dim + d)*dim + e] is the value at point p for basis function i, component c, in directions d and e
+$ T->T[0] = B[(p*pdim + i)*Nc + c] is the value at point p for basis function i and component c
+$ T->T[1] = D[((p*pdim + i)*Nc + c)*dim + d] is the derivative value at point p for basis function i, component c, in direction d
+$ T->T[2] = H[(((p*pdim + i)*Nc + c)*dim + d)*dim + e] is the value at point p for basis function i, component c, in directions d and e
 
   Level: intermediate
 
-.seealso: PetscFEGetTabulation(), PetscFERestoreTabulation(), PetscFEGetDefaultTabulation()
+.seealso: PetscFECreateTabulation(), PetscTabulationDestroy(), PetscFEGetCellTabulation()
 @*/
-PetscErrorCode PetscFVGetTabulation(PetscFV fvm, PetscInt npoints, const PetscReal points[], PetscReal **B, PetscReal **D, PetscReal **H)
+PetscErrorCode PetscFVCreateTabulation(PetscFV fvm, PetscInt nrepl, PetscInt npoints, const PetscReal points[], PetscInt K, PetscTabulation *T)
 {
   PetscInt         pdim = 1; /* Dimension of approximation space P */
-  PetscInt         dim;      /* Spatial dimension */
-  PetscInt         comp;     /* Field components */
-  PetscInt         p, d, c, e;
+  PetscInt         cdim;     /* Spatial dimension */
+  PetscInt         Nc;       /* Field components */
+  PetscInt         k, p, d, c, e;
   PetscErrorCode   ierr;
 
   PetscFunctionBegin;
+  if (!npoints || K < 0) {
+    *T = NULL;
+    PetscFunctionReturn(0);
+  }
   PetscValidHeaderSpecific(fvm, PETSCFV_CLASSID, 1);
-  PetscValidPointer(points, 3);
-  if (B) PetscValidPointer(B, 4);
-  if (D) PetscValidPointer(D, 5);
-  if (H) PetscValidPointer(H, 6);
-  ierr = PetscFVGetSpatialDimension(fvm, &dim);CHKERRQ(ierr);
-  ierr = PetscFVGetNumComponents(fvm, &comp);CHKERRQ(ierr);
-  if (B) {ierr = PetscMalloc1(npoints*pdim*comp, B);CHKERRQ(ierr);}
-  if (D) {ierr = PetscMalloc1(npoints*pdim*comp*dim, D);CHKERRQ(ierr);}
-  if (H) {ierr = PetscMalloc1(npoints*pdim*comp*dim*dim, H);CHKERRQ(ierr);}
-  if (B) {for (p = 0; p < npoints; ++p) for (d = 0; d < pdim; ++d) for (c = 0; c < comp; ++c) (*B)[(p*pdim + d)*comp + c] = 1.0;}
-  if (D) {for (p = 0; p < npoints; ++p) for (d = 0; d < pdim; ++d) for (c = 0; c < comp; ++c) for (e = 0; e < dim; ++e) (*D)[((p*pdim + d)*comp + c)*dim + e] = 0.0;}
-  if (H) {for (p = 0; p < npoints; ++p) for (d = 0; d < pdim; ++d) for (c = 0; c < comp; ++c) for (e = 0; e < dim*dim; ++e) (*H)[((p*pdim + d)*comp + c)*dim*dim + e] = 0.0;}
-  PetscFunctionReturn(0);
-}
-
-/*@C
-  PetscFVRestoreTabulation - Frees memory from the associated tabulation.
-
-  Not collective
-
-  Input Parameters:
-+ fvm     - The PetscFV object
-. npoints - The number of tabulation points
-. points  - The tabulation point coordinates
-. B - The basis function values at tabulation points
-. D - The basis function derivatives at tabulation points
-- H - The basis function second derivatives at tabulation points
-
-  Note:
-$ B[(p*pdim + i)*Nc + c] is the value at point p for basis function i and component c
-$ D[((p*pdim + i)*Nc + c)*dim + d] is the derivative value at point p for basis function i, component c, in direction d
-$ H[(((p*pdim + i)*Nc + c)*dim + d)*dim + e] is the value at point p for basis function i, component c, in directions d and e
-
-  Level: intermediate
-
-.seealso: PetscFVGetTabulation(), PetscFVGetDefaultTabulation()
-@*/
-PetscErrorCode PetscFVRestoreTabulation(PetscFV fvm, PetscInt npoints, const PetscReal points[], PetscReal **B, PetscReal **D, PetscReal **H)
-{
-  PetscErrorCode ierr;
-
-  PetscFunctionBegin;
-  PetscValidHeaderSpecific(fvm, PETSCFV_CLASSID, 1);
-  if (B && *B) {ierr = PetscFree(*B);CHKERRQ(ierr);}
-  if (D && *D) {ierr = PetscFree(*D);CHKERRQ(ierr);}
-  if (H && *H) {ierr = PetscFree(*H);CHKERRQ(ierr);}
+  PetscValidPointer(points, 4);
+  PetscValidPointer(T, 6);
+  ierr = PetscFVGetSpatialDimension(fvm, &cdim);CHKERRQ(ierr);
+  ierr = PetscFVGetNumComponents(fvm, &Nc);CHKERRQ(ierr);
+  ierr = PetscMalloc1(1, T);CHKERRQ(ierr);
+  (*T)->K    = !cdim ? 0 : K;
+  (*T)->Nr   = nrepl;
+  (*T)->Np   = npoints;
+  (*T)->Nb   = pdim;
+  (*T)->Nc   = Nc;
+  (*T)->cdim = cdim;
+  ierr = PetscMalloc1((*T)->K+1, &(*T)->T);CHKERRQ(ierr);
+  for (k = 0; k <= (*T)->K; ++k) {
+    ierr = PetscMalloc1(nrepl*npoints*pdim*Nc*PetscPowInt(cdim, k), &(*T)->T[k]);CHKERRQ(ierr);
+  }
+  if (K >= 0) {for (p = 0; p < nrepl*npoints; ++p) for (d = 0; d < pdim; ++d) for (c = 0; c < Nc; ++c) (*T)->T[0][(p*pdim + d)*Nc + c] = 1.0;}
+  if (K >= 1) {for (p = 0; p < nrepl*npoints; ++p) for (d = 0; d < pdim; ++d) for (c = 0; c < Nc; ++c) for (e = 0; e < cdim; ++e) (*T)->T[1][((p*pdim + d)*Nc + c)*cdim + e] = 0.0;}
+  if (K >= 2) {for (p = 0; p < nrepl*npoints; ++p) for (d = 0; d < pdim; ++d) for (c = 0; c < Nc; ++c) for (e = 0; e < cdim*cdim; ++e) (*T)->T[2][((p*pdim + d)*Nc + c)*cdim*cdim + e] = 0.0;}
   PetscFunctionReturn(0);
 }
 
@@ -1782,7 +1753,7 @@ PetscErrorCode PetscFVComputeGradient(PetscFV fvm, PetscInt numFaces, PetscScala
 . uL           - The state from the cell on the left
 - uR           - The state from the cell on the right
 
-  Output Parameter
+  Output Parameter:
 + fluxL        - the left fluxes for each face
 - fluxR        - the right fluxes for each face
 
@@ -1818,14 +1789,15 @@ PetscErrorCode PetscFVIntegrateRHSFunction(PetscFV fvm, PetscDS prob, PetscInt f
 @*/
 PetscErrorCode PetscFVRefine(PetscFV fv, PetscFV *fvRef)
 {
-  PetscDualSpace   Q, Qref;
-  DM               K, Kref;
-  PetscQuadrature  q, qref;
-  CellRefiner      cellRefiner;
-  PetscReal       *v0;
-  PetscReal       *jac, *invjac;
-  PetscInt         numComp, numSubelements, s;
-  PetscErrorCode   ierr;
+  PetscDualSpace    Q, Qref;
+  DM                K, Kref;
+  PetscQuadrature   q, qref;
+  DMPolytopeType    ct;
+  DMPlexCellRefiner cr;
+  PetscReal        *v0;
+  PetscReal        *jac, *invjac;
+  PetscInt          numComp, numSubelements, s;
+  PetscErrorCode    ierr;
 
   PetscFunctionBegin;
   ierr = PetscFVGetDualSpace(fv, &Q);CHKERRQ(ierr);
@@ -1844,8 +1816,9 @@ PetscErrorCode PetscFVRefine(PetscFV fv, PetscFV *fvRef)
   ierr = PetscFVSetNumComponents(*fvRef, numComp);CHKERRQ(ierr);
   ierr = PetscFVSetUp(*fvRef);CHKERRQ(ierr);
   /* Create quadrature */
-  ierr = DMPlexGetCellRefiner_Internal(K, &cellRefiner);CHKERRQ(ierr);
-  ierr = CellRefinerGetAffineTransforms_Internal(cellRefiner, &numSubelements, &v0, &jac, &invjac);CHKERRQ(ierr);
+  ierr = DMPlexGetCellType(K, 0, &ct);CHKERRQ(ierr);
+  ierr = DMPlexCellRefinerCreate(K, &cr);CHKERRQ(ierr);
+  ierr = DMPlexCellRefinerGetAffineTransforms(cr, ct, &numSubelements, &v0, &jac, &invjac);CHKERRQ(ierr);
   ierr = PetscQuadratureExpandComposite(q, numSubelements, v0, jac, &qref);CHKERRQ(ierr);
   ierr = PetscDualSpaceSimpleSetDimension(Qref, numSubelements);CHKERRQ(ierr);
   for (s = 0; s < numSubelements; ++s) {
@@ -1865,8 +1838,8 @@ PetscErrorCode PetscFVRefine(PetscFV fv, PetscFV *fvRef)
     ierr = PetscDualSpaceSimpleSetFunctional(Qref, s, qs);CHKERRQ(ierr);
     ierr = PetscQuadratureDestroy(&qs);CHKERRQ(ierr);
   }
-  ierr = CellRefinerRestoreAffineTransforms_Internal(cellRefiner, &numSubelements, &v0, &jac, &invjac);CHKERRQ(ierr);
   ierr = PetscFVSetQuadrature(*fvRef, qref);CHKERRQ(ierr);
+  ierr = DMPlexCellRefinerDestroy(&cr);CHKERRQ(ierr);
   ierr = PetscQuadratureDestroy(&qref);CHKERRQ(ierr);
   ierr = PetscDualSpaceDestroy(&Qref);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -2110,8 +2083,8 @@ static PetscErrorCode PetscFVLeastSquaresPseudoInverseSVD_Static(PetscInt m,Pets
   }
 
   /* initialize to identity */
-  tmpwork = Ainv;
-  Brhs = work;
+  tmpwork = work;
+  Brhs = Ainv;
   maxmn = PetscMax(m,n);
   for (j=0; j<maxmn; j++) {
     for (i=0; i<maxmn; i++) Brhs[i + j*maxmn] = 1.0*(i == j);
@@ -2139,12 +2112,6 @@ static PetscErrorCode PetscFVLeastSquaresPseudoInverseSVD_Static(PetscInt m,Pets
   if (info) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_LIB,"xGELSS error");
   /* The following check should be turned into a diagnostic as soon as someone wants to do this intentionally */
   if (irank < PetscMin(M,N)) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_USER,"Rank deficient least squares fit, indicates an isolated cell with two colinear points");
-
-  /* Brhs shaped (M,nrhs) column-major coldim=mstride was overwritten by Ainv shaped (N,nrhs) column-major coldim=maxmn.
-   * Here we transpose to (N,nrhs) row-major rowdim=mstride. */
-  for (i=0; i<n; i++) {
-    for (j=0; j<nrhs; j++) Ainv[i*mstride+j] = Brhs[i + j*maxmn];
-  }
   PetscFunctionReturn(0);
 }
 
@@ -2211,10 +2178,19 @@ static PetscErrorCode PetscFVComputeGradient_LeastSquares(PetscFV fvm, PetscInt 
     for (d = 0; d < dim; ++d) ls->B[d*maxFaces+f] = dx[f*dim+d];
   }
   /* Overwrites B with garbage, returns Binv in row-major format */
-  if (useSVD) {ierr = PetscFVLeastSquaresPseudoInverseSVD_Static(numFaces, maxFaces, dim, ls->B, ls->Binv, ls->tau, ls->workSize, ls->work);CHKERRQ(ierr);}
-  else        {ierr = PetscFVLeastSquaresPseudoInverse_Static(numFaces, maxFaces, dim, ls->B, ls->Binv, ls->tau, ls->workSize, ls->work);CHKERRQ(ierr);}
-  for (f = 0; f < numFaces; ++f) {
-    for (d = 0; d < dim; ++d) grad[f*dim+d] = ls->Binv[d*maxFaces+f];
+  if (useSVD) {
+    PetscInt maxmn = PetscMax(numFaces, dim);
+    ierr = PetscFVLeastSquaresPseudoInverseSVD_Static(numFaces, maxFaces, dim, ls->B, ls->Binv, ls->tau, ls->workSize, ls->work);CHKERRQ(ierr);
+    /* Binv shaped in column-major, coldim=maxmn.*/
+    for (f = 0; f < numFaces; ++f) {
+      for (d = 0; d < dim; ++d) grad[f*dim+d] = ls->Binv[d + maxmn*f];
+    }
+  } else {
+    ierr = PetscFVLeastSquaresPseudoInverse_Static(numFaces, maxFaces, dim, ls->B, ls->Binv, ls->tau, ls->workSize, ls->work);CHKERRQ(ierr);
+    /* Binv shaped in row-major, rowdim=maxFaces.*/
+    for (f = 0; f < numFaces; ++f) {
+      for (d = 0; d < dim; ++d) grad[f*dim+d] = ls->Binv[d*maxFaces + f];
+    }
   }
   PetscFunctionReturn(0);
 }
@@ -2255,7 +2231,7 @@ static PetscErrorCode PetscFVIntegrateRHSFunction_LeastSquares(PetscFV fvm, Pets
 static PetscErrorCode PetscFVLeastSquaresSetMaxFaces_LS(PetscFV fvm, PetscInt maxFaces)
 {
   PetscFV_LeastSquares *ls = (PetscFV_LeastSquares *) fvm->data;
-  PetscInt              dim, m, n, nrhs, minwork;
+  PetscInt              dim,m,n,nrhs,minmn,maxmn;
   PetscErrorCode        ierr;
 
   PetscFunctionBegin;
@@ -2266,9 +2242,10 @@ static PetscErrorCode PetscFVLeastSquaresSetMaxFaces_LS(PetscFV fvm, PetscInt ma
   m       = ls->maxFaces;
   n       = dim;
   nrhs    = ls->maxFaces;
-  minwork = 3*PetscMin(m,n) + PetscMax(2*PetscMin(m,n), PetscMax(PetscMax(m,n), nrhs)); /* required by LAPACK */
-  ls->workSize = 5*minwork; /* We can afford to be extra generous */
-  ierr = PetscMalloc4(ls->maxFaces*dim,&ls->B,ls->workSize,&ls->Binv,ls->maxFaces,&ls->tau,ls->workSize,&ls->work);CHKERRQ(ierr);
+  minmn   = PetscMin(m,n);
+  maxmn   = PetscMax(m,n);
+  ls->workSize = 3*minmn + PetscMax(2*minmn, PetscMax(maxmn, nrhs)); /* required by LAPACK */
+  ierr = PetscMalloc4(m*n,&ls->B,maxmn*maxmn,&ls->Binv,minmn,&ls->tau,ls->workSize,&ls->work);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 

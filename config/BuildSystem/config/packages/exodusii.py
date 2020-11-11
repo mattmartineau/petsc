@@ -3,7 +3,7 @@ import config.package
 class Configure(config.package.CMakePackage):
   def __init__(self, framework):
     config.package.CMakePackage.__init__(self, framework)
-    self.gitcommit         = '4ff2234bba3a456aa834c872002188919dd2ba72'
+    self.gitcommit         = 'e7308f4401dd8692318d22bc6abb1dc84d3fb404'
     self.download          = ['git://https://github.com/gsjaardema/seacas.git','https://github.com/gsjaardema/seacas/archive/'+self.gitcommit+'.tar.gz']
     self.downloaddirnames  = ['seacas']
     self.functions         = ['ex_close']
@@ -30,18 +30,18 @@ class Configure(config.package.CMakePackage):
     args.append('-DACCESSDIR:PATH='+self.installDir)
     args.append('-DCMAKE_INSTALL_PREFIX:PATH='+self.installDir)
     args.append('-DCMAKE_INSTALL_RPATH:PATH='+os.path.join(self.installDir,'lib'))
-    self.setCompilers.pushLanguage('C')
-    args.append('-DCMAKE_C_COMPILER:FILEPATH="'+self.setCompilers.getCompiler()+'"')
-    self.setCompilers.popLanguage()
+    self.pushLanguage('C')
+    args.append('-DCMAKE_C_COMPILER:FILEPATH="'+self.getCompiler()+'"')
+    self.popLanguage()
     # building the fortran library is technically not required to add exodus support
     # we build it anyway so that fortran users can still use exodus functions directly 
     # from their code
     if hasattr(self.setCompilers, 'FC'):
-      self.setCompilers.pushLanguage('FC')
-      args.append('-DCMAKE_Fortran_COMPILER:FILEPATH="'+self.setCompilers.getCompiler()+'"')
+      self.pushLanguage('FC')
+      args.append('-DCMAKE_Fortran_COMPILER:FILEPATH="'+self.getCompiler()+'"')
       args.append('-DSEACASProj_ENABLE_SEACASExodus_for=ON')
       args.append('-DSEACASProj_ENABLE_SEACASExoIIv2for32=ON')
-      self.setCompilers.popLanguage()
+      self.popLanguage()
     else:
       args.append('-DSEACASProj_ENABLE_SEACASExodus_for=OFF')
       args.append('-DSEACASProj_ENABLE_SEACASExoIIv2for32=OFF')

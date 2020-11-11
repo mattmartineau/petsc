@@ -9,6 +9,7 @@ configure_options = [
   '--with-shared-libraries=yes',
   '--with-debugging=no',
   '--download-mpich',
+  '--download-mpich-device=ch3:sock',
   '--download-metis',
   '--download-parmetis',
   '--download-scalapack',
@@ -23,6 +24,10 @@ configure_options = [
   '--download-triangle',
   '--download-chaco',
   '--download-ctetgen',
+  '--download-egads',
+  '--download-cmake',
+  '--download-amrex',
+  '--download-hypre',
 ]
 
 if __name__ == '__main__':

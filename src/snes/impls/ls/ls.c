@@ -69,7 +69,7 @@ static PetscErrorCode SNESNEWTONLSCheckResidual_Private(SNES snes,Mat A,Vec F,Ve
     if (a1 != 0.0) {
       ierr = PetscInfo1(snes,"||J^T(F-Ax)||/||F-AX|| %14.12e near zero implies inconsistent rhs\n",(double)(a2/a1));CHKERRQ(ierr);
     }
-    ierr = VecDestroy(&W1);CHKERRQ(ierr);    
+    ierr = VecDestroy(&W1);CHKERRQ(ierr);
     ierr = VecDestroy(&W2);CHKERRQ(ierr);
   }
   PetscFunctionReturn(0);
@@ -405,7 +405,9 @@ PETSC_EXTERN PetscErrorCode SNESCreate_NEWTONLS(SNES snes)
   snes->usesnpc = PETSC_TRUE;
 
   ierr = SNESGetLineSearch(snes, &linesearch);CHKERRQ(ierr);
-  ierr = SNESLineSearchSetType(linesearch, SNESLINESEARCHBT);CHKERRQ(ierr);
+  if (!((PetscObject)linesearch)->type_name) {
+    ierr = SNESLineSearchSetType(linesearch, SNESLINESEARCHBT);CHKERRQ(ierr);
+  }
 
   snes->alwayscomputesfinalresidual = PETSC_TRUE;
 

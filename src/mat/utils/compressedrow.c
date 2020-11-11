@@ -1,4 +1,3 @@
-
 #include <petsc/private/matimpl.h>  /*I   "petscmat.h"  I*/
 
 /*@C
@@ -17,14 +16,10 @@
 .  mbs           - number of (block) rows represented by ai
 -  ratio         - ratio of (num of zero rows)/m, used to determine if the compressed row format should be used
 
-   Notes:
-    By default PETSc will not check for compressed rows on sequential matrices. Call MatSetOption(Mat,MAT_CHECK_COMPRESSED_ROW,PETSC_TRUE); before
-          MatAssemblyBegin() to have it check.
-
    Developer Note: The reason this takes the compressedrow, ai and mbs arguments is because it is called by both the SeqAIJ and SEQBAIJ matrices and
                    the values are not therefore obtained by directly taking the values from the matrix object.
                    This is not a general public routine and hence is not listed in petscmat.h (it exposes a private data structure) but it is used
-                   by some preconditioners and hence is labeled as PETSC_EXTERN 
+                   by some preconditioners and hence is labeled as PETSC_EXTERN
 
    Level: developer
 @*/

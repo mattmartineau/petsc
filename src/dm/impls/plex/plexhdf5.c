@@ -236,6 +236,7 @@ PetscErrorCode VecView_Plex_HDF5_Internal(Vec v, PetscViewer viewer)
 {
   DM             dm;
   Vec            locv;
+  PetscObject    isZero;
   const char    *name;
   PetscReal      time;
   PetscErrorCode ierr;
@@ -245,6 +246,8 @@ PetscErrorCode VecView_Plex_HDF5_Internal(Vec v, PetscViewer viewer)
   ierr = DMGetLocalVector(dm, &locv);CHKERRQ(ierr);
   ierr = PetscObjectGetName((PetscObject) v, &name);CHKERRQ(ierr);
   ierr = PetscObjectSetName((PetscObject) locv, name);CHKERRQ(ierr);
+  ierr = PetscObjectQuery((PetscObject) v, "__Vec_bc_zero__", &isZero);CHKERRQ(ierr);
+  ierr = PetscObjectCompose((PetscObject) locv, "__Vec_bc_zero__", isZero);CHKERRQ(ierr);
   ierr = DMGlobalToLocalBegin(dm, v, INSERT_VALUES, locv);CHKERRQ(ierr);
   ierr = DMGlobalToLocalEnd(dm, v, INSERT_VALUES, locv);CHKERRQ(ierr);
   ierr = DMGetOutputSequenceNumber(dm, NULL, &time);CHKERRQ(ierr);
@@ -254,6 +257,7 @@ PetscErrorCode VecView_Plex_HDF5_Internal(Vec v, PetscViewer viewer)
   ierr = VecView_Plex_Local_HDF5_Internal(locv, viewer);CHKERRQ(ierr);
   ierr = PetscViewerPopFormat(viewer);CHKERRQ(ierr);
   ierr = PetscViewerHDF5PopGroup(viewer);CHKERRQ(ierr);
+  ierr = PetscObjectCompose((PetscObject) locv, "__Vec_bc_zero__", NULL);CHKERRQ(ierr);
   ierr = DMRestoreLocalVector(dm, &locv);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -375,12 +379,12 @@ static PetscErrorCode DMPlexWriteTopology_HDF5_Static(DM dm, IS globalPointNumbe
   PetscFunctionReturn(0);
 }
 
-static PetscErrorCode CreateConesIS_Private(DM dm, PetscInt cStart, PetscInt cEnd, PetscInt *numCorners, IS *cellIS)
+static PetscErrorCode CreateConesIS_Private(DM dm, PetscInt cStart, PetscInt cEnd, IS globalCellNumbers, PetscInt *numCorners, IS *cellIS)
 {
   PetscSF         sfPoint;
   DMLabel         cutLabel, cutVertexLabel = NULL;
   IS              globalVertexNumbers, cutvertices = NULL;
-  const PetscInt *gvertex, *cutverts = NULL;
+  const PetscInt *gcell, *gvertex, *cutverts = NULL;
   PetscInt       *vertices;
   PetscInt        conesSize = 0;
   PetscInt        dim, numCornersLocal = 0, cell, vStart, vEnd, vExtra = 0, v;
@@ -390,11 +394,13 @@ static PetscErrorCode CreateConesIS_Private(DM dm, PetscInt cStart, PetscInt cEn
   *numCorners = 0;
   ierr = DMGetDimension(dm, &dim);CHKERRQ(ierr);
   ierr = DMPlexGetDepthStratum(dm, 0, &vStart, &vEnd);CHKERRQ(ierr);
+  ierr = ISGetIndices(globalCellNumbers, &gcell);CHKERRQ(ierr);
 
   for (cell = cStart; cell < cEnd; ++cell) {
     PetscInt *closure = NULL;
     PetscInt  closureSize, v, Nc = 0;
 
+    if (gcell[cell] < 0) continue;
     ierr = DMPlexGetTransitiveClosure(dm, cell, PETSC_TRUE, &closureSize, &closure);CHKERRQ(ierr);
     for (v = 0; v < closureSize*2; v += 2) {
       if ((closure[v] >= vStart) && (closure[v] < vEnd)) ++Nc;
@@ -422,7 +428,7 @@ static PetscErrorCode CreateConesIS_Private(DM dm, PetscInt cStart, PetscInt cEn
 
     ierr = PetscSFGetGraph(sfPoint, &nroots, &nleaves, &ilocal, &iremote);CHKERRQ(ierr);
     if (nleaves < 0) {
-      ierr = PetscObjectReference((PetscObject) sfPoint);CHKERRQ(ierr);      
+      ierr = PetscObjectReference((PetscObject) sfPoint);CHKERRQ(ierr);
     } else {
       ierr = PetscSFCreate(PetscObjectComm((PetscObject) sfPoint), &sfPoint);CHKERRQ(ierr);
       ierr = PetscSFSetGraph(sfPoint, nroots+vExtra, nleaves, ilocal, PETSC_USE_POINTER, iremote, PETSC_USE_POINTER);CHKERRQ(ierr);
@@ -431,7 +437,7 @@ static PetscErrorCode CreateConesIS_Private(DM dm, PetscInt cStart, PetscInt cEn
     ierr = PetscObjectReference((PetscObject) sfPoint);CHKERRQ(ierr);
   }
   /* Number all vertices */
-  ierr = DMPlexCreateNumbering_Internal(dm, vStart, vEnd+vExtra, 0, NULL, sfPoint, &globalVertexNumbers);CHKERRQ(ierr);
+  ierr = DMPlexCreateNumbering_Plex(dm, vStart, vEnd+vExtra, 0, NULL, sfPoint, &globalVertexNumbers);CHKERRQ(ierr);
   ierr = PetscSFDestroy(&sfPoint);CHKERRQ(ierr);
   /* Create cones */
   ierr = ISGetIndices(globalVertexNumbers, &gvertex);CHKERRQ(ierr);
@@ -441,6 +447,7 @@ static PetscErrorCode CreateConesIS_Private(DM dm, PetscInt cStart, PetscInt cEn
     PetscInt  closureSize, Nc = 0, p, value = -1;
     PetscBool replace;
 
+    if (gcell[cell] < 0) continue;
     if (cutLabel) {ierr = DMLabelGetValue(cutLabel, cell, &value);CHKERRQ(ierr);}
     replace = (value == 2) ? PETSC_TRUE : PETSC_FALSE;
     ierr = DMPlexGetTransitiveClosure(dm, cell, PETSC_TRUE, &closureSize, &closure);CHKERRQ(ierr);
@@ -449,7 +456,7 @@ static PetscErrorCode CreateConesIS_Private(DM dm, PetscInt cStart, PetscInt cEn
         closure[Nc++] = closure[p];
       }
     }
-    ierr = DMPlexInvertCell_Internal(dim, Nc, closure);CHKERRQ(ierr);
+    ierr = DMPlexReorderCell(dm, cell, closure);CHKERRQ(ierr);
     for (p = 0; p < Nc; ++p) {
       PetscInt nv, gv = gvertex[closure[p] - vStart];
 
@@ -463,6 +470,7 @@ static PetscErrorCode CreateConesIS_Private(DM dm, PetscInt cStart, PetscInt cEn
   }
   ierr = ISRestoreIndices(globalVertexNumbers, &gvertex);CHKERRQ(ierr);
   ierr = ISDestroy(&globalVertexNumbers);CHKERRQ(ierr);
+  ierr = ISRestoreIndices(globalCellNumbers, &gcell);CHKERRQ(ierr);
   if (cutvertices) {ierr = ISRestoreIndices(cutvertices, &cutverts);CHKERRQ(ierr);}
   ierr = ISDestroy(&cutvertices);CHKERRQ(ierr);
   ierr = DMLabelDestroy(&cutVertexLabel);CHKERRQ(ierr);
@@ -473,43 +481,54 @@ static PetscErrorCode CreateConesIS_Private(DM dm, PetscInt cStart, PetscInt cEn
   PetscFunctionReturn(0);
 }
 
-static PetscErrorCode DMPlexWriteTopology_Vertices_HDF5_Static(DM dm, PetscViewer viewer)
+static PetscErrorCode DMPlexWriteTopology_Vertices_HDF5_Static(DM dm, IS globalCellNumbers, PetscViewer viewer)
 {
   DM              cdm;
-  IS              cellIS = NULL, hcellIS = NULL;
-  PetscInt        dim, cellHeight, cStart, cMax, cEnd, numCorners, numHCorners;
+  DMLabel         depthLabel, ctLabel;
+  IS              cellIS;
+  PetscInt        dim, depth, cellHeight, c;
   hid_t           fileId, groupId;
   PetscErrorCode  ierr;
 
   PetscFunctionBegin;
-  ierr = DMGetDimension(dm, &dim);CHKERRQ(ierr);
-  ierr = DMGetCoordinateDM(dm, &cdm);CHKERRQ(ierr);
-  ierr = DMPlexGetVTKCellHeight(dm, &cellHeight);CHKERRQ(ierr);
-  ierr = DMPlexGetHeightStratum(dm, cellHeight, &cStart, &cEnd);CHKERRQ(ierr);
-  ierr = DMPlexGetHybridBounds(dm, &cMax, NULL, NULL, NULL);CHKERRQ(ierr);
-  cMax = cMax >= 0 ? cMax : cEnd;
-  ierr = CreateConesIS_Private(dm, cStart, cMax, &numCorners,  &cellIS);CHKERRQ(ierr);
-  if (cMax < cEnd) {ierr = CreateConesIS_Private(dm, cMax,   cEnd, &numHCorners, &hcellIS);CHKERRQ(ierr);}
-
   ierr = PetscViewerHDF5PushGroup(viewer, "/viz");CHKERRQ(ierr);
   ierr = PetscViewerHDF5OpenGroup(viewer, &fileId, &groupId);CHKERRQ(ierr);
   PetscStackCallHDF5(H5Gclose,(groupId));
+
   ierr = PetscViewerHDF5PopGroup(viewer);CHKERRQ(ierr);
-  if (cellIS) {
-    ierr = PetscViewerHDF5PushGroup(viewer, "/viz/topology");CHKERRQ(ierr);
+  ierr = DMGetDimension(dm, &dim);CHKERRQ(ierr);
+  ierr = DMPlexGetDepth(dm, &depth);CHKERRQ(ierr);
+  ierr = DMGetCoordinateDM(dm, &cdm);CHKERRQ(ierr);
+  ierr = DMPlexGetVTKCellHeight(dm, &cellHeight);CHKERRQ(ierr);
+  ierr = DMPlexGetDepthLabel(dm, &depthLabel);CHKERRQ(ierr);
+  ierr = DMPlexGetCellTypeLabel(dm, &ctLabel);CHKERRQ(ierr);
+  for (c = 0; c < DM_NUM_POLYTOPES; ++c) {
+    const DMPolytopeType ict = (DMPolytopeType) c;
+    PetscInt             pStart, pEnd, dep, numCorners, n = 0;
+    PetscBool            output = PETSC_FALSE, doOutput;
+
+    ierr = DMLabelGetStratumBounds(ctLabel, ict, &pStart, &pEnd);CHKERRQ(ierr);
+    if (pStart >= 0) {
+      ierr = DMLabelGetValue(depthLabel, pStart, &dep);CHKERRQ(ierr);
+      if (dep == depth - cellHeight) output = PETSC_TRUE;
+    }
+    ierr = MPI_Allreduce(&output, &doOutput, 1, MPIU_BOOL, MPI_LOR, PetscObjectComm((PetscObject) dm));CHKERRQ(ierr);
+    if (!doOutput) continue;
+    ierr = CreateConesIS_Private(dm, pStart, pEnd, globalCellNumbers, &numCorners,  &cellIS);CHKERRQ(ierr);
+    if (!n) {
+      ierr = PetscViewerHDF5PushGroup(viewer, "/viz/topology");CHKERRQ(ierr);
+    } else {
+      char group[PETSC_MAX_PATH_LEN];
+
+      ierr = PetscSNPrintf(group, PETSC_MAX_PATH_LEN, "/viz/topology_%D", n);CHKERRQ(ierr);
+      ierr = PetscViewerHDF5PushGroup(viewer, group);CHKERRQ(ierr);
+    }
     ierr = ISView(cellIS, viewer);CHKERRQ(ierr);
     ierr = PetscViewerHDF5WriteObjectAttribute(viewer, (PetscObject) cellIS, "cell_corners", PETSC_INT, (void *) &numCorners);CHKERRQ(ierr);
     ierr = PetscViewerHDF5WriteObjectAttribute(viewer, (PetscObject) cellIS, "cell_dim",     PETSC_INT, (void *) &dim);CHKERRQ(ierr);
     ierr = ISDestroy(&cellIS);CHKERRQ(ierr);
     ierr = PetscViewerHDF5PopGroup(viewer);CHKERRQ(ierr);
-  }
-  if (hcellIS) {
-    ierr = PetscViewerHDF5PushGroup(viewer, "/viz/hybrid_topology");CHKERRQ(ierr);
-    ierr = ISView(hcellIS, viewer);CHKERRQ(ierr);
-    ierr = PetscViewerHDF5WriteObjectAttribute(viewer, (PetscObject) hcellIS, "cell_corners", PETSC_INT, (void *) &numHCorners);CHKERRQ(ierr);
-    ierr = PetscViewerHDF5WriteObjectAttribute(viewer, (PetscObject) hcellIS, "cell_dim",     PETSC_INT, (void *) &dim);CHKERRQ(ierr);
-    ierr = ISDestroy(&hcellIS);CHKERRQ(ierr);
-    ierr = PetscViewerHDF5PopGroup(viewer);CHKERRQ(ierr);
+    ++n;
   }
   PetscFunctionReturn(0);
 }
@@ -793,7 +812,7 @@ PetscErrorCode DMPlexView_HDF5_Internal(DM dm, PetscViewer viewer)
   }
 
   if (viz_geom)   {ierr = DMPlexWriteCoordinates_Vertices_HDF5_Static(dm, viewer);CHKERRQ(ierr);}
-  if (xdmf_topo)  {ierr = DMPlexWriteTopology_Vertices_HDF5_Static(dm, viewer);CHKERRQ(ierr);}
+  if (xdmf_topo)  {ierr = DMPlexWriteTopology_Vertices_HDF5_Static(dm, globalPointNumbers, viewer);CHKERRQ(ierr);}
   if (petsc_topo) {ierr = DMPlexWriteTopology_HDF5_Static(dm, globalPointNumbers, viewer);CHKERRQ(ierr);}
 
   ierr = ISDestroy(&globalPointNumbers);CHKERRQ(ierr);

@@ -9,7 +9,7 @@
 /*
     This is the default list used by PETSc with the PetscDLLibrary register routines
 */
-PetscDLLibrary PetscDLLibrariesLoaded = 0;
+PetscDLLibrary PetscDLLibrariesLoaded = NULL;
 
 #if defined(PETSC_HAVE_DYNAMIC_LIBRARIES) && defined(PETSC_USE_SHARED_LIBRARIES)
 
@@ -34,7 +34,6 @@ PetscErrorCode  PetscLoadDynamicLibrary(const char *name,PetscBool  *found)
   }
   PetscFunctionReturn(0);
 }
-
 #endif
 
 #if defined(PETSC_HAVE_THREADSAFETY)
@@ -65,6 +64,9 @@ PETSC_INTERN PetscErrorCode PetscInitialize_DynamicLibraries(void)
   PetscInt       nmax,i;
 #if defined(PETSC_USE_DYNAMIC_LIBRARIES) && defined(PETSC_USE_SHARED_LIBRARIES)
   PetscBool      preload;
+#endif
+#if defined(PETSC_HAVE_ELEMENTAL)
+  PetscBool      PetscInitialized = PetscInitializeCalled;
 #endif
 
   PetscFunctionBegin;
@@ -109,6 +111,15 @@ PETSC_INTERN PetscErrorCode PetscInitialize_DynamicLibraries(void)
 #endif
   }
 #endif
+#if defined(PETSC_HAVE_DYNAMIC_LIBRARIES) && defined(PETSC_USE_SHARED_LIBRARIES)
+#if defined(PETSC_HAVE_BAMG)
+  {
+    PetscBool found;
+    ierr = PetscLoadDynamicLibrary("bamg",&found);CHKERRQ(ierr);
+    if (!found) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_FILE_OPEN,"Unable to locate PETSc BAMG dynamic library \n You cannot move the dynamic libraries!");
+  }
+#endif
+#endif
 
   nmax = 32;
   ierr = PetscOptionsGetStringArray(NULL,NULL,"-dll_append",libname,&nmax,NULL);CHKERRQ(ierr);
@@ -135,6 +146,13 @@ PETSC_INTERN PetscErrorCode PetscInitialize_DynamicLibraries(void)
   ierr = PetscCommDuplicate(PETSC_COMM_SELF,&PETSC_COMM_SELF_INNER,NULL);CHKERRQ(ierr);
   ierr = PetscCommDuplicate(PETSC_COMM_WORLD,&PETSC_COMM_WORLD_INNER,NULL);CHKERRQ(ierr);
 #endif
+#if defined(PETSC_HAVE_ELEMENTAL)
+  /* in Fortran, PetscInitializeCalled is set to PETSC_TRUE before PetscInitialize_DynamicLibraries() */
+  /* in C, it is not the case, but the value is forced to PETSC_TRUE so that PetscRegisterFinalize() is called */
+  PetscInitializeCalled = PETSC_TRUE;
+  ierr = PetscElementalInitializePackage();CHKERRQ(ierr);
+  PetscInitializeCalled = PetscInitialized;
+#endif
   PetscFunctionReturn(0);
 }
 
@@ -156,7 +174,7 @@ PETSC_INTERN PetscErrorCode PetscFinalize_DynamicLibraries(void)
   ierr = PetscCommDestroy(&PETSC_COMM_WORLD_INNER);CHKERRQ(ierr);
 #endif
 
-  PetscDLLibrariesLoaded = 0;
+  PetscDLLibrariesLoaded = NULL;
   PetscFunctionReturn(0);
 }
 
@@ -173,7 +191,7 @@ struct _n_PetscFunctionList {
 /*
      Keep a linked list of PetscFunctionLists so that we can destroy all the left-over ones.
 */
-static PetscFunctionList dlallhead = 0;
+static PetscFunctionList dlallhead = NULL;
 
 /*MC
    PetscFunctionListAdd - Given a routine and a string id, saves that routine in the
@@ -213,20 +231,20 @@ PETSC_EXTERN PetscErrorCode PetscFunctionListAdd_Private(PetscFunctionList *fl,c
     ierr           = PetscNew(&entry);CHKERRQ(ierr);
     ierr           = PetscStrallocpy(name,&entry->name);CHKERRQ(ierr);
     entry->routine = fnc;
-    entry->next    = 0;
+    entry->next    = NULL;
     *fl            = entry;
 
-#if defined(PETSC_USE_DEBUG)
-    /* add this new list to list of all lists */
-    if (!dlallhead) {
-      dlallhead        = *fl;
-      (*fl)->next_list = 0;
-    } else {
-      ne               = dlallhead;
-      dlallhead        = *fl;
-      (*fl)->next_list = ne;
+    if (PetscDefined(USE_DEBUG)) {
+      /* add this new list to list of all lists */
+      if (!dlallhead) {
+        dlallhead        = *fl;
+        (*fl)->next_list = NULL;
+      } else {
+        ne               = dlallhead;
+        dlallhead        = *fl;
+        (*fl)->next_list = ne;
+      }
     }
-#endif
 
   } else {
     /* search list to see if it is already there */
@@ -246,7 +264,7 @@ PETSC_EXTERN PetscErrorCode PetscFunctionListAdd_Private(PetscFunctionList *fl,c
     ierr           = PetscNew(&entry);CHKERRQ(ierr);
     ierr           = PetscStrallocpy(name,&entry->name);CHKERRQ(ierr);
     entry->routine = fnc;
-    entry->next    = 0;
+    entry->next    = NULL;
     ne->next       = entry;
   }
   PetscFunctionReturn(0);
@@ -292,7 +310,7 @@ PetscErrorCode  PetscFunctionListDestroy(PetscFunctionList *fl)
     ierr  = PetscFree(entry);CHKERRQ(ierr);
     entry = next;
   }
-  *fl = 0;
+  *fl = NULL;
   PetscFunctionReturn(0);
 }
 
@@ -342,7 +360,7 @@ PETSC_EXTERN PetscErrorCode PetscFunctionListFind_Private(PetscFunctionList fl,c
   PetscFunctionBegin;
   if (!name) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_NULL,"Trying to find routine with null name");
 
-  *r = 0;
+  *r = NULL;
   while (entry) {
     ierr = PetscStrcmp(name,entry->name,&flg);CHKERRQ(ierr);
     if (flg) {
@@ -427,7 +445,7 @@ PetscErrorCode  PetscFunctionListGet(PetscFunctionList list,const char ***array,
     klist           = klist->next;
     count++;
   }
-  (*array)[count] = 0;
+  (*array)[count] = NULL;
   *n              = count+1;
   PetscFunctionReturn(0);
 }
@@ -498,4 +516,3 @@ PetscErrorCode  PetscFunctionListDuplicate(PetscFunctionList fl,PetscFunctionLis
   }
   PetscFunctionReturn(0);
 }
-

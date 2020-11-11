@@ -144,7 +144,7 @@ PetscErrorCode PetscViewerFlush_ASCII(PetscViewer viewer)
         ierr     = PetscFree(previous->string);CHKERRQ(ierr);
         ierr     = PetscFree(previous);CHKERRQ(ierr);
       }
-      vascii->petsc_printfqueue       = 0;
+      vascii->petsc_printfqueue       = NULL;
       vascii->petsc_printfqueuelength = 0;
       for (i=1; i<size; i++) {
         /* to prevent a flood of messages to process zero, request each message separately */
@@ -177,7 +177,7 @@ PetscErrorCode PetscViewerFlush_ASCII(PetscViewer viewer)
         ierr     = PetscFree(previous->string);CHKERRQ(ierr);
         ierr     = PetscFree(previous);CHKERRQ(ierr);
       }
-      vascii->petsc_printfqueue       = 0;
+      vascii->petsc_printfqueue       = NULL;
       vascii->petsc_printfqueuelength = 0;
     }
     ierr = PetscCommDestroy(&comm);CHKERRQ(ierr);
@@ -379,7 +379,7 @@ PetscErrorCode  PetscViewerASCIISubtractTab(PetscViewer viewer,PetscInt tabs)
 .    viewer - obtained with PetscViewerASCIIOpen()
 
     Level: intermediate
-    
+
     Notes:
     See documentation of PetscViewerASCIISynchronizedPrintf() for more details how the synchronized output should be done properly.
 
@@ -411,7 +411,7 @@ PetscErrorCode  PetscViewerASCIIPushSynchronized(PetscViewer viewer)
 .    viewer - obtained with PetscViewerASCIIOpen()
 
     Level: intermediate
-    
+
     Notes:
     See documentation of PetscViewerASCIISynchronizedPrintf() for more details how the synchronized output should be done properly.
 
@@ -607,7 +607,7 @@ PetscErrorCode  PetscViewerASCIIPrintf(PetscViewer viewer,const char format[],..
       ierr     = PetscFree(previous->string);CHKERRQ(ierr);
       ierr     = PetscFree(previous);CHKERRQ(ierr);
     }
-    ascii->petsc_printfqueue       = 0;
+    ascii->petsc_printfqueue       = NULL;
     ascii->petsc_printfqueuelength = 0;
     tab = intab;
     while (tab--) {
@@ -651,13 +651,13 @@ PetscErrorCode  PetscViewerASCIIPrintf(PetscViewer viewer,const char format[],..
 PetscErrorCode  PetscViewerFileSetName(PetscViewer viewer,const char name[])
 {
   PetscErrorCode ierr;
-  char           b[PETSC_MAX_PATH_LEN];
+  char           filename[PETSC_MAX_PATH_LEN];
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,1);
   PetscValidCharPointer(name,2);
-  ierr = PetscStrreplace(PetscObjectComm((PetscObject)viewer),name,b,sizeof(b));CHKERRQ(ierr);
-  ierr = PetscTryMethod(viewer,"PetscViewerFileSetName_C",(PetscViewer,const char[]),(viewer,b));CHKERRQ(ierr);
+  ierr = PetscStrreplace(PetscObjectComm((PetscObject)viewer),name,filename,sizeof(filename));CHKERRQ(ierr);
+  ierr = PetscTryMethod(viewer,"PetscViewerFileSetName_C",(PetscViewer,const char[]),(viewer,filename));CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -862,12 +862,12 @@ PETSC_EXTERN PetscErrorCode PetscViewerCreate_ASCII(PetscViewer viewer)
   /* defaults to stdout unless set with PetscViewerFileSetName() */
   vascii->fd        = PETSC_STDOUT;
   vascii->mode      = FILE_MODE_WRITE;
-  vascii->bviewer   = 0;
-  vascii->subviewer = 0;
-  vascii->sviewer   = 0;
+  vascii->bviewer   = NULL;
+  vascii->subviewer = NULL;
+  vascii->sviewer   = NULL;
   vascii->tab       = 0;
   vascii->tab_store = 0;
-  vascii->filename  = 0;
+  vascii->filename  = NULL;
   vascii->closefile = PETSC_TRUE;
 
   ierr = PetscObjectComposeFunction((PetscObject)viewer,"PetscViewerFileSetName_C",PetscViewerFileSetName_ASCII);CHKERRQ(ierr);
@@ -906,7 +906,7 @@ $ PetscViewerASCIISynchronizedPrintf(viewer, ...);
 $ PetscViewerASCIISynchronizedPrintf(viewer, ...);
 $ ...
 $ PetscViewerFlush(viewer);
-$ PetscViewerASCIIPopSynchronized(viewer);    
+$ PetscViewerASCIIPopSynchronized(viewer);
 
     Fortran Note:
       Can only print a single character* string
@@ -959,7 +959,7 @@ PetscErrorCode  PetscViewerASCIISynchronizedPrintf(PetscViewer viewer,const char
       ierr     = PetscFree(previous->string);CHKERRQ(ierr);
       ierr     = PetscFree(previous);CHKERRQ(ierr);
     }
-    vascii->petsc_printfqueue       = 0;
+    vascii->petsc_printfqueue       = NULL;
     vascii->petsc_printfqueuelength = 0;
 
     while (tab--) {
@@ -1067,7 +1067,7 @@ PetscErrorCode PetscViewerASCIIRead(PetscViewer viewer,void *data,PetscInt num,P
       ((__float128*)data)[i] = tmp;
     }
 #endif
-    else {SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Data type %d not supported", (int) dtype);}
+    else SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Data type %d not supported", (int) dtype);
     if (!ret) SETERRQ1(PETSC_COMM_SELF, PETSC_ERR_ARG_WRONG, "Conversion error for data type %d", (int) dtype);
     else if (ret < 0) break; /* Proxy for EOF, need to check for it in configure */
   }
@@ -1075,4 +1075,3 @@ PetscErrorCode PetscViewerASCIIRead(PetscViewer viewer,void *data,PetscInt num,P
   else if (ret < 0) SETERRQ2(PETSC_COMM_SELF, PETSC_ERR_ARG_WRONG, "Insufficient data, read only %D < %D items", i, num);
   PetscFunctionReturn(0);
 }
-

@@ -6,9 +6,10 @@ class Configure(config.package.CMakePackage):
     self.gitbranch         = 'maint-4.0.0'
     self.gitcommit         = 'origin/'+self.gitbranch
     self.download          = ['git://https://bitbucket.org/petsc/pkg-med.git','https://bitbucket.org/petsc/pkg-med/get/'+self.gitbranch+'.tar.gz']
+    self.downloaddirnames  = ['petsc-pkg-med']
     self.functions         = ['MEDfileOpen']
     self.includes          = ['med.h']
-    self.liblist           = [['libmedC.a','libmed.a']]
+    self.liblist           = [['libmedC.a','libmed.a'],['libmedC.a']]
     self.needsMath         = 1
     self.precisions        = ['double'];
     return
@@ -34,6 +35,9 @@ class Configure(config.package.CMakePackage):
     args.append('-DMEDFILE_BUILD_TESTS=OFF')
     args.append('-DMEDFILE_INSTALL_DOC=OFF')
     args.append('-DMEDFILE_BUILD_PYTHON=OFF')
+    for place,item in enumerate(args):
+      if 'CMAKE_C_FLAGS' in item or 'CMAKE_CXX_FLAGS' in item:
+        args[place]=item[:-1]+' -DH5_USE_18_API"'
 
     return args
 

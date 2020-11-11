@@ -2,8 +2,8 @@
 #include <petscblaslapack.h>
 #include <petscdm.h>
 
-const char *const SNESNGMRESRestartTypes[] = {"NONE","PERIODIC","DIFFERENCE","SNESNGMRESRestartType","SNES_NGMRES_RESTART_",0};
-const char *const SNESNGMRESSelectTypes[] = {"NONE","DIFFERENCE","LINESEARCH","SNESNGMRESSelectType","SNES_NGMRES_SELECT_",0};
+const char *const SNESNGMRESRestartTypes[] = {"NONE","PERIODIC","DIFFERENCE","SNESNGMRESRestartType","SNES_NGMRES_RESTART_",NULL};
+const char *const SNESNGMRESSelectTypes[] = {"NONE","DIFFERENCE","LINESEARCH","SNESNGMRESSelectType","SNES_NGMRES_SELECT_",NULL};
 
 PetscErrorCode SNESReset_NGMRES(SNES snes)
 {
@@ -79,7 +79,9 @@ PetscErrorCode SNESSetUp_NGMRES(SNES snes)
   if (ngmres->select_type == SNES_NGMRES_SELECT_LINESEARCH) {
     ierr = SNESLineSearchCreate(PetscObjectComm((PetscObject)snes),&ngmres->additive_linesearch);CHKERRQ(ierr);
     ierr = SNESLineSearchSetSNES(ngmres->additive_linesearch,snes);CHKERRQ(ierr);
-    ierr = SNESLineSearchSetType(ngmres->additive_linesearch,SNESLINESEARCHL2);CHKERRQ(ierr);
+    if (!((PetscObject)ngmres->additive_linesearch)->type_name) {
+      ierr = SNESLineSearchSetType(ngmres->additive_linesearch,SNESLINESEARCHL2);CHKERRQ(ierr);
+    }
     ierr = SNESLineSearchAppendOptionsPrefix(ngmres->additive_linesearch,"additive_");CHKERRQ(ierr);
     ierr = SNESLineSearchAppendOptionsPrefix(ngmres->additive_linesearch,optionsprefix);CHKERRQ(ierr);
     ierr = SNESLineSearchSetFromOptions(ngmres->additive_linesearch);CHKERRQ(ierr);
@@ -501,9 +503,9 @@ PetscErrorCode SNESNGMRESSetRestartType_NGMRES(SNES snes,SNESNGMRESRestartType r
    Very similar to the SNESANDERSON algorithm.
 
    References:
-+  1. - C. W. Oosterlee and T. Washio, "Krylov Subspace Acceleration of Nonlinear Multigrid with Application to Recirculating Flows", 
++  1. - C. W. Oosterlee and T. Washio, "Krylov Subspace Acceleration of Nonlinear Multigrid with Application to Recirculating Flows",
    SIAM Journal on Scientific Computing, 21(5), 2000.
--  2. - Peter R. Brune, Matthew G. Knepley, Barry F. Smith, and Xuemin Tu, "Composing Scalable Nonlinear Algebraic Solvers", 
+-  2. - Peter R. Brune, Matthew G. Knepley, Barry F. Smith, and Xuemin Tu, "Composing Scalable Nonlinear Algebraic Solvers",
    SIAM Review, 57(4), 2015
 
 
@@ -541,8 +543,10 @@ PETSC_EXTERN PetscErrorCode SNESCreate_NGMRES(SNES snes)
 
   ngmres->candidate = PETSC_FALSE;
 
- ierr = SNESGetLineSearch(snes,&linesearch);CHKERRQ(ierr);
- ierr = SNESLineSearchSetType(linesearch,SNESLINESEARCHBASIC);CHKERRQ(ierr);
+  ierr = SNESGetLineSearch(snes,&linesearch);CHKERRQ(ierr);
+  if (!((PetscObject)linesearch)->type_name) {
+    ierr = SNESLineSearchSetType(linesearch,SNESLINESEARCHBASIC);CHKERRQ(ierr);
+  }
 
   ngmres->additive_linesearch = NULL;
   ngmres->approxfunc          = PETSC_FALSE;

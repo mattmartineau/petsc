@@ -2,18 +2,18 @@
 #include <../src/ksp/ksp/utils/lmvm/diagbrdn/diagbrdn.h>
 
 /*
-  Limited-memory Broyden-Fletcher-Goldfarb-Shano method for approximating both 
+  Limited-memory Broyden-Fletcher-Goldfarb-Shano method for approximating both
   the forward product and inverse application of a Jacobian.
 */
 
 /*------------------------------------------------------------*/
 
 /*
-  The solution method (approximate inverse Jacobian application) is adapted 
-   from Algorithm 7.4 on page 178 of Nocedal and Wright "Numerical Optimization" 
-   2nd edition (https://doi.org/10.1007/978-0-387-40065-5). The initial inverse 
-   Jacobian application falls back onto the gamma scaling recommended in equation 
-   (7.20) if the user has not provided any estimation of the initial Jacobian or 
+  The solution method (approximate inverse Jacobian application) is adapted
+   from Algorithm 7.4 on page 178 of Nocedal and Wright "Numerical Optimization"
+   2nd edition (https://doi.org/10.1007/978-0-387-40065-5). The initial inverse
+   Jacobian application falls back onto the gamma scaling recommended in equation
+   (7.20) if the user has not provided any estimation of the initial Jacobian or
    its inverse.
 
    work <- F
@@ -39,14 +39,14 @@ PetscErrorCode MatSolve_LMVMBFGS(Mat B, Vec F, Vec dX)
   PetscInt          i;
   PetscReal         *alpha, beta;
   PetscScalar       stf, ytx;
-  
+
   PetscFunctionBegin;
   VecCheckSameSize(F, 2, dX, 3);
   VecCheckMatCompatible(B, dX, 3, F, 2);
-  
+
   /* Copy the function into the work vector for the first loop */
   ierr = VecCopy(F, lbfgs->work);CHKERRQ(ierr);
-  
+
   /* Start the first loop */
   ierr = PetscMalloc1(lmvm->k+1, &alpha);CHKERRQ(ierr);
   for (i = lmvm->k; i >= 0; --i) {
@@ -54,10 +54,10 @@ PetscErrorCode MatSolve_LMVMBFGS(Mat B, Vec F, Vec dX)
     alpha[i] = PetscRealPart(stf)/lbfgs->yts[i];
     ierr = VecAXPY(lbfgs->work, -alpha[i], lmvm->Y[i]);CHKERRQ(ierr);
   }
-  
+
   /* Invert the initial Jacobian onto the work vector (or apply scaling) */
   ierr = MatSymBrdnApplyJ0Inv(B, lbfgs->work, dX);CHKERRQ(ierr);
-  
+
   /* Start the second loop */
   for (i = 0; i <= lmvm->k; ++i) {
     ierr = VecDot(lmvm->Y[i], dX, &ytx);CHKERRQ(ierr);
@@ -71,17 +71,17 @@ PetscErrorCode MatSolve_LMVMBFGS(Mat B, Vec F, Vec dX)
 /*------------------------------------------------------------*/
 
 /*
-  The forward product for the approximate Jacobian is the matrix-free 
-  implementation of Equation (6.19) in Nocedal and Wright "Numerical 
+  The forward product for the approximate Jacobian is the matrix-free
+  implementation of Equation (6.19) in Nocedal and Wright "Numerical
   Optimization" 2nd Edition, pg 140.
-  
-  This forward product has the same structure as the inverse Jacobian 
-  application in the DFP formulation, except with S and Y exchanging 
+
+  This forward product has the same structure as the inverse Jacobian
+  application in the DFP formulation, except with S and Y exchanging
   roles.
-  
-  Note: P[i] = (B_i)*S[i] terms are computed ahead of time whenever 
-  the matrix is updated with a new (S[i], Y[i]) pair. This allows 
-  repeated calls of MatMult inside KSP solvers without unnecessarily 
+
+  Note: P[i] = (B_i)*S[i] terms are computed ahead of time whenever
+  the matrix is updated with a new (S[i], Y[i]) pair. This allows
+  repeated calls of MatMult inside KSP solvers without unnecessarily
   recomputing P[i] terms in expensive nested-loops.
 
   Z <- J0 * X
@@ -105,11 +105,11 @@ PetscErrorCode MatMult_LMVMBFGS(Mat B, Vec X, Vec Z)
   PetscErrorCode    ierr;
   PetscInt          i, j;
   PetscScalar       sjtpi, yjtsi, ytx, stz, stp;
-  
+
   PetscFunctionBegin;
   VecCheckSameSize(X, 2, Z, 3);
   VecCheckMatCompatible(B, X, 2, Z, 3);
-  
+
   if (lbfgs->needP) {
     /* Pre-compute (P[i] = B_i * S[i]) */
     for (i = 0; i <= lmvm->k; ++i) {
@@ -128,7 +128,7 @@ PetscErrorCode MatMult_LMVMBFGS(Mat B, Vec X, Vec Z)
     }
     lbfgs->needP = PETSC_FALSE;
   }
-  
+
   /* Start the outer loop (i) for the recursive formula */
   ierr = MatSymBrdnApplyJ0Fwd(B, X, Z);CHKERRQ(ierr);
   for (i = 0; i <= lmvm->k; ++i) {
@@ -192,7 +192,7 @@ static PetscErrorCode MatUpdate_LMVMBFGS(Mat B, Vec X, Vec F)
       lbfgs->yty[lmvm->k] = PetscRealPart(ytytmp);
       lbfgs->sts[lmvm->k] = PetscRealPart(ststmp);
       /* Compute the scalar scale if necessary */
-      if (lbfgs->scale_type == SYMBRDN_SCALE_SCALAR) {
+      if (lbfgs->scale_type == MAT_LMVM_SYMBROYDEN_SCALE_SCALAR) {
         ierr = MatSymBrdnComputeJ0Scalar(B);CHKERRQ(ierr);
       }
     } else {
@@ -202,30 +202,30 @@ static PetscErrorCode MatUpdate_LMVMBFGS(Mat B, Vec X, Vec F)
     }
   } else {
     switch (lbfgs->scale_type) {
-    case SYMBRDN_SCALE_DIAG:
+    case MAT_LMVM_SYMBROYDEN_SCALE_DIAGONAL:
       dbase = (Mat_LMVM*)lbfgs->D->data;
       dctx = (Mat_DiagBrdn*)dbase->ctx;
       ierr = VecSet(dctx->invD, lbfgs->delta);CHKERRQ(ierr);
       break;
-    case SYMBRDN_SCALE_SCALAR:
+    case MAT_LMVM_SYMBROYDEN_SCALE_SCALAR:
       lbfgs->sigma = lbfgs->delta;
       break;
-    case SYMBRDN_SCALE_NONE:
+    case MAT_LMVM_SYMBROYDEN_SCALE_NONE:
       lbfgs->sigma = 1.0;
       break;
     default:
       break;
     }
   }
-  
+
   /* Update the scaling */
-  if (lbfgs->scale_type == SYMBRDN_SCALE_DIAG) {
+  if (lbfgs->scale_type == MAT_LMVM_SYMBROYDEN_SCALE_DIAGONAL) {
     ierr = MatLMVMUpdate(lbfgs->D, X, F);CHKERRQ(ierr);
   }
-  
+
   if (lbfgs->watchdog > lbfgs->max_seq_rejects) {
     ierr = MatLMVMReset(B, PETSC_FALSE);CHKERRQ(ierr);
-    if (lbfgs->scale_type == SYMBRDN_SCALE_DIAG) {
+    if (lbfgs->scale_type == MAT_LMVM_SYMBROYDEN_SCALE_DIAGONAL) {
       ierr = MatLMVMReset(lbfgs->D, PETSC_FALSE);CHKERRQ(ierr);
     }
   }
@@ -264,13 +264,13 @@ static PetscErrorCode MatCopy_LMVMBFGS(Mat B, Mat M, MatStructure str)
   mctx->watchdog        = bctx->watchdog;
   mctx->max_seq_rejects = bctx->max_seq_rejects;
   switch (bctx->scale_type) {
-  case SYMBRDN_SCALE_SCALAR:
+  case MAT_LMVM_SYMBROYDEN_SCALE_SCALAR:
     mctx->sigma = bctx->sigma;
     break;
-  case SYMBRDN_SCALE_DIAG:
+  case MAT_LMVM_SYMBROYDEN_SCALE_DIAGONAL:
     ierr = MatCopy(bctx->D, mctx->D, SAME_NONZERO_PATTERN);CHKERRQ(ierr);
     break;
-  case SYMBRDN_SCALE_NONE:
+  case MAT_LMVM_SYMBROYDEN_SCALE_NONE:
     mctx->sigma = 1.0;
     break;
   default:
@@ -288,7 +288,7 @@ static PetscErrorCode MatReset_LMVMBFGS(Mat B, PetscBool destructive)
   Mat_LMVM          *dbase;
   Mat_DiagBrdn      *dctx;
   PetscErrorCode    ierr;
-  
+
   PetscFunctionBegin;
   lbfgs->watchdog = 0;
   lbfgs->needP = PETSC_TRUE;
@@ -298,7 +298,7 @@ static PetscErrorCode MatReset_LMVMBFGS(Mat B, PetscBool destructive)
       ierr = PetscFree4(lbfgs->stp, lbfgs->yts, lbfgs->yty, lbfgs->sts);CHKERRQ(ierr);
       ierr = VecDestroyVecs(lmvm->m, &lbfgs->P);CHKERRQ(ierr);
       switch (lbfgs->scale_type) {
-      case SYMBRDN_SCALE_DIAG:
+      case MAT_LMVM_SYMBROYDEN_SCALE_DIAGONAL:
         ierr = MatLMVMReset(lbfgs->D, PETSC_TRUE);CHKERRQ(ierr);
         break;
       default:
@@ -307,16 +307,16 @@ static PetscErrorCode MatReset_LMVMBFGS(Mat B, PetscBool destructive)
       lbfgs->allocated = PETSC_FALSE;
     } else {
       switch (lbfgs->scale_type) {
-      case SYMBRDN_SCALE_SCALAR:
+      case MAT_LMVM_SYMBROYDEN_SCALE_SCALAR:
         lbfgs->sigma = lbfgs->delta;
         break;
-      case SYMBRDN_SCALE_DIAG:
+      case MAT_LMVM_SYMBROYDEN_SCALE_DIAGONAL:
         ierr = MatLMVMReset(lbfgs->D, PETSC_FALSE);CHKERRQ(ierr);
         dbase = (Mat_LMVM*)lbfgs->D->data;
         dctx = (Mat_DiagBrdn*)dbase->ctx;
         ierr = VecSet(dctx->invD, lbfgs->delta);CHKERRQ(ierr);
         break;
-      case SYMBRDN_SCALE_NONE:
+      case MAT_LMVM_SYMBROYDEN_SCALE_NONE:
         lbfgs->sigma = 1.0;
         break;
       default:
@@ -335,7 +335,7 @@ static PetscErrorCode MatAllocate_LMVMBFGS(Mat B, Vec X, Vec F)
   Mat_LMVM          *lmvm = (Mat_LMVM*)B->data;
   Mat_SymBrdn       *lbfgs = (Mat_SymBrdn*)lmvm->ctx;
   PetscErrorCode    ierr;
-  
+
   PetscFunctionBegin;
   ierr = MatAllocate_LMVM(B, X, F);CHKERRQ(ierr);
   if (!lbfgs->allocated) {
@@ -345,7 +345,7 @@ static PetscErrorCode MatAllocate_LMVMBFGS(Mat B, Vec X, Vec F)
       ierr = VecDuplicateVecs(X, lmvm->m, &lbfgs->P);CHKERRQ(ierr);
     }
     switch (lbfgs->scale_type) {
-    case SYMBRDN_SCALE_DIAG:
+    case MAT_LMVM_SYMBROYDEN_SCALE_DIAGONAL:
       ierr = MatLMVMAllocate(lbfgs->D, X, F);CHKERRQ(ierr);
       break;
     default:
@@ -385,9 +385,10 @@ static PetscErrorCode MatSetUp_LMVMBFGS(Mat B)
   Mat_SymBrdn       *lbfgs = (Mat_SymBrdn*)lmvm->ctx;
   PetscErrorCode    ierr;
   PetscInt          n, N;
-  
+
   PetscFunctionBegin;
   ierr = MatSetUp_LMVM(B);CHKERRQ(ierr);
+  lbfgs->max_seq_rejects = lmvm->m/2;
   if (!lbfgs->allocated) {
     ierr = VecDuplicate(lmvm->Xprev, &lbfgs->work);CHKERRQ(ierr);
     ierr = PetscMalloc4(lmvm->m, &lbfgs->stp, lmvm->m, &lbfgs->yts, lmvm->m, &lbfgs->yty, lmvm->m, &lbfgs->sts);CHKERRQ(ierr);
@@ -395,7 +396,7 @@ static PetscErrorCode MatSetUp_LMVMBFGS(Mat B)
       ierr = VecDuplicateVecs(lmvm->Xprev, lmvm->m, &lbfgs->P);CHKERRQ(ierr);
     }
     switch (lbfgs->scale_type) {
-    case SYMBRDN_SCALE_DIAG:
+    case MAT_LMVM_SYMBROYDEN_SCALE_DIAGONAL:
       ierr = MatGetLocalSize(B, &n, &n);CHKERRQ(ierr);
       ierr = MatGetSize(B, &N, &N);CHKERRQ(ierr);
       ierr = MatSetSizes(lbfgs->D, n, n, N, N);CHKERRQ(ierr);
@@ -413,38 +414,13 @@ static PetscErrorCode MatSetUp_LMVMBFGS(Mat B)
 
 static PetscErrorCode MatSetFromOptions_LMVMBFGS(PetscOptionItems *PetscOptionsObject, Mat B)
 {
-  Mat_LMVM          *lmvm = (Mat_LMVM*)B->data;
-  Mat_SymBrdn       *lbfgs = (Mat_SymBrdn*)lmvm->ctx;
-  Mat_LMVM          *dbase;
-  Mat_DiagBrdn      *dctx;
-  PetscErrorCode    ierr;
+  PetscErrorCode               ierr;
 
   PetscFunctionBegin;
   ierr = MatSetFromOptions_LMVM(PetscOptionsObject, B);CHKERRQ(ierr);
-  ierr = PetscOptionsHead(PetscOptionsObject,"Restricted Broyden method for approximating SPD Jacobian actions (MATLMVMSYMBRDN)");CHKERRQ(ierr);
-  ierr = PetscOptionsEList("-mat_lmvm_scale_type", "(developer) scaling type applied to J0", "", Scale_Table, SYMBRDN_SCALE_SIZE, Scale_Table[lbfgs->scale_type], &lbfgs->scale_type,NULL);CHKERRQ(ierr);
-  ierr = PetscOptionsReal("-mat_lmvm_theta","(developer) convex ratio between BFGS and DFP components of the diagonal J0 scaling","",lbfgs->theta,&lbfgs->theta,NULL);CHKERRQ(ierr);
-  ierr = PetscOptionsReal("-mat_lmvm_rho","(developer) update limiter in the J0 scaling","",lbfgs->rho,&lbfgs->rho,NULL);CHKERRQ(ierr);
-  ierr = PetscOptionsReal("-mat_lmvm_alpha","(developer) convex ratio in the J0 scaling","",lbfgs->alpha,&lbfgs->alpha,NULL);CHKERRQ(ierr);
-  ierr = PetscOptionsReal("-mat_lmvm_beta","(developer) exponential factor in the diagonal J0 scaling","",lbfgs->beta,&lbfgs->beta,NULL);CHKERRQ(ierr);
-  ierr = PetscOptionsInt("-mat_lmvm_sigma_hist","(developer) number of past updates to use in the default J0 scalar","",lbfgs->sigma_hist,&lbfgs->sigma_hist,NULL);CHKERRQ(ierr);
+  ierr = PetscOptionsHead(PetscOptionsObject,"L-BFGS method for approximating SPD Jacobian actions (MATLMVMBFGS)");CHKERRQ(ierr);
+  ierr = MatSetFromOptions_LMVMSymBrdn_Private(PetscOptionsObject, B);CHKERRQ(ierr);
   ierr = PetscOptionsTail();CHKERRQ(ierr);
-  if ((lbfgs->theta < 0.0) || (lbfgs->theta > 1.0)) SETERRQ(PetscObjectComm((PetscObject)B), PETSC_ERR_ARG_OUTOFRANGE, "convex ratio for the diagonal J0 scale cannot be outside the range of [0, 1]");
-  if ((lbfgs->alpha < 0.0) || (lbfgs->alpha > 1.0)) SETERRQ(PetscObjectComm((PetscObject)B), PETSC_ERR_ARG_OUTOFRANGE, "convex ratio in the J0 scaling cannot be outside the range of [0, 1]");
-  if ((lbfgs->rho < 0.0) || (lbfgs->rho > 1.0)) SETERRQ(PetscObjectComm((PetscObject)B), PETSC_ERR_ARG_OUTOFRANGE, "update limiter in the J0 scaling cannot be outside the range of [0, 1]");
-  if (lbfgs->sigma_hist < 0) SETERRQ(PetscObjectComm((PetscObject)B), PETSC_ERR_ARG_OUTOFRANGE, "J0 scaling history length cannot be negative");
-  if (lbfgs->scale_type == SYMBRDN_SCALE_DIAG) {
-    ierr = MatSetFromOptions(lbfgs->D);CHKERRQ(ierr);
-    dbase = (Mat_LMVM*)lbfgs->D->data;
-    dctx = (Mat_DiagBrdn*)dbase->ctx;
-    dctx->delta_min  = lbfgs->delta_min;
-    dctx->delta_max  = lbfgs->delta_max;
-    dctx->theta      = lbfgs->theta;
-    dctx->rho        = lbfgs->rho;
-    dctx->alpha      = lbfgs->alpha;
-    dctx->beta       = lbfgs->beta;
-    dctx->sigma_hist = lbfgs->sigma_hist;
-  }
   PetscFunctionReturn(0);
 }
 
@@ -457,44 +433,23 @@ PetscErrorCode MatCreate_LMVMBFGS(Mat B)
   PetscErrorCode    ierr;
 
   PetscFunctionBegin;
-  ierr = MatCreate_LMVM(B);CHKERRQ(ierr);
+  ierr = MatCreate_LMVMSymBrdn(B);CHKERRQ(ierr);
   ierr = PetscObjectChangeTypeName((PetscObject)B, MATLMVMBFGS);CHKERRQ(ierr);
-  ierr = MatSetOption(B, MAT_SPD, PETSC_TRUE);CHKERRQ(ierr);
-  B->ops->view = MatView_LMVMSymBrdn;
   B->ops->setup = MatSetUp_LMVMBFGS;
   B->ops->destroy = MatDestroy_LMVMBFGS;
   B->ops->setfromoptions = MatSetFromOptions_LMVMBFGS;
   B->ops->solve = MatSolve_LMVMBFGS;
 
   lmvm = (Mat_LMVM*)B->data;
-  lmvm->square = PETSC_TRUE;
   lmvm->ops->allocate = MatAllocate_LMVMBFGS;
   lmvm->ops->reset = MatReset_LMVMBFGS;
   lmvm->ops->update = MatUpdate_LMVMBFGS;
   lmvm->ops->mult = MatMult_LMVMBFGS;
   lmvm->ops->copy = MatCopy_LMVMBFGS;
 
-  ierr = PetscNewLog(B, &lbfgs);CHKERRQ(ierr);
-  lmvm->ctx = (void*)lbfgs;
-  lbfgs->allocated       = PETSC_FALSE;
-  lbfgs->needP           = PETSC_TRUE;
+  lbfgs = (Mat_SymBrdn*)lmvm->ctx;
+  lbfgs->needQ           = PETSC_FALSE;
   lbfgs->phi             = 0.0;
-  lbfgs->theta           = 0.125;
-  lbfgs->alpha           = 1.0;
-  lbfgs->rho             = 1.0;
-  lbfgs->beta            = 0.5;
-  lbfgs->sigma           = 1.0;
-  lbfgs->delta           = 1.0;
-  lbfgs->delta_min       = 1e-7;
-  lbfgs->delta_max       = 100.0;
-  lbfgs->sigma_hist      = 1;
-  lbfgs->scale_type      = SYMBRDN_SCALE_DIAG;
-  lbfgs->watchdog        = 0;
-  lbfgs->max_seq_rejects = lmvm->m/2;
-  
-  ierr = MatCreate(PetscObjectComm((PetscObject)B), &lbfgs->D);CHKERRQ(ierr);
-  ierr = MatSetType(lbfgs->D, MATLMVMDIAGBRDN);CHKERRQ(ierr);
-  ierr = MatSetOptionsPrefix(lbfgs->D, "J0_");CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -502,16 +457,16 @@ PetscErrorCode MatCreate_LMVMBFGS(Mat B)
 
 /*@
    MatCreateLMVMBFGS - Creates a limited-memory Broyden-Fletcher-Goldfarb-Shano (BFGS)
-   matrix used for approximating Jacobians. L-BFGS is symmetric positive-definite by 
-   construction, and is commonly used to approximate Hessians in optimization 
+   matrix used for approximating Jacobians. L-BFGS is symmetric positive-definite by
+   construction, and is commonly used to approximate Hessians in optimization
    problems.
-   
-   The provided local and global sizes must match the solution and function vectors 
-   used with MatLMVMUpdate() and MatSolve(). The resulting L-BFGS matrix will have 
-   storage vectors allocated with VecCreateSeq() in serial and VecCreateMPI() in 
-   parallel. To use the L-BFGS matrix with other vector types, the matrix must be 
-   created using MatCreate() and MatSetType(), followed by MatLMVMAllocate(). 
-   This ensures that the internal storage and work vectors are duplicated from the 
+
+   The provided local and global sizes must match the solution and function vectors
+   used with MatLMVMUpdate() and MatSolve(). The resulting L-BFGS matrix will have
+   storage vectors allocated with VecCreateSeq() in serial and VecCreateMPI() in
+   parallel. To use the L-BFGS matrix with other vector types, the matrix must be
+   created using MatCreate() and MatSetType(), followed by MatLMVMAllocate().
+   This ensures that the internal storage and work vectors are duplicated from the
    correct type of vector.
 
    Collective
@@ -538,13 +493,13 @@ PetscErrorCode MatCreate_LMVMBFGS(Mat B)
 
    Level: intermediate
 
-.seealso: MatCreate(), MATLMVM, MATLMVMBFGS, MatCreateLMVMDFP(), MatCreateLMVMSR1(), 
+.seealso: MatCreate(), MATLMVM, MATLMVMBFGS, MatCreateLMVMDFP(), MatCreateLMVMSR1(),
           MatCreateLMVMBrdn(), MatCreateLMVMBadBrdn(), MatCreateLMVMSymBrdn()
 @*/
 PetscErrorCode MatCreateLMVMBFGS(MPI_Comm comm, PetscInt n, PetscInt N, Mat *B)
 {
   PetscErrorCode    ierr;
-  
+
   PetscFunctionBegin;
   ierr = MatCreate(comm, B);CHKERRQ(ierr);
   ierr = MatSetSizes(*B, n, n, N, N);CHKERRQ(ierr);

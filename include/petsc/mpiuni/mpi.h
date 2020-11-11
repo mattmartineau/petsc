@@ -279,6 +279,7 @@ typedef int MPI_Errhandler;
 #define MPI_ERRHANDLER_NULL  0
 #define MPI_ERRORS_RETURN    0
 #define MPI_ERRORS_ARE_FATAL 0
+#define MPI_ERR_LASTCODE     0x3fffffff
 typedef void (MPI_Handler_function)(MPI_Comm *, int *, ...);
 
 /*
@@ -825,6 +826,11 @@ typedef int MPI_Fint;
      (MPIUNI_ARG(op),\
       MPIUNI_ARG(comm),\
       MPIUNI_Memcpy(recvbuf,sendbuf,(count)*MPI_sizeof(datatype)))
+#define MPI_Iallreduce(sendbuf,recvbuf,count,datatype,op,comm,request) \
+     (MPIUNI_ARG(op),\
+      MPIUNI_ARG(comm),\
+      MPIUNI_ARG(request),\
+      MPIUNI_Memcpy(recvbuf,sendbuf,(count)*MPI_sizeof(datatype)))
 #define MPI_Scan(sendbuf, recvbuf,count,datatype,op,comm) \
      (MPIUNI_ARG(op),\
       MPIUNI_ARG(comm),\
@@ -860,7 +866,7 @@ typedef int MPI_Fint;
 #define MPI_Group_translate_ranks(group1,n,ranks1,group2,ranks2) \
      (MPIUNI_ARG(group1),\
       MPIUNI_ARG(group2),\
-      MPIUNI_Memcpy((ranks2),(ranks1),(n)*sizeof(int)))
+      MPIUNI_Memcpy((ranks2),(ranks1),(n)*MPI_sizeof(MPI_INT)))
 #define MPI_Group_compare(group1,group2,result) \
     (MPIUNI_ARG(group1),\
      MPIUNI_ARG(group2),\
@@ -918,7 +924,7 @@ typedef int MPI_Fint;
 #define MPI_Graph_map(comm,a,b,c,d) MPIUni_Abort(MPI_COMM_WORLD,0)
 
 #define MPI_Get_processor_name(name,result_len)                         \
-     (*(result_len) = 9,MPIUNI_Memcpy(name,"localhost",10*sizeof(char)))
+     (*(result_len) = 9,MPIUNI_Memcpy(name,"localhost",10*MPI_sizeof(MPI_CHAR)))
 #define MPI_Errhandler_create(function,errhandler) \
      (MPIUNI_ARG(function),\
       *(errhandler) = MPI_ERRORS_RETURN,\
@@ -937,7 +943,7 @@ typedef int MPI_Fint;
 #define MPI_Error_string(errorcode,string,result_len) \
      (MPIUNI_ARG(errorcode),\
       *(result_len) = 9,\
-      MPIUNI_Memcpy(string,"MPI error",10*sizeof(char)))
+      MPIUNI_Memcpy(string,"MPI error",10*MPI_sizeof(MPI_CHAR)))
 #define MPI_Error_class(errorcode,errorclass) \
      (*(errorclass) = errorcode, MPI_SUCCESS)
 #define MPI_Wtick() 1.0
@@ -985,6 +991,42 @@ typedef int MPI_Offset;
 
 #define MPI_File_read_all(mpi_fh,buf,count,datatype,status) \
   (MPIUNI_ARG(mpi_fh),\
+   MPIUNI_ARG(buf),\
+   MPIUNI_ARG(count),\
+   MPIUNI_ARG(datatype),\
+   MPIUNI_ARG(status),\
+   MPIUni_Abort(MPI_COMM_WORLD,0))
+
+#define MPI_File_write_at(mpi_fh,off,buf,count,datatype,status) \
+  (MPIUNI_ARG(mpi_fh),\
+   MPIUNI_ARG(off),\
+   MPIUNI_ARG(buf),\
+   MPIUNI_ARG(count),\
+   MPIUNI_ARG(datatype),\
+   MPIUNI_ARG(status),\
+   MPIUni_Abort(MPI_COMM_WORLD,0))
+
+#define MPI_File_read_at(mpi_fh,off,buf,count,datatype,status) \
+  (MPIUNI_ARG(mpi_fh),\
+   MPIUNI_ARG(off),\
+   MPIUNI_ARG(buf),\
+   MPIUNI_ARG(count),\
+   MPIUNI_ARG(datatype),\
+   MPIUNI_ARG(status),\
+   MPIUni_Abort(MPI_COMM_WORLD,0))
+
+#define MPI_File_write_at_all(mpi_fh,off,buf,count,datatype,status) \
+  (MPIUNI_ARG(mpi_fh),\
+   MPIUNI_ARG(off),\
+   MPIUNI_ARG(buf),\
+   MPIUNI_ARG(count),\
+   MPIUNI_ARG(datatype),\
+   MPIUNI_ARG(status),\
+   MPIUni_Abort(MPI_COMM_WORLD,0))
+
+#define MPI_File_read_at_all(mpi_fh,off,buf,count,datatype,status) \
+  (MPIUNI_ARG(mpi_fh),\
+   MPIUNI_ARG(off),\
    MPIUNI_ARG(buf),\
    MPIUNI_ARG(count),\
    MPIUNI_ARG(datatype),\

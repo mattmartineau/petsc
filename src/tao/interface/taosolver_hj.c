@@ -183,6 +183,7 @@ PetscErrorCode TaoTestHessian(Tao tao)
   }
   if (complete_print) {
     ierr = PetscViewerPopFormat(mviewer);CHKERRQ(ierr);
+    ierr = PetscViewerDestroy(&mviewer);CHKERRQ(ierr);
   }
   ierr = PetscViewerASCIISetTab(viewer,tabs);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -485,7 +486,7 @@ PetscErrorCode TaoSetJacobianRoutine(Tao tao, Mat J, Mat Jpre, PetscErrorCode (*
 }
 
 /*@C
-   TaoSetJacobianResidualRoutine - Sets the function to compute the least-squares residual Jacobian as well as the 
+   TaoSetJacobianResidualRoutine - Sets the function to compute the least-squares residual Jacobian as well as the
    location to store the matrix.
 
    Logically collective on Tao

@@ -3,8 +3,8 @@ import config.package
 class Configure(config.package.Package):
   def __init__(self, framework):
     config.package.Package.__init__(self, framework)
-    self.download          = ['https://bitbucket.org/mpi4py/mpi4py/downloads/mpi4py-3.0.1.tar.gz',
-                              'http://ftp.mcs.anl.gov/pub/petsc/externalpackages/mpi4py-3.0.1.tar.gz']
+    self.download          = ['https://bitbucket.org/mpi4py/mpi4py/downloads/mpi4py-3.0.3.tar.gz',
+                              'http://ftp.mcs.anl.gov/pub/petsc/externalpackages/mpi4py-3.0.3.tar.gz']
     self.functions         = []
     self.includes          = []
     self.useddirectly      = 0
@@ -53,7 +53,7 @@ class Configure(config.package.Package):
              echo "********************************************************************" && \\\n\
              exit 1)',\
                           '@echo "====================================="',\
-                          '@echo "To use mpi4py, add '+os.path.join(self.installdir.dir,'lib')+' to PYTHONPATH"',\
+                          '@echo "To use mpi4py, add '+os.path.join(self.installDir,'lib')+' to PYTHONPATH"',\
                           '@echo "====================================="'])
     if self.framework.argDB['prefix'] and not 'package-prefix-hash' in self.argDB:
       self.addMakeRule('mpi4py-build','mpi4pybuild')

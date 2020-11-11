@@ -17,7 +17,7 @@ PETSC_EXTERN PetscLogDouble petsc_BaseTime;
 
    Synopsis:
     #include <petsctime.h>
-   PetscTime(PetscLogDouble *v)
+    PetscErrorCode PetscTime(PetscLogDouble *v)
 
    Not Collective
 
@@ -49,7 +49,7 @@ M*/
 
    Synopsis:
     #include <petsctime.h>
-   PetscTimeSubtract(&PetscLogDouble *v)
+    PetscErrorCode PetscTimeSubtract(PetscLogDouble *v)
 
    Not Collective
 
@@ -67,7 +67,7 @@ M*/
    The options database command  -log_view activates
    PETSc library timing.  See Users-Manual: ch_profiling for more details, also
    see PetscLogStageRegister(), PetscLogEventRegister(), PetscLogEventBegin(), PetscLogEventEnd() for how to register
-   stages and events in application codes. 
+   stages and events in application codes.
 
 .seealso:  PetscTime(), PetscTimeAdd(), PetscLogStageRegister(), PetscLogEventRegister(), PetscLogEventBegin(), PetscLogEventEnd()
 
@@ -78,7 +78,7 @@ M*/
 
    Synopsis:
     #include <petsctime.h>
-   PetscTimeAdd(PetscLogDouble *v)
+    PetscErrorCode PetscTimeAdd(PetscLogDouble *v)
 
    Not Collective
 
@@ -119,6 +119,3 @@ PETSC_STATIC_INLINE PetscErrorCode PetscTimeAdd(PetscLogDouble *v)
 }
 
 #endif
-
-
-

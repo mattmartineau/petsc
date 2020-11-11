@@ -121,15 +121,13 @@ PetscErrorCode PCBDDCDestroyFETIDPPC(PC pc)
   PetscFunctionReturn(0);
 }
 
-PetscErrorCode PCBDDCSetupFETIDPMatContext(FETIDPMat_ctx fetidpmat_ctx )
+PetscErrorCode PCBDDCSetupFETIDPMatContext(FETIDPMat_ctx fetidpmat_ctx)
 {
   PetscErrorCode ierr;
   PC_IS          *pcis=(PC_IS*)fetidpmat_ctx->pc->data;
   PC_BDDC        *pcbddc=(PC_BDDC*)fetidpmat_ctx->pc->data;
   PCBDDCGraph    mat_graph=pcbddc->mat_graph;
-#if defined(PETSC_USE_DEBUG)
   Mat_IS         *matis  = (Mat_IS*)fetidpmat_ctx->pc->pmat->data;
-#endif
   MPI_Comm       comm;
   Mat            ScalingMat,BD1,BD2;
   Vec            fetidp_global;
@@ -289,14 +287,14 @@ PetscErrorCode PCBDDCSetupFETIDPMatContext(FETIDPMat_ctx fetidpmat_ctx )
   ierr = ISRenumber(subset,subset_mult,&fetidpmat_ctx->n_lambda,&subset_n);CHKERRQ(ierr);
   ierr = ISDestroy(&subset);CHKERRQ(ierr);
 
-#if defined(PETSC_USE_DEBUG)
-  ierr = VecSet(pcis->vec1_global,0.0);CHKERRQ(ierr);
-  ierr = VecScatterBegin(matis->rctx,pcis->vec1_N,pcis->vec1_global,ADD_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
-  ierr = VecScatterEnd(matis->rctx,pcis->vec1_N,pcis->vec1_global,ADD_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
-  ierr = VecSum(pcis->vec1_global,&scalar_value);CHKERRQ(ierr);
-  i = (PetscInt)PetscRealPart(scalar_value);
-  if (i != fetidpmat_ctx->n_lambda) SETERRQ2(PETSC_COMM_WORLD,PETSC_ERR_PLIB,"Global number of multipliers mismatch! (%D != %D)",fetidpmat_ctx->n_lambda,i);
-#endif
+  if (PetscDefined(USE_DEBUG)) {
+    ierr = VecSet(pcis->vec1_global,0.0);CHKERRQ(ierr);
+    ierr = VecScatterBegin(matis->rctx,pcis->vec1_N,pcis->vec1_global,ADD_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+    ierr = VecScatterEnd(matis->rctx,pcis->vec1_N,pcis->vec1_global,ADD_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+    ierr = VecSum(pcis->vec1_global,&scalar_value);CHKERRQ(ierr);
+    i = (PetscInt)PetscRealPart(scalar_value);
+    if (i != fetidpmat_ctx->n_lambda) SETERRQ2(PETSC_COMM_WORLD,PETSC_ERR_PLIB,"Global number of multipliers mismatch! (%D != %D)",fetidpmat_ctx->n_lambda,i);
+  }
 
   /* init data for scaling factors exchange */
   if (!pcbddc->use_deluxe_scaling) {
@@ -345,7 +343,7 @@ PetscErrorCode PCBDDCSetupFETIDPMatContext(FETIDPMat_ctx fetidpmat_ctx )
       for (j=0;j<pcis->n_shared[i];j++) {
         k = pcis->shared[i][j];
         neigh_position = 0;
-        while(mat_graph->neighbours_set[k][neigh_position] != pcis->neigh[i]) {neigh_position++;}
+        while (mat_graph->neighbours_set[k][neigh_position] != pcis->neigh[i]) {neigh_position++;}
         all_factors[k][neigh_position]=recv_buffer[ptrs_buffer[i-1]+j];
       }
     }
@@ -382,7 +380,7 @@ PetscErrorCode PCBDDCSetupFETIDPMatContext(FETIDPMat_ctx fetidpmat_ctx )
     }
     if (all_factors) array = all_factors[aux_local_numbering_1[i]];
     n_neg_values = 0;
-    while(n_neg_values < j && mat_graph->neighbours_set[aux_local_numbering_1[i]][n_neg_values] < rank) {n_neg_values++;}
+    while (n_neg_values < j && mat_graph->neighbours_set[aux_local_numbering_1[i]][n_neg_values] < rank) {n_neg_values++;}
     n_pos_values = j - n_neg_values;
     if (fully_redundant) {
       for (s=0;s<n_neg_values;s++) {
@@ -406,10 +404,10 @@ PetscErrorCode PCBDDCSetupFETIDPMatContext(FETIDPMat_ctx fetidpmat_ctx )
         vals_B_delta   [partial_sum+s]=0.0;
       }
       /* B_delta */
-      if ( n_neg_values > 0 ) { /* there's a rank next to me to the left */
+      if (n_neg_values > 0) { /* there's a rank next to me to the left */
         vals_B_delta   [partial_sum+n_neg_values-1]=-1.0;
       }
-      if ( n_neg_values < j ) { /* there's a rank next to me to the right */
+      if (n_neg_values < j) { /* there's a rank next to me to the right */
         vals_B_delta   [partial_sum+n_neg_values]=1.0;
       }
       /* scaling as in Klawonn-Widlund 1999 */

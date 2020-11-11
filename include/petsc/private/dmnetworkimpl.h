@@ -17,17 +17,19 @@ struct _p_DMNetworkComponentHeader {
   PetscInt size[MAX_DATA_AT_POINT];
   PetscInt key[MAX_DATA_AT_POINT];
   PetscInt offset[MAX_DATA_AT_POINT];
-} PETSC_ATTRIBUTEALIGNED(sizeof(PetscScalar));
+  PetscInt nvar[MAX_DATA_AT_POINT]; /* Number of variables */
+  PetscInt offsetvarrel[MAX_DATA_AT_POINT]; /* offset from the first variable of the network point */
+} PETSC_ATTRIBUTEALIGNED(PetscMax(sizeof(double),sizeof(PetscScalar)));
 
 typedef struct _p_DMNetworkComponentValue *DMNetworkComponentValue;
 struct _p_DMNetworkComponentValue {
   void* data[MAX_DATA_AT_POINT];
-} PETSC_ATTRIBUTEALIGNED(sizeof(PetscScalar));
+} PETSC_ATTRIBUTEALIGNED(PetscMax(sizeof(double),sizeof(PetscScalar)));
 
 typedef struct {
   char     name[32-sizeof(PetscInt)];
   PetscInt size;
-} DMNetworkComponent PETSC_ATTRIBUTEALIGNED(sizeof(PetscScalar));
+} DMNetworkComponent PETSC_ATTRIBUTEALIGNED(PetscMax(sizeof(double),sizeof(PetscScalar)));
 
 
 /* Indexing data structures for vertex and edges */

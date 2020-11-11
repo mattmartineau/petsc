@@ -7,6 +7,9 @@
 
 /* Logging support */
 PetscClassId IS_CLASSID;
+/* TODO: Much more events are missing! */
+PetscLogEvent IS_View;
+PetscLogEvent IS_Load;
 
 /*@
    ISRenumber - Renumbers an index set (with multiplicities) in a contiguous way.
@@ -524,7 +527,7 @@ static PetscErrorCode ISGetInfo_Unique(IS is, ISInfoType type, PetscBool *flg)
       ierr = ISGetLocalSize(is, &n);CHKERRQ(ierr);
       ierr = PetscMalloc1(n, &idx);CHKERRQ(ierr);
       ierr = ISGetIndicesCopy(is, idx);CHKERRQ(ierr);
-      ierr = PetscSortInt(n, idx);CHKERRQ(ierr);
+      ierr = PetscIntSortSemiOrdered(n, idx);CHKERRQ(ierr);
       for (i = 1; i < n; i++) if (idx[i] == idx[i-1]) break;
       if (i < n) uniqueLocal = PETSC_FALSE;
     }
@@ -586,7 +589,7 @@ static PetscErrorCode ISGetInfo_Permutation(IS is, ISInfoType type, PetscBool *f
       ierr = PetscParallelSortInt(is->map, is->map, idx, idx);CHKERRQ(ierr);
       ierr = PetscLayoutGetRange(is->map, &rStart, NULL);CHKERRQ(ierr);
     } else {
-      ierr = PetscSortInt(n, idx);CHKERRQ(ierr);
+      ierr = PetscIntSortSemiOrdered(n, idx);CHKERRQ(ierr);
       rStart = 0;
     }
     permLocal = PETSC_TRUE;
@@ -893,13 +896,12 @@ PetscErrorCode  ISContiguousLocal(IS is,PetscInt gstart,PetscInt gend,PetscInt *
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(is,IS_CLASSID,1);
-  PetscValidIntPointer(start,5);
+  PetscValidIntPointer(start,4);
   PetscValidIntPointer(contig,5);
+  *start  = -1;
+  *contig = PETSC_FALSE;
   if (is->ops->contiguous) {
     ierr = (*is->ops->contiguous)(is,gstart,gend,start,contig);CHKERRQ(ierr);
-  } else {
-    *start  = -1;
-    *contig = PETSC_FALSE;
   }
   PetscFunctionReturn(0);
 }
@@ -963,8 +965,7 @@ PetscErrorCode  ISSetPermutation(IS is)
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(is,IS_CLASSID,1);
-#if defined(PETSC_USE_DEBUG)
-  {
+  if (PetscDefined(USE_DEBUG)) {
     PetscMPIInt    size;
 
     ierr = MPI_Comm_size(PetscObjectComm((PetscObject)is),&size);CHKERRQ(ierr);
@@ -976,7 +977,7 @@ PetscErrorCode  ISSetPermutation(IS is)
       ierr = PetscMalloc1(n,&idx);CHKERRQ(ierr);
       ierr = ISGetIndices(is,&iidx);CHKERRQ(ierr);
       ierr = PetscArraycpy(idx,iidx,n);CHKERRQ(ierr);
-      ierr = PetscSortInt(n,idx);CHKERRQ(ierr);
+      ierr = PetscIntSortSemiOrdered(n,idx);CHKERRQ(ierr);
       for (i=0; i<n; i++) {
         if (idx[i] != i) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Index set is not a permutation");
       }
@@ -984,7 +985,6 @@ PetscErrorCode  ISSetPermutation(IS is)
       ierr = ISRestoreIndices(is,&iidx);CHKERRQ(ierr);
     }
   }
-#endif
   ierr = ISSetInfo(is,IS_PERMUTATION,IS_GLOBAL,PETSC_TRUE,PETSC_TRUE);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -1008,7 +1008,7 @@ PetscErrorCode  ISDestroy(IS *is)
   PetscFunctionBegin;
   if (!*is) PetscFunctionReturn(0);
   PetscValidHeaderSpecific((*is),IS_CLASSID,1);
-  if (--((PetscObject)(*is))->refct > 0) {*is = 0; PetscFunctionReturn(0);}
+  if (--((PetscObject)(*is))->refct > 0) {*is = NULL; PetscFunctionReturn(0);}
   if ((*is)->complement) {
     PetscInt refcnt;
     ierr = PetscObjectGetReference((PetscObject)((*is)->complement), &refcnt);CHKERRQ(ierr);
@@ -1144,6 +1144,7 @@ PetscErrorCode ISGetLayout(IS is,PetscLayout *map)
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(is,IS_CLASSID,1);
+  PetscValidIntPointer(map,2);
   *map = is->map;
   PetscFunctionReturn(0);
 }
@@ -1184,7 +1185,7 @@ $          call ISGetIndicesF90(i,array,ierr)
 
 
    See the Fortran chapter of the users manual and
-   petsc/src/is/examples/[tutorials,tests] for details.
+   petsc/src/is/[tutorials,tests] for details.
 
    Level: intermediate
 
@@ -1304,7 +1305,7 @@ $      ...... other code
 $       call ISRestoreIndices(is,is_array,i_is,ierr)
 
    See the Fortran chapter of the users manual and
-   petsc/src/is/examples/[tutorials,tests] for details.
+   petsc/src/vec/is/tests for details.
 
    Level: intermediate
 
@@ -1621,14 +1622,14 @@ PetscErrorCode  ISView(IS is,PetscViewer viewer)
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(is,IS_CLASSID,1);
-  if (!viewer) {
-    ierr = PetscViewerASCIIGetStdout(PetscObjectComm((PetscObject)is),&viewer);CHKERRQ(ierr);
-  }
+  if (!viewer) {ierr = PetscViewerASCIIGetStdout(PetscObjectComm((PetscObject)is),&viewer);CHKERRQ(ierr);}
   PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,2);
   PetscCheckSameComm(is,1,viewer,2);
 
   ierr = PetscObjectPrintClassNamePrefixType((PetscObject)is,viewer);CHKERRQ(ierr);
+  ierr = PetscLogEventBegin(IS_View,is,viewer,0,0);CHKERRQ(ierr);
   ierr = (*is->ops->view)(is,viewer);CHKERRQ(ierr);
+  ierr = PetscLogEventEnd(IS_View,is,viewer,0,0);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -1658,11 +1659,14 @@ PetscErrorCode ISLoad(IS is, PetscViewer viewer)
   PetscFunctionBegin;
   PetscValidHeaderSpecific(is, IS_CLASSID, 1);
   PetscValidHeaderSpecific(viewer, PETSC_VIEWER_CLASSID, 2);
+  PetscCheckSameComm(is,1,viewer,2);
   ierr = PetscObjectTypeCompare((PetscObject) viewer, PETSCVIEWERBINARY, &isbinary);CHKERRQ(ierr);
   ierr = PetscObjectTypeCompare((PetscObject) viewer, PETSCVIEWERHDF5, &ishdf5);CHKERRQ(ierr);
   if (!isbinary && !ishdf5) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Invalid viewer; open viewer with PetscViewerBinaryOpen()");
   if (!((PetscObject)is)->type_name) {ierr = ISSetType(is, ISGENERAL);CHKERRQ(ierr);}
+  ierr = PetscLogEventBegin(IS_Load,is,viewer,0,0);CHKERRQ(ierr);
   ierr = (*is->ops->load)(is, viewer);CHKERRQ(ierr);
+  ierr = PetscLogEventEnd(IS_Load,is,viewer,0,0);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -1884,14 +1888,14 @@ PetscErrorCode  ISOnComm(IS is,MPI_Comm comm,PetscCopyMode mode,IS *newis)
 - bs - block size
 
    Level: intermediate
-   
-   Notes: 
-   This is much like the block size for Vecs. It indicates that one can think of the indices as 
+
+   Notes:
+   This is much like the block size for Vecs. It indicates that one can think of the indices as
    being in a collection of equal size blocks. For ISBlock() these collections of blocks are all contiquous
    within a block but this is not the case for other IS.
    ISBlockGetIndices() only works for ISBlock IS, not others.
 
-.seealso: ISGetBlockSize(), ISCreateBlock(), ISBlockGetIndices(), 
+.seealso: ISGetBlockSize(), ISCreateBlock(), ISBlockGetIndices(),
 @*/
 PetscErrorCode  ISSetBlockSize(IS is,PetscInt bs)
 {
@@ -1918,8 +1922,8 @@ PetscErrorCode  ISSetBlockSize(IS is,PetscInt bs)
 
    Level: intermediate
 
-Notes: 
-   This is much like the block size for Vecs. It indicates that one can think of the indices as 
+Notes:
+   This is much like the block size for Vecs. It indicates that one can think of the indices as
    being in a collection of equal size blocks. For ISBlock() these collections of blocks are all contiquous
    within a block but this is not the case for other IS.
    ISBlockGetIndices() only works for ISBlock IS, not others.
@@ -2079,5 +2083,3 @@ M*/
 .seealso:  ISBlockGetIndicesF90(), ISGetIndices(), ISRestoreIndices(), ISRestoreIndicesF90()
 
 M*/
-
-

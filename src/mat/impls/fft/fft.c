@@ -1,4 +1,3 @@
-
 /*
     Provides an interface to the FFT packages.
 */
@@ -16,7 +15,7 @@ PetscErrorCode MatDestroy_FFT(Mat A)
   }
   ierr = PetscFree(fft->dim);CHKERRQ(ierr);
   ierr = PetscFree(A->data);CHKERRQ(ierr);
-  ierr = PetscObjectChangeTypeName((PetscObject)A,0);CHKERRQ(ierr);
+  ierr = PetscObjectChangeTypeName((PetscObject)A,NULL);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -29,16 +28,19 @@ PetscErrorCode MatDestroy_FFT(Mat A)
 +   comm - MPI communicator
 .   ndim - the ndim-dimensional transform
 .   dim - array of size ndim, dim[i] contains the vector length in the i-dimension
--   type - package type, e.g., FFTW or FFTCU
+-   type - package type, e.g., FFTW or MATSEQCUFFT
 
    Output Parameter:
 .   A  - the matrix
 
-  Options Database Keys:
-. -mat_fft_type - set FFT type
+   Options Database Keys:
+.   -mat_fft_type - set FFT type fft or seqcufft
+
+   Note: this serves as a base class for all FFT marix classes, currently MATFFTW or MATSEQCUFFT
 
    Level: intermediate
 
+.seealso: MatCreateVecsFFTW()
 @*/
 PetscErrorCode MatCreateFFT(MPI_Comm comm,PetscInt ndim,const PetscInt dim[],MatType mattype,Mat *A)
 {

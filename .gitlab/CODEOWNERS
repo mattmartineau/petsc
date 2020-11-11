@@ -1,21 +1,25 @@
 *                         @petsc/integrators
 
 /src/tao/                 @adener @tmunson
+/src/tao/constrained/impls/ipm/ @abhyshr @hongzhangsun @resundermann @adener
 
 /src/ts/                  @caidao22 @jedbrown @emconsta @stefanozampini @BarrySmith
 src/ts/event/             @abhyshr @caidao22 @BarrySmith
 
+/src/ts/utils/dmplexlandau/ @markadams4 @knepley
+
 /src/dm/impls/plex/       @knepley @wence @haplav @tisaac
-/src/dm/impls/network/    @hongzhangsun @BarrySmith
-/src/dm/impls/stag/       @psanan
+/src/dm/impls/stag/       @psanan @knepley
 
-src/dm/impls/network/     @abhyshr @hongzhangsun
-*/examples/*/network/     @abhyshr @hongzhangsun
+/src/*/*/network/         @abhyshr @hongzhangsun @knepley
+/src/*/*/*/network/       @abhyshr @hongzhangsun @knepley
 
-/src/ksp/pc/impls/bddc/   @stefanozampini
-/src/ksp/pc/impls/gamg/   @markadams4
+/src/ksp/pc/impls/bddc/   @stefanozampini @jedbrown
+/src/ksp/pc/impls/gamg/   @markadams4 @jedbrown
 /src/ksp/pc/impls/hpddm/  @prj- @stefanozampini
 /src/ksp/ksp/impls/hpddm/ @prj- @stefanozampini
+
+/src/binding/petsc4py/    @dalcinl @wence @pefarrell @joseroman @jedbrown @knepley @psanan
 
 /src/sys/classes/viewer/  @petsc/integrators @haplav
 
@@ -26,5 +30,5 @@ src/dm/impls/network/     @abhyshr @hongzhangsun
 
 /config/*                 @krugers @knepley @sbalay @BarrySmith
 gmakefile*                @krugers @jedbrown @BarrySmith
+.gitlab*.yml              @sbalay @jedbrown
 /lib/petsc                @krugers @sbalay
-

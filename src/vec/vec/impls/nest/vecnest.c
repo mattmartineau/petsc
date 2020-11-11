@@ -430,7 +430,7 @@ static PetscErrorCode VecMax_Nest_Recursive(Vec x,PetscInt *cnt,PetscInt *p,Pets
     ierr = VecMax(x,&_entry_loc,&_entry_val);CHKERRQ(ierr);
     if (_entry_val > *max) {
       *max = _entry_val;
-      if(p) *p = _entry_loc + *cnt;
+      if (p) *p = _entry_loc + *cnt;
     }
     ierr = VecGetSize(x,&L);CHKERRQ(ierr);
     *cnt = *cnt + L;
@@ -724,10 +724,10 @@ static PetscErrorCode VecNestSetOps_Private(struct _VecOps *ops)
   ops->maxpy                   = VecMAXPY_Nest;
   ops->aypx                    = VecAYPX_Nest;
   ops->waxpy                   = VecWAXPY_Nest;
-  ops->axpbypcz                = 0;
+  ops->axpbypcz                = NULL;
   ops->pointwisemult           = VecPointwiseMult_Nest;
   ops->pointwisedivide         = VecPointwiseDivide_Nest;
-  ops->setvalues               = 0;
+  ops->setvalues               = NULL;
   ops->assemblybegin           = VecAssemblyBegin_Nest;
   ops->assemblyend             = VecAssemblyEnd_Nest;
   ops->getarray                = VecGetArray_Nest;
@@ -737,38 +737,38 @@ static PetscErrorCode VecNestSetOps_Private(struct _VecOps *ops)
   ops->restorearrayread        = VecRestoreArrayRead_Nest;
   ops->max                     = VecMax_Nest;
   ops->min                     = VecMin_Nest;
-  ops->setrandom               = 0;
-  ops->setoption               = 0;
-  ops->setvaluesblocked        = 0;
+  ops->setrandom               = NULL;
+  ops->setoption               = NULL;
+  ops->setvaluesblocked        = NULL;
   ops->destroy                 = VecDestroy_Nest;
   ops->view                    = VecView_Nest;
-  ops->placearray              = 0;
-  ops->replacearray            = 0;
+  ops->placearray              = NULL;
+  ops->replacearray            = NULL;
   ops->dot_local               = VecDot_Nest;
   ops->tdot_local              = VecTDot_Nest;
   ops->norm_local              = VecNorm_Nest;
   ops->mdot_local              = VecMDot_Nest;
   ops->mtdot_local             = VecMTDot_Nest;
-  ops->load                    = 0;
+  ops->load                    = NULL;
   ops->reciprocal              = VecReciprocal_Nest;
   ops->conjugate               = VecConjugate_Nest;
-  ops->setlocaltoglobalmapping = 0;
-  ops->setvalueslocal          = 0;
-  ops->resetarray              = 0;
-  ops->setfromoptions          = 0;
+  ops->setlocaltoglobalmapping = NULL;
+  ops->setvalueslocal          = NULL;
+  ops->resetarray              = NULL;
+  ops->setfromoptions          = NULL;
   ops->maxpointwisedivide      = VecMaxPointwiseDivide_Nest;
-  ops->load                    = 0;
-  ops->pointwisemax            = 0;
-  ops->pointwisemaxabs         = 0;
-  ops->pointwisemin            = 0;
-  ops->getvalues               = 0;
-  ops->sqrt                    = 0;
-  ops->abs                     = 0;
-  ops->exp                     = 0;
-  ops->shift                   = 0;
-  ops->create                  = 0;
-  ops->stridegather            = 0;
-  ops->stridescatter           = 0;
+  ops->load                    = NULL;
+  ops->pointwisemax            = NULL;
+  ops->pointwisemaxabs         = NULL;
+  ops->pointwisemin            = NULL;
+  ops->getvalues               = NULL;
+  ops->sqrt                    = NULL;
+  ops->abs                     = NULL;
+  ops->exp                     = NULL;
+  ops->shift                   = NULL;
+  ops->create                  = NULL;
+  ops->stridegather            = NULL;
+  ops->stridescatter           = NULL;
   ops->dotnorm2                = VecDotNorm2_Nest;
   ops->getsubvector            = VecGetSubVector_Nest;
   ops->restoresubvector        = VecRestoreSubVector_Nest;
@@ -1092,15 +1092,13 @@ static PetscErrorCode VecSetUp_NestIS_Private(Vec V,PetscInt nb,IS is[])
       ierr = ISGetLocalSize(is[i],&m);CHKERRQ(ierr);
       ierr = VecGetLocalSize(ctx->v[i],&n);CHKERRQ(ierr);
       if (m != n) SETERRQ3(PETSC_COMM_SELF,PETSC_ERR_ARG_INCOMP,"In slot %D, IS of local size %D is not compatible with Vec of local size %D",i,m,n);
-#if defined(PETSC_USE_DEBUG)
-      {                         /* This test can be expensive */
+      if (PetscDefined(USE_DEBUG)) { /* This test can be expensive */
         PetscInt  start;
         PetscBool contiguous;
         ierr = ISContiguousLocal(is[i],offset,offset+n,&start,&contiguous);CHKERRQ(ierr);
         if (!contiguous) SETERRQ1(PetscObjectComm((PetscObject)V),PETSC_ERR_SUP,"Index set %D is not contiguous with layout of matching vector",i);
         if (start != 0) SETERRQ1(PetscObjectComm((PetscObject)V),PETSC_ERR_SUP,"Index set %D introduces overlap or a hole",i);
       }
-#endif
       ierr = PetscObjectReference((PetscObject)is[i]);CHKERRQ(ierr);
       ctx->is[i] = is[i];
       offset += n;

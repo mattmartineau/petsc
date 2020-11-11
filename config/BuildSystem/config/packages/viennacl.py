@@ -4,7 +4,7 @@ import os
 class Configure(config.package.Package):
   def __init__(self, framework):
     config.package.Package.__init__(self, framework)
-    self.gitcommit         = 'b09c65a'
+    self.gitcommit         = 'dc552a8'
     self.download          = ['git://https://github.com/viennacl/viennacl-dev']
     self.downloaddirname   = [str('viennacl-dev')]
     self.includes          = ['viennacl/forwards.h']
@@ -41,10 +41,10 @@ class Configure(config.package.Package):
         shutil.copytree(srcdir,destdir)
       except RuntimeError as e:
         raise RuntimeError('Error installing ViennaCL include files: '+str(e))
+    return self.installDir
 
+  def configureLibrary(self):
+    config.package.Package.configureLibrary(self)
     #check for CUDA:
     if not self.cuda.found:
       self.addDefine('HAVE_VIENNACL_NO_CUDA', 1)
-
-    return self.installDir
-

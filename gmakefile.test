@@ -1,4 +1,7 @@
 # -*- mode: makefile-gmake -*-
+-include petscdir.mk
+
+.SUFFIXES: .F  .F90 .f90 ${SUFFIXES} .PETSc .C .cc .cpp .cxx .r .rm .so .html .ad .m .tex .mtex .make  .fig .svg .eps .pdf .jpg .png .dvi .ps .F95 .f95 .fiat .cu .kokkos.cxx
 
 CONFIGDIR := $(PETSC_DIR)/config
 
@@ -7,8 +10,8 @@ CONFIGDIR := $(PETSC_DIR)/config
 mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
 TESTSRCDIR := $(dir $(mkfile_path))src
 
-include $(PETSC_DIR)/$(PETSC_ARCH)/lib/petsc/conf/petscvariables
-include $(PETSC_DIR)/lib/petsc/conf/variables
+-include $(PETSC_DIR)/$(PETSC_ARCH)/lib/petsc/conf/petscvariables
+-include $(PETSC_DIR)/lib/petsc/conf/variables
 
 TESTDIR ?= ./$(PETSC_ARCH)/tests
 MODDIR := $(PETSC_DIR)/$(PETSC_ARCH)/include
@@ -50,8 +53,11 @@ endif
 ifeq ($(FORCE),1)
   TESTFLAGS += -f    # force test execution
 endif
+ifeq ($(CUDAMEMCHECK),1)
+  TESTFLAGS += -U    # Add cuda-memcheck option to the flags
+endif
 ifeq ($(VALGRIND),1)
-  TESTFLAGS += -V    # Add valgrind to the flags
+  TESTFLAGS += -V    # Add valgrind option to the flags
 endif
 ifeq ($(REPLACE),1)
   TESTFLAGS += -m    # Replace results by passing -m to petscdiff
@@ -61,6 +67,10 @@ ifeq ($(OUTPUT),1)
 endif
 ifeq ($(ALT),1)
   TESTFLAGS += -M    # Replace alt files by passing -M to petscdiff
+endif
+PRINTONLY ?= 0
+ifeq ($(PRINTONLY),1)
+  TESTFLAGS += -p    # Pass -p to petscdiff to print only command
 endif
 ifeq ($(DIFF_NUMBERS),1)
   TESTFLAGS += -j    # Pass -j to petscdiff to diff the actual numbers
@@ -83,8 +93,8 @@ endif
 $(generatedtest) : $(petscconf) $(petscvariables) $(CONFIGDIR)/gmakegentest.py $(TESTDIR)/.DIR | $$(@D)/.DIR
 	$(PYTHON) $(CONFIGDIR)/gmakegentest.py --petsc-dir=$(PETSC_DIR) --petsc-arch=$(PETSC_ARCH) --testdir=$(TESTDIR)
 
-ifneq ($(MAKECMDGOALS:clean%=clean),clean)
--include $(generatedtest)
+ifneq ($(filter-out clean check,$(MAKECMDGOALS:clean%=clean)),)
+include $(generatedtest)
 endif
 
 ifeq ($(PETSC_LANGUAGE),CXXONLY)
@@ -95,11 +105,21 @@ endif
 
 PETSC_COMPILE.c = $(call quiet,$(cc_name)) -c $(PCC_FLAGS) $(PFLAGS) $(CCPPFLAGS) $(C_DEPFLAGS)
 PETSC_COMPILE.cxx = $(call quiet,CXX) -c $(CXX_FLAGS) $(CXXFLAGS) $(CXXCPPFLAGS) $(CXX_DEPFLAGS)
-PETSC_COMPILE.cu = $(call quiet,CUDAC) -c $(CUDAC_FLAGS) --compiler-options="$(PCC_FLAGS) $(CXXFLAGS) $(CCPPFLAGS)"
-PETSC_GENDEPS.cu = $(call quiet,CUDAC,.dep) --generate-dependencies --output-directory=$(@D) $(CUDAC_FLAGS) --compiler-options="$(PCC_FLAGS) $(CXXFLAGS) $(CCPPFLAGS)"
+ifneq ($(KOKKOS_BIN),)
+# Kokkos requires nvcc to be in PATH and the C++ compiler to be given in an environmental variable
+PETSC_COMPILE.kokkos.cxx = PATH=$(PATH):`dirname $(CUDAC)` NVCC_WRAPPER_DEFAULT_COMPILER=$(CXX_LINKER) $(KOKKOS_BIN)/nvcc_wrapper --expt-extended-lambda -c $(CXX_FLAGS) $(CXXFLAGS) $(CXXCPPFLAGS)
+PETSC_LINK.kokkos.cxx = PATH=$(PATH):`dirname $(CUDAC)` NVCC_WRAPPER_DEFAULT_COMPILER=$(CXX_LINKER) $(KOKKOS_BIN)/nvcc_wrapper --expt-extended-lambda  $(CXX_LINKER_FLAGS) $(PETSC_CCPPFLAGS) $(CPPFLAGS) $(LDFLAGS)
+else
+PETSC_COMPILE.kokkos.cxx = $(call quiet,CXX) -c $(CXX_FLAGS) $(CXXFLAGS) $(CXXCPPFLAGS) $(CXX_DEPFLAGS)
+PETSC_LINK.kokkos.cxx = $(CXXLINKER) $(CXX_LINKER_FLAGS) $(CXXFLAGS) $(PETSC_CCPPFLAGS) $(CPPFLAGS) $(LDFLAGS)
+endif
+PETSC_COMPILE.cu = $(call quiet,CUDAC) -c $(CUDAC_FLAGS) $(CUFLAGS) --compiler-options="$(PCC_FLAGS) $(CXXFLAGS) $(CCPPFLAGS)"
+PETSC_COMPILE.hip.cpp = $(call quiet,HIPCC) -c $(HIPCC_FLAGS) $(HIPCCFLAGS) $(HIPCCPPFLAGS) $(HIPCC_DEPFLAGS)
+PETSC_COMPILE.sycl.cpp = $(call quiet,SYCLCPP) -c $(SYCLCPP_FLAGS) $(SYCLCPPFLAGS) $(SYCLCPPCPPFLAGS) $(SYCLCPP_DEPFLAGS)
+PETSC_GENDEPS.cu = $(call quiet,CUDAC,.dep) --generate-dependencies --output-directory=$(@D) $(CUDAC_FLAGS) $(CUFLAGS) --compiler-options="$(PCC_FLAGS) $(CXXFLAGS) $(CCPPFLAGS)"
 PETSC_COMPILE.F = $(call quiet,FC) -c $(FC_FLAGS) $(FFLAGS) $(FCPPFLAGS) $(FC_DEPFLAGS)
 
-testlangs := c cu cxx F F90
+testlangs := c cu cxx F F90 kokkos.cxx hip.cpp sycl.cpp
 $(foreach lang, $(testlangs), $(eval \
   testexe.$(lang) = $(foreach pkg, $(pkgs), $(testsrcs-$(pkg).$(lang):%.$(lang)=$(TESTDIR)/%))))
 concattestlang = $(foreach lang, $(2), $(testsrcs-$(1).$(lang):%.$(lang)=$(TESTDIR)/%.o))
@@ -107,12 +127,21 @@ testsrcs.o := $(foreach pkg, $(pkgs), $(call concattestlang,$(pkg),$(testlangs))
 testsrcs-rel := $(foreach pkg, $(pkgs), $(foreach lang, $(testlangs), $(testsrcs-$(pkg).$(lang))))
 testsrcs := $(foreach sfile, $(testsrcs-rel), $(TESTSRCDIR)/$(sfile))
 
+# workaround win32fe failure
+ifneq (,$(findstring win32fe,$(call quiet,$(cc_name))))
+$(TESTDIR)/ts/tutorials/multirate/ex6: | $(TESTDIR)/ts/tutorials/multirate/ex5
+$(TESTDIR)/ts/tutorials/multirate/ex8: | $(TESTDIR)/ts/tutorials/multirate/ex6
+endif
+
 # Refresh testfiles when sources change, but don't balk if the source file is nonexistent (deleted)
 $(generatedtest) : $(testsrcs)
 $(testsrcs) :
 
 $(TESTDIR)/%.o : $(EXAMPLESDIR)/%.c | $$(@D)/.DIR
 	$(PETSC_COMPILE.c) $(abspath $<) -o $@
+
+$(TESTDIR)/%.o : $(EXAMPLESDIR)/%.kokkos.cxx | $$(@D)/.DIR
+	$(PETSC_COMPILE.kokkos.cxx) $(abspath $<) -o $@
 
 $(TESTDIR)/%.o : $(EXAMPLESDIR)/%.cxx | $$(@D)/.DIR
 	$(PETSC_COMPILE.cxx) $(abspath $<) -o $@
@@ -157,24 +186,51 @@ PETSC_TEST_LIB = $(C_SH_LIB_PATH) $(PETSC_EXTERNAL_LIB_BASIC)
 endif
 
 # manually list some some library dependencies to check for circular dependencies
-$(TESTDIR)/sys/examples/tests/ex9: PETSC_TEST_LIB = $(PETSC_SYS_LIB)
-$(TESTDIR)/vec/vec/examples/tests/ex1: PETSC_TEST_LIB = $(PETSC_VEC_LIB)
-$(TESTDIR)/mat/examples/tests/ex1: PETSC_TEST_LIB = $(PETSC_MAT_LIB)
-$(TESTDIR)/dm/examples/tests/ex1: PETSC_TEST_LIB = $(PETSC_DM_LIB)
-$(TESTDIR)/ksp/ksp/examples/tests/ex1: PETSC_TEST_LIB = $(PETSC_KSP_LIB)
-$(TESTDIR)/snes/examples/tests/ex1: PETSC_TEST_LIB = $(PETSC_SNES_LIB)
-$(TESTDIR)/ts/examples/tests/ex2: PETSC_TEST_LIB = $(PETSC_TS_LIB)
-$(TESTDIR)/tao/examples/tutorials/ex1: PETSC_TEST_LIB = $(PETSC_TAO_LIB)
+$(TESTDIR)/sys/tests/ex9: PETSC_TEST_LIB = $(PETSC_SYS_LIB)
+$(TESTDIR)/vec/vec/tests/ex1: PETSC_TEST_LIB = $(PETSC_VEC_LIB)
+$(TESTDIR)/mat/tests/ex1: PETSC_TEST_LIB = $(PETSC_MAT_LIB)
+$(TESTDIR)/dm/tests/ex1: PETSC_TEST_LIB = $(PETSC_DM_LIB)
+$(TESTDIR)/ksp/ksp/tests/ex1: PETSC_TEST_LIB = $(PETSC_KSP_LIB)
+$(TESTDIR)/snes/tests/ex1: PETSC_TEST_LIB = $(PETSC_SNES_LIB)
+$(TESTDIR)/ts/tests/ex2: PETSC_TEST_LIB = $(PETSC_TS_LIB)
+$(TESTDIR)/tao/tutorials/ex1: PETSC_TEST_LIB = $(PETSC_TAO_LIB)
+
+# if configured --with-macos-firewall-rules, ensure mpiexec.hydra and test executable is on firewall list
+ifdef MACOS_FIREWALL_MPIEXEC
+define macos-firewall-register
+  @APP=$(call abspath, $(1)); \
+    FW=/usr/libexec/ApplicationFirewall/socketfilterfw; \
+    ANS=`$$FW --getappblocked $$APP`; \
+    if ! echo $$ANS | grep "$$APP" &> /dev/null; then \
+      if ! sudo -n true 2>/dev/null; then echo "Asking for sudo password to add new firewall rule for\n  $$APP:"; fi; \
+      sudo $$FW --add $$APP && \
+      sudo $$FW --block $$APP; \
+    else \
+      echo $$ANS; \
+    fi
+endef
+define macos-firewall-fix
+  $(call macos-firewall-register, $(MACOS_FIREWALL_MPIEXEC))
+  $(call macos-firewall-register, $(1))
+endef
+endif
 
 # Test executables
 $(testexe.F) $(testexe.F90) : $(TESTDIR)/% : $(TESTDIR)/%.o $$^ $(libpetscall)
 	$(call quiet,FLINKER) -o $@ $^ $(PETSC_TEST_LIB)
+	-$(call macos-firewall-fix,$@)
 
 $(testexe.c) $(testexe.cu) : $(TESTDIR)/% : $(TESTDIR)/%.o $$^ $(libpetscall)
 	$(call quiet,CLINKER) -o $@ $^ $(PETSC_TEST_LIB)
+	-$(call macos-firewall-fix,$@)
+
+$(testexe.kokkos.cxx) : $(TESTDIR)/% : $(TESTDIR)/%.o $$^ $(libpetscall)
+	$(call quiet,PETSC_LINK.kokkos.cxx) -o $@ $^ $(PETSC_TEST_LIB)
+	-$(call macos-firewall-fix,$@)
 
 $(testexe.cxx) : $(TESTDIR)/% : $(TESTDIR)/%.o $$^ $(libpetscall)
 	$(call quiet,CXXLINKER) -o $@ $^ $(PETSC_TEST_LIB)
+	-$(call macos-firewall-fix,$@)
 
 # Fortran source files need petsc*.mod, which isn't explicitly managed in the makefile.
 $(foreach pkg, $(pkgs), $(call concattestlang,$(pkg),F F90)) : $(libpetscall)
@@ -272,11 +328,11 @@ else ifdef searchin
 else ifdef argsearch
   TESTTARGETS := $(foreach v,$(alltesttargets),$(if $(findstring $(argsearch),$($(v)_ARGS)),$(v)))
 else ifdef globsearch
-  TESTTARGETS := $(shell $(PYTHON) -c"import sys,fnmatch,itertools; m=[fnmatch.filter(sys.argv[2].split(),p) for p in sys.argv[1].split()]; print(' '.join(list(itertools.chain.from_iterable(m))))" '$(globsearch)' '$(alltesttargets)')
+  TESTTARGETS := $(shell $(PYTHON) config/query_tests.py --petsc-dir=$(PETSC_DIR) --petsc-arch=$(PETSC_ARCH) 'name' '$(globsearch)')
 else ifdef test-fail
   TESTTARGETS := $(shell $(PETSC_ARCH)/tests/echofailures.sh)
 else ifdef query
-  TESTTARGETS := $(shell $(PYTHON) config/query_tests.py '$(query)' '$(queryval)')
+  TESTTARGETS := $(shell $(PYTHON) config/query_tests.py --petsc-dir=$(PETSC_DIR) --petsc-arch=$(PETSC_ARCH) '$(query)' '$(queryval)')
 else                            # No filter - run them all, but delete the executables as we go
   TESTTARGETS := $(testpkgs)
 endif
@@ -284,7 +340,8 @@ endif
 .PHONY: report_tests print-test
 
 print-test:
-	-@echo $(TESTTARGETS)
+	$(info $(TESTTARGETS))
+	@true
 
 show-fail:
 	-@$(PYTHON) $(CONFIGDIR)/report_tests.py -d $(TESTDIR)/counts -f
@@ -300,8 +357,9 @@ starttime: pre-clean $(libpetscall)
 
 report_tests: starttime $(TESTTARGETS)
 	@$(eval ENDTIME := $(shell date +%s))
-	-@elapsed_time=$$(($(ENDTIME)- $(STARTTIME))) && \
-	$(PYTHON) $(CONFIGDIR)/report_tests.py -m $(MAKE) -d $(TESTDIR)/counts -t 5 -e $${elapsed_time}
+	-@if test ${PRINTONLY} -ne 1; then  elapsed_time=$$(($(ENDTIME)- $(STARTTIME))) && \
+	$(PYTHON) $(CONFIGDIR)/report_tests.py -m $(MAKE) -d $(TESTDIR)/counts -t 5 -e $${elapsed_time};\
+    fi
 
 check_output: 
 	$(PYTHON) $(CONFIGDIR)/gmakegentest.py --petsc-dir=$(PETSC_DIR) --petsc-arch=$(PETSC_ARCH) --testdir=$(TESTDIR) --check-output
@@ -348,9 +406,11 @@ help-test:
 	-@echo "  OUTPUT=1          Show only the errors on stdout"
 	-@echo "  ALT=1             Replace 'alt' output in PETSC_DIR source tree (-M to test scripts)"
 	-@echo "  DIFF_NUMBERS=1    Diff the numbers in the output (-j to test scripts and petscdiff)"
+	-@echo "  CUDAMEMCHECK=1    Execute the tests using cuda-memcheck (-U to test scripts)"
 	-@echo "  VALGRIND=1        Execute the tests using valgrind (-V to test scripts)"
 	-@echo "  NP=<num proc>     Set a number of processors to pass to scripts."
 	-@echo "  FORCE=1           Force SKIP or TODO tests to run"
+	-@echo "  PRINTONLY=1       Print the command, but do not run.  For loops print first command"
 	-@echo "  TIMEOUT=<time>    Test timeout limit in seconds (default in config/petsc_harness.sh)"
 	-@echo "  TESTDIR='tests'   Subdirectory where tests are run ($${PETSC_DIR}/$${PETSC_ARCH}/$${TESTDIR}"
 	-@echo "                    or $${PREFIX_DIR}/$${TESTDIR}"
@@ -388,6 +448,6 @@ help-test:
 	-@echo "    make -f ${makefile} print VAR=TESTTARGETS search='sys%'"
 	-@echo
 	-@echo "  To build an executable, give full path to location:"
-	-@echo '    make -f ${makefile} $${PETSC_ARCH}/tests/sys/examples/tests/ex1'
+	-@echo '    make -f ${makefile} $${PETSC_ARCH}/tests/sys/tests/ex1'
 	-@echo "  or make the test with NO_RM=1"
 	-@echo

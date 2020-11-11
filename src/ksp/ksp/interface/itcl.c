@@ -255,9 +255,15 @@ PetscErrorCode  KSPMonitorSetFromOptions(KSP ksp,const char name[],const char he
   PetscBool            flg;
   PetscViewer          viewer;
   PetscViewerFormat    format;
+  PetscBool            all;
 
   PetscFunctionBegin;
-  ierr = PetscOptionsGetViewer(PetscObjectComm((PetscObject)ksp),((PetscObject)ksp)->options,((PetscObject)ksp)->prefix,name,&viewer,&format,&flg);CHKERRQ(ierr);
+  ierr = PetscStrcmp(name,"-all_ksp_monitor",&all);CHKERRQ(ierr);
+  if (all) {
+    ierr = PetscOptionsGetViewer(PetscObjectComm((PetscObject)ksp),((PetscObject)ksp)->options,NULL,name,&viewer,&format,&flg);CHKERRQ(ierr);
+  } else {
+    ierr = PetscOptionsGetViewer(PetscObjectComm((PetscObject)ksp),((PetscObject)ksp)->options,((PetscObject)ksp)->prefix,name,&viewer,&format,&flg);CHKERRQ(ierr);
+  }
   ierr = KSPSetupMonitor_Private(ksp, viewer, format, (PetscErrorCode (*)(KSP,PetscInt,PetscReal,void*)) monitor, flg);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -281,6 +287,7 @@ PetscErrorCode  KSPMonitorSetFromOptions(KSP ksp,const char name[],const char he
 .   -ksp_divtol tol - if residual norm increases by this factor than divergence is declared
 .   -ksp_converged_use_initial_residual_norm - see KSPConvergedDefaultSetUIRNorm()
 .   -ksp_converged_use_min_initial_residual_norm - see KSPConvergedDefaultSetUMIRNorm()
+.   -ksp_converged_maxits - see KSPConvergedDefaultSetConvergedMaxits()
 .   -ksp_norm_type - none - skip norms used in convergence tests (useful only when not using
                        convergence test (say you always want to run with 5 iterations) to
                        save on communication overhead
@@ -299,6 +306,8 @@ PetscErrorCode  KSPMonitorSetFromOptions(KSP ksp,const char name[],const char he
 .   -ksp_knoll - compute initial guess by applying the preconditioner to the right hand side
 .   -ksp_monitor_cancel - cancel all previous convergene monitor routines set
 .   -ksp_monitor <optional filename> - print residual norm at each iteration
+.   -all_ksp_monitor <optional filename> - print residual norm at each iteration for ALL KSP solves, regardless of their prefix. This is
+                                           useful for PCFIELDSPLIT, PCMG, etc that have inner solvers and you wish to track the convergence of all the solvers
 .   -ksp_monitor_lg_residualnorm - plot residual norm at each iteration
 .   -ksp_monitor_solution [ascii binary or draw][:filename][:format option] - plot solution at each iteration
 -   -ksp_monitor_singular_value - monitor extreme singular values at each iteration
@@ -314,16 +323,14 @@ PetscErrorCode  KSPMonitorSetFromOptions(KSP ksp,const char name[],const char he
 @*/
 PetscErrorCode  KSPSetFromOptions(KSP ksp)
 {
-  PetscInt       indx;
-  const char     *convtests[] = {"default","skip","lsqr"};
-  char           type[256], guesstype[256], monfilename[PETSC_MAX_PATH_LEN];
+  const char     *convtests[]={"default","skip","lsqr"},*prefix;
+  char           type[256],guesstype[256],monfilename[PETSC_MAX_PATH_LEN];
   PetscBool      flg,flag,reuse,set;
-  PetscInt       model[2]={0,0},nmax;
+  PetscInt       indx,model[2]={0,0},nmax;
   KSPNormType    normtype;
   PCSide         pcside;
   void           *ctx;
   MPI_Comm       comm;
-  const char    *prefix;
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
@@ -350,12 +357,33 @@ PetscErrorCode  KSPSetFromOptions(KSP ksp)
 
   ierr = KSPResetViewers(ksp);CHKERRQ(ierr);
 
+  ierr = PetscOptionsBool("-ksp_monitor_cancel","Remove any hardwired monitor routines","KSPMonitorCancel",PETSC_FALSE,&flg,&set);CHKERRQ(ierr);
+  /* -----------------------------------------------------------------------*/
+  /*
+    Cancels all monitors hardwired into code before call to KSPSetFromOptions()
+  */
+  if (set && flg) {
+    ierr = KSPMonitorCancel(ksp);CHKERRQ(ierr);
+  }
+  ierr = KSPMonitorSetFromOptions(ksp,"-ksp_monitor","Monitor the (preconditioned) residual norm","KSPMonitorDefault",KSPMonitorDefault);CHKERRQ(ierr);
+  ierr = KSPMonitorSetFromOptions(ksp,"-all_ksp_monitor","Monitor the (preconditioned) residual norm","KSPMonitorDefault",KSPMonitorDefault);CHKERRQ(ierr);
+  ierr = KSPMonitorSetFromOptions(ksp,"-ksp_monitor_range","Monitor the percentage of large entries in the residual","KSPMonitorRange",KSPMonitorRange);CHKERRQ(ierr);
+  ierr = KSPMonitorSetFromOptions(ksp,"-ksp_monitor_true_residual","Monitor the unpreconditioned residual norm","KSPMOnitorTrueResidual",KSPMonitorTrueResidualNorm);CHKERRQ(ierr);
+  ierr = KSPMonitorSetFromOptions(ksp,"-ksp_monitor_max","Monitor the maximum norm of the residual","KSPMonitorTrueResidualMaxNorm",KSPMonitorTrueResidualMaxNorm);CHKERRQ(ierr);
+  ierr = KSPMonitorSetFromOptions(ksp,"-ksp_monitor_short","Monitor preconditioned residual norm with fewer digits","KSPMonitorDefaultShort",KSPMonitorDefaultShort);CHKERRQ(ierr);
+  ierr = KSPMonitorSetFromOptions(ksp,"-ksp_monitor_solution","Monitor the solution","KSPMonitorSolution",KSPMonitorSolution);CHKERRQ(ierr);
+  ierr = KSPMonitorSetFromOptions(ksp,"-ksp_monitor_singular_value","Monitor singular values","KSPMonitorSingularValue",KSPMonitorSingularValue);CHKERRQ(ierr);
+  ierr = PetscOptionsHasName(NULL,((PetscObject)ksp)->prefix,"-ksp_monitor_singular_value",&flg);CHKERRQ(ierr);
+  if (flg) {
+    ierr = KSPSetComputeSingularValues(ksp,PETSC_TRUE);CHKERRQ(ierr);
+  }
+
   ierr = PetscObjectTypeCompare((PetscObject)ksp,KSPPREONLY,&flg);CHKERRQ(ierr);
   if (flg) {
-    ierr = PCGetReusePreconditioner(ksp->pc,&reuse);CHKERRQ(ierr);
-    ierr = PetscOptionsBool("-ksp_error_if_not_converged","Generate error if solver does not converge","KSPSetErrorIfNotConverged",ksp->errorifnotconverged,&ksp->errorifnotconverged,NULL);CHKERRQ(ierr);
-    ierr = PetscOptionsBool("-ksp_reuse_preconditioner","Use initial preconditioner and don't ever compute a new one ","KSPReusePreconditioner",reuse,&reuse,NULL);CHKERRQ(ierr);
+    ierr = KSPGetReusePreconditioner(ksp,&reuse);CHKERRQ(ierr);
+    ierr = PetscOptionsBool("-ksp_reuse_preconditioner","Use initial preconditioner and don't ever compute a new one","KSPReusePreconditioner",reuse,&reuse,NULL);CHKERRQ(ierr);
     ierr = KSPSetReusePreconditioner(ksp,reuse);CHKERRQ(ierr);
+    ierr = PetscOptionsBool("-ksp_error_if_not_converged","Generate error if solver does not converge","KSPSetErrorIfNotConverged",ksp->errorifnotconverged,&ksp->errorifnotconverged,NULL);CHKERRQ(ierr);
     ierr = PetscOptionsGetViewer(comm,((PetscObject) ksp)->options,prefix,"-ksp_view",&ksp->viewer, &ksp->format,&ksp->view);CHKERRQ(ierr);
     ierr = PetscOptionsGetViewer(comm,((PetscObject) ksp)->options,prefix,"-ksp_converged_reason",&ksp->viewerReason,&ksp->formatReason,&ksp->viewReason);CHKERRQ(ierr);
     ierr = PetscOptionsGetViewer(comm,((PetscObject) ksp)->options,prefix,"-ksp_view_mat",&ksp->viewerMat,&ksp->formatMat,&ksp->viewMat);CHKERRQ(ierr);
@@ -389,12 +417,14 @@ PetscErrorCode  KSPSetFromOptions(KSP ksp)
   if (set && flag) {ierr = KSPConvergedDefaultSetUIRNorm(ksp);CHKERRQ(ierr);}
   ierr = PetscOptionsBool("-ksp_converged_use_min_initial_residual_norm","Use minimum of initial residual norm and b for computing relative convergence","KSPConvergedDefaultSetUMIRNorm",PETSC_FALSE,&flag,&set);CHKERRQ(ierr);
   if (set && flag) {ierr = KSPConvergedDefaultSetUMIRNorm(ksp);CHKERRQ(ierr);}
+  ierr = PetscOptionsBool("-ksp_converged_maxits","Declare convergence if the maximum number of iterations is reached","KSPConvergedDefaultSetConvergedMaxits",PETSC_FALSE,&flag,&set);CHKERRQ(ierr);
+  if (set) {ierr = KSPConvergedDefaultSetConvergedMaxits(ksp,flag);CHKERRQ(ierr);}
   ierr = PetscOptionsBool("-ksp_initial_guess_nonzero","Use the contents of the solution vector for initial guess","KSPSetInitialNonzero",ksp->guess_zero ? PETSC_FALSE : PETSC_TRUE,&flag,&flg);CHKERRQ(ierr);
   if (flg) {
     ierr = KSPSetInitialGuessNonzero(ksp,flag);CHKERRQ(ierr);
   }
-  ierr = PCGetReusePreconditioner(ksp->pc,&reuse);CHKERRQ(ierr);
-  ierr = PetscOptionsBool("-ksp_reuse_preconditioner","Use initial preconditioner and don't ever compute a new one ","KSPReusePreconditioner",reuse,&reuse,NULL);CHKERRQ(ierr);
+  ierr = KSPGetReusePreconditioner(ksp,&reuse);CHKERRQ(ierr);
+  ierr = PetscOptionsBool("-ksp_reuse_preconditioner","Use initial preconditioner and don't ever compute a new one","KSPReusePreconditioner",reuse,&reuse,NULL);CHKERRQ(ierr);
   ierr = KSPSetReusePreconditioner(ksp,reuse);CHKERRQ(ierr);
 
   ierr = PetscOptionsBool("-ksp_knoll","Use preconditioner applied to b for initial guess","KSPSetInitialGuessKnoll",ksp->guess_knoll,&ksp->guess_knoll,NULL);CHKERRQ(ierr);
@@ -420,7 +450,9 @@ PetscErrorCode  KSPSetFromOptions(KSP ksp)
       ierr = KSPConvergedDefaultCreate(&ctx);CHKERRQ(ierr);
       ierr = KSPSetConvergenceTest(ksp,KSPConvergedDefault,ctx,KSPConvergedDefaultDestroy);CHKERRQ(ierr);
       break;
-    case 1: ierr = KSPSetConvergenceTest(ksp,KSPConvergedSkip,NULL,NULL);CHKERRQ(ierr);    break;
+    case 1:
+      ierr = KSPSetConvergenceTest(ksp,KSPConvergedSkip,NULL,NULL);CHKERRQ(ierr);
+      break;
     case 2:
       ierr = KSPConvergedDefaultCreate(&ctx);CHKERRQ(ierr);
       ierr = KSPSetConvergenceTest(ksp,KSPLSQRConvergedDefault,ctx,KSPConvergedDefaultDestroy);CHKERRQ(ierr);
@@ -453,42 +485,26 @@ PetscErrorCode  KSPSetFromOptions(KSP ksp)
   ierr = PetscOptionsBool("-ksp_constant_null_space","Add constant null space to Krylov solver matrix","MatSetNullSpace",PETSC_FALSE,&flg,&set);CHKERRQ(ierr);
   if (set && flg) {
     MatNullSpace nsp;
-    Mat          Amat;
+    Mat          Amat = NULL;
 
     ierr = MatNullSpaceCreate(comm,PETSC_TRUE,0,NULL,&nsp);CHKERRQ(ierr);
-    ierr = PCGetOperators(ksp->pc,&Amat,NULL);CHKERRQ(ierr);
+    if (ksp->pc) { ierr = PCGetOperators(ksp->pc,&Amat,NULL);CHKERRQ(ierr); }
     if (Amat) {
       ierr = MatSetNullSpace(Amat,nsp);CHKERRQ(ierr);
       ierr = MatNullSpaceDestroy(&nsp);CHKERRQ(ierr);
     } else SETERRQ(comm,PETSC_ERR_ARG_WRONGSTATE,"Cannot set nullspace, matrix has not yet been provided");
   }
 
-  ierr = PetscOptionsBool("-ksp_monitor_cancel","Remove any hardwired monitor routines","KSPMonitorCancel",PETSC_FALSE,&flg,&set);CHKERRQ(ierr);
-  /* -----------------------------------------------------------------------*/
-  /*
-    Cancels all monitors hardwired into code before call to KSPSetFromOptions()
-  */
-  if (set && flg) {
-    ierr = KSPMonitorCancel(ksp);CHKERRQ(ierr);
+  flg = PETSC_FALSE;
+  if (ksp->pc) {
+    ierr = PetscObjectTypeCompare((PetscObject)ksp->pc,PCKSP,&flg);CHKERRQ(ierr);
+    if (!flg) ierr = PetscObjectTypeCompare((PetscObject)ksp->pc,PCBJACOBI,&flg);CHKERRQ(ierr);
+    if (!flg) ierr = PetscObjectTypeCompare((PetscObject)ksp->pc,PCDEFLATION,&flg);CHKERRQ(ierr);
   }
-  ierr = KSPMonitorSetFromOptions(ksp,"-ksp_monitor","Monitor the (preconditioned) residual norm","KSPMonitorDefault",KSPMonitorDefault);CHKERRQ(ierr);
-  ierr = KSPMonitorSetFromOptions(ksp,"-ksp_monitor_range","Monitor the percentage of large entries in the residual","KSPMonitorRange",KSPMonitorRange);CHKERRQ(ierr);
-  ierr = KSPMonitorSetFromOptions(ksp,"-ksp_monitor_true_residual","Monitor the unpreconditioned residual norm","KSPMOnitorTrueResidual",KSPMonitorTrueResidualNorm);CHKERRQ(ierr);
-  ierr = KSPMonitorSetFromOptions(ksp,"-ksp_monitor_max","Monitor the maximum norm of the residual","KSPMonitorTrueResidualMaxNorm",KSPMonitorTrueResidualMaxNorm);CHKERRQ(ierr);
-  ierr = KSPMonitorSetFromOptions(ksp,"-ksp_monitor_short","Monitor preconditioned residual norm with fewer digits","KSPMonitorDefaultShort",KSPMonitorDefaultShort);CHKERRQ(ierr);
-  ierr = KSPMonitorSetFromOptions(ksp,"-ksp_monitor_solution","Monitor the solution","KSPMonitorSolution",KSPMonitorSolution);CHKERRQ(ierr);
-  ierr = KSPMonitorSetFromOptions(ksp,"-ksp_monitor_singular_value","Monitor singular values","KSPMonitorSingularValue",KSPMonitorSingularValue);CHKERRQ(ierr);
-  ierr = PetscOptionsHasName(NULL,((PetscObject)ksp)->prefix,"-ksp_monitor_singular_value",&flg);CHKERRQ(ierr);
-  if (flg) {
-    ierr = KSPSetComputeSingularValues(ksp,PETSC_TRUE);CHKERRQ(ierr);
-  }
-  ierr = PetscObjectTypeCompare((PetscObject)ksp->pc,PCKSP,&flg);CHKERRQ(ierr);
-  if (!flg) ierr = PetscObjectTypeCompare((PetscObject)ksp->pc,PCBJACOBI,&flg);CHKERRQ(ierr);
-  if (!flg) ierr = PetscObjectTypeCompare((PetscObject)ksp->pc,PCDEFLATION,&flg);CHKERRQ(ierr);
 
   if (flg) {
     /* A hack for using dynamic tolerance in preconditioner */
-    ierr = PetscOptionsString("-sub_ksp_dynamic_tolerance","Use dynamic tolerance for PC if PC is a KSP","KSPMonitorDynamicTolerance","stdout",monfilename,PETSC_MAX_PATH_LEN,&flg);CHKERRQ(ierr);
+    ierr = PetscOptionsString("-sub_ksp_dynamic_tolerance","Use dynamic tolerance for PC if PC is a KSP","KSPMonitorDynamicTolerance","stdout",monfilename,sizeof(monfilename),&flg);CHKERRQ(ierr);
     if (flg) {
       KSPDynTolCtx *scale;
       ierr        = PetscMalloc1(1,&scale);CHKERRQ(ierr);
@@ -502,7 +518,7 @@ PetscErrorCode  KSPSetFromOptions(KSP ksp)
   /*
    Calls Python function
   */
-  ierr = PetscOptionsString("-ksp_monitor_python","Use Python function","KSPMonitorSet",0,monfilename,PETSC_MAX_PATH_LEN,&flg);CHKERRQ(ierr);
+  ierr = PetscOptionsString("-ksp_monitor_python","Use Python function","KSPMonitorSet",NULL,monfilename,sizeof(monfilename),&flg);CHKERRQ(ierr);
   if (flg) {ierr = PetscPythonMonitorSet((PetscObject)ksp,monfilename);CHKERRQ(ierr);}
   /*
     Graphically plots preconditioned residual norm
@@ -627,6 +643,12 @@ PetscErrorCode  KSPSetFromOptions(KSP ksp)
   }
   }
 #endif
+
+  nmax = PETSC_DECIDE;
+  ierr = PetscOptionsInt("-ksp_matsolve_block_size", "Maximum number of columns treated simultaneously", "KSPMatSolve", nmax, &nmax, &flg);CHKERRQ(ierr);
+  if (flg) {
+    ierr = KSPSetMatSolveBlockSize(ksp, nmax);CHKERRQ(ierr);
+  }
 
   if (ksp->ops->setfromoptions) {
     ierr = (*ksp->ops->setfromoptions)(PetscOptionsObject,ksp);CHKERRQ(ierr);

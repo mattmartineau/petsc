@@ -1,4 +1,3 @@
-
 /*
    Defines a  (S)SOR  preconditioner for any Mat implementation
 */
@@ -58,7 +57,7 @@ static PetscErrorCode PCApplyRichardson_SOR(PC pc,Vec b,Vec y,Vec w,PetscReal rt
   ierr = PetscInfo1(pc,"Warning, convergence critera ignored, using %D iterations\n",its);CHKERRQ(ierr);
   if (guesszero) stype = (MatSORType) (stype | SOR_ZERO_INITIAL_GUESS);
   ierr = MatSOR(pc->pmat,b,jac->omega,stype,jac->fshift,its*jac->its,jac->lits,y);CHKERRQ(ierr);
-  ierr = MatFactorGetError(pc->pmat,(MatFactorError*)&pc->failedreason);CHKERRQ(ierr); 
+  ierr = MatFactorGetError(pc->pmat,(MatFactorError*)&pc->failedreason);CHKERRQ(ierr);
   *outits = its;
   *reason = PCRICHARDSON_CONVERGED_ITS;
   PetscFunctionReturn(0);
@@ -349,7 +348,11 @@ PetscErrorCode  PCSORSetSymmetric(PC pc,MatSORType flag)
 
    Level: intermediate
 
-.seealso: PCSORSetSymmetric(), PCSORSetIterations(), PCEisenstatSetOmega()
+   Note:
+   If omega != 1, you will need to set the MAT_USE_INODES option to PETSC_FALSE on the matrix.
+
+
+.seealso: PCSORSetSymmetric(), PCSORSetIterations(), PCEisenstatSetOmega(), MatSetOption()
 @*/
 PetscErrorCode  PCSORSetOmega(PC pc,PetscReal omega)
 {
@@ -419,19 +422,21 @@ PetscErrorCode  PCSORSetIterations(PC pc,PetscInt its,PetscInt lits)
 
           For AIJ matrix if a diagonal entry is zero (and the diagonal shift is zero) then by default the inverse of that
           zero will be used and hence the KSPSolve() will terminate with KSP_DIVERGED_NANORIF. If the option
-          KSPSetErrorIfNotConverged() or -ksp_error_if_not_converged the code will terminate as soon as it detects the 
+          KSPSetErrorIfNotConverged() or -ksp_error_if_not_converged the code will terminate as soon as it detects the
           zero pivot.
 
           For SeqBAIJ matrices this implements point-block SOR, but the omega, its, lits options are not supported.
 
-          For SeqBAIJ the diagonal blocks are inverted using dense LU with partial pivoting. If a zero pivot is detected 
+          For SeqBAIJ the diagonal blocks are inverted using dense LU with partial pivoting. If a zero pivot is detected
           the computation is stopped with an error
 
-          If used with KSPRICHARDSON and no monitors the convergence test is skipped to improve speed, thus it always iterates 
+          If used with KSPRICHARDSON and no monitors the convergence test is skipped to improve speed, thus it always iterates
           the maximum number of iterations you've selected for KSP. It is usually used in this mode as a smoother for multigrid.
 
+          If omega != 1, you will need to set the MAT_USE_INODES option to PETSC_FALSE on the matrix.
+
 .seealso:  PCCreate(), PCSetType(), PCType (for list of available types), PC,
-           PCSORSetIterations(), PCSORSetSymmetric(), PCSORSetOmega(), PCEISENSTAT
+           PCSORSetIterations(), PCSORSetSymmetric(), PCSORSetOmega(), PCEISENSTAT, MatSetOption()
 M*/
 
 PETSC_EXTERN PetscErrorCode PCCreate_SOR(PC pc)
@@ -446,7 +451,7 @@ PETSC_EXTERN PetscErrorCode PCCreate_SOR(PC pc)
   pc->ops->applytranspose  = PCApplyTranspose_SOR;
   pc->ops->applyrichardson = PCApplyRichardson_SOR;
   pc->ops->setfromoptions  = PCSetFromOptions_SOR;
-  pc->ops->setup           = 0;
+  pc->ops->setup           = NULL;
   pc->ops->view            = PCView_SOR;
   pc->ops->destroy         = PCDestroy_SOR;
   pc->data                 = (void*)jac;
@@ -464,8 +469,3 @@ PETSC_EXTERN PetscErrorCode PCCreate_SOR(PC pc)
   ierr = PetscObjectComposeFunction((PetscObject)pc,"PCSORGetIterations_C",PCSORGetIterations_SOR);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
-
-
-
-
-

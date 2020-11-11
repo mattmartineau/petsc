@@ -27,7 +27,7 @@ static PetscErrorCode PCHMGExtractSubMatrix_Private(Mat pmat,Mat *submat,MatReus
   ierr = PetscObjectGetComm((PetscObject)pmat,&comm);CHKERRQ(ierr);
   if (component>=blocksize) SETERRQ2(comm,PETSC_ERR_ARG_INCOMP,"Component %D should be less than block size %D \n",component,blocksize);
   ierr = MatGetOwnershipRange(pmat,&rstart,&rend);CHKERRQ(ierr);
-  if ((rend-rstart)%blocksize != 0) SETERRQ3(comm,PETSC_ERR_ARG_INCOMP,"Block size %D is inconsisent for [%D, %D) \n",blocksize,rstart,rend);
+  if ((rend-rstart)%blocksize != 0) SETERRQ3(comm,PETSC_ERR_ARG_INCOMP,"Block size %D is inconsistent for [%D, %D) \n",blocksize,rstart,rend);
   ierr = ISCreateStride(comm,(rend-rstart)/blocksize,rstart+component,blocksize,&isrow);
   ierr = MatCreateSubMatrix(pmat,isrow,isrow,reuse,submat);CHKERRQ(ierr);
   ierr = ISDestroy(&isrow);CHKERRQ(ierr);
@@ -58,7 +58,7 @@ static PetscErrorCode PCHMGExpandInterpolation_Private(Mat subinterp, Mat *inter
     if (max_nz<nz) max_nz = nz;
     dnz = 0; onz = 0;
     for (i=0;i<nz;i++) {
-      if(idx[i]>=subcstart && idx[i]<subcend) dnz++;
+      if (idx[i]>=subcstart && idx[i]<subcend) dnz++;
       else onz++;
     }
     for (i=0;i<blocksize;i++) {
@@ -168,11 +168,11 @@ PetscErrorCode PCSetUp_HMG(PC pc)
   }
 
   ierr = PCDestroy(&hmg->innerpc);CHKERRQ(ierr);
-  hmg->innerpc = 0;
+  hmg->innerpc = NULL;
   ierr = PCMGSetLevels_MG(pc,num_levels,NULL);CHKERRQ(ierr);
   /* Set coarse matrices and interpolations to PCMG */
   for (level=num_levels-1; level>0; level--) {
-    Mat P=0, pmat=0;
+    Mat P=NULL, pmat=NULL;
     Vec b, x,r;
     if (hmg->subcoarsening) {
       if (hmg->usematmaij) {
@@ -507,7 +507,7 @@ PETSC_EXTERN PetscErrorCode PCCreate_HMG(PC pc)
   /* if type was previously mg; must manually destroy it because call to PCSetType(pc,PCMG) will not destroy it */
   if (pc->ops->destroy) {
     ierr =  (*pc->ops->destroy)(pc);CHKERRQ(ierr);
-    pc->data = 0;
+    pc->data = NULL;
   }
   ierr = PetscFree(((PetscObject)pc)->type_name);CHKERRQ(ierr);
 

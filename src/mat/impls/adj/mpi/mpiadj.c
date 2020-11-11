@@ -59,7 +59,7 @@ static PetscErrorCode MatCreateSubMatrix_MPIAdj_data(Mat adj,IS irows, IS icols,
     ncols_recv_offsets[i+1] = ncols_recv[i]+ncols_recv_offsets[i];
   }
   Ncols_send = 0;
-  for(i=0; i<nlrows_mat; i++){
+  for (i=0; i<nlrows_mat; i++){
     Ncols_send += ncols_send[i];
   }
   ierr = PetscCalloc1(Ncols_recv,&iremote);CHKERRQ(ierr);
@@ -109,21 +109,21 @@ static PetscErrorCode MatCreateSubMatrix_MPIAdj_data(Mat adj,IS irows, IS icols,
   if (a->useedgeweights) {ierr = PetscCalloc1(rnclos,&svalues);CHKERRQ(ierr);}
   ierr = PetscCalloc1(nlrows_is+1,&sxadj);CHKERRQ(ierr);
   rnclos = 0;
-  for(i=0; i<nlrows_is; i++){
-    for(j=ncols_recv_offsets[i]; j<ncols_recv_offsets[i+1]; j++){
+  for (i=0; i<nlrows_is; i++){
+    for (j=ncols_recv_offsets[i]; j<ncols_recv_offsets[i+1]; j++){
       if (adjncy_recv[j]<0) continue;
       sadjncy[rnclos] = adjncy_recv[j];
       if (a->useedgeweights) svalues[rnclos] = values_recv[j];
       rnclos++;
     }
   }
-  for(i=0; i<nlrows_is; i++){
+  for (i=0; i<nlrows_is; i++){
     sxadj[i+1] = sxadj[i]+ncols_recv[i];
   }
   if (sadj_xadj)  { *sadj_xadj = sxadj;} else    { ierr = PetscFree(sxadj);CHKERRQ(ierr);}
   if (sadj_adjncy){ *sadj_adjncy = sadjncy;} else { ierr = PetscFree(sadjncy);CHKERRQ(ierr);}
   if (sadj_values){
-    if (a->useedgeweights) *sadj_values = svalues; else *sadj_values=0;
+    if (a->useedgeweights) *sadj_values = svalues; else *sadj_values=NULL;
   } else {
     if (a->useedgeweights) {ierr = PetscFree(svalues);CHKERRQ(ierr);}
   }
@@ -147,7 +147,7 @@ static PetscErrorCode MatCreateSubMatrices_MPIAdj_Private(Mat mat,PetscInt n,con
   /*
    * Estimate a maximum number for allocating memory
    */
-  for(i=0; i<n; i++){
+  for (i=0; i<n; i++){
     ierr = ISGetLocalSize(irow[i],&irow_n);CHKERRQ(ierr);
     ierr = ISGetLocalSize(icol[i],&icol_n);CHKERRQ(ierr);
     nindx = nindx>(irow_n+icol_n)? nindx:(irow_n+icol_n);
@@ -166,7 +166,7 @@ static PetscErrorCode MatCreateSubMatrices_MPIAdj_Private(Mat mat,PetscInt n,con
       scomm_row = PETSC_COMM_SELF;
     }
     /*get sub-matrix data*/
-    sxadj=0; sadjncy=0; svalues=0;
+    sxadj=NULL; sadjncy=NULL; svalues=NULL;
     ierr = MatCreateSubMatrix_MPIAdj_data(mat,irow[i],icol[i],&sxadj,&sadjncy,&svalues);CHKERRQ(ierr);
     ierr = ISGetLocalSize(irow[i],&irow_n);CHKERRQ(ierr);
     ierr = ISGetLocalSize(icol[i],&icol_n);CHKERRQ(ierr);
@@ -182,9 +182,7 @@ static PetscErrorCode MatCreateSubMatrices_MPIAdj_Private(Mat mat,PetscInt n,con
     for (j=0; j<irow_n; j++){
       for (k=sxadj[j]; k<sxadj[j+1]; k++){
         ierr = PetscFindInt(sadjncy[k],nindx,indices,&loc);CHKERRQ(ierr);
-#if defined(PETSC_USE_DEBUG)
         if (loc<0) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"can not find col %D",sadjncy[k]);
-#endif
         sadjncy[k] = loc;
       }
     }
@@ -297,7 +295,7 @@ static PetscErrorCode MatDestroy_MPIAdj(Mat mat)
   }
   ierr = PetscFree(a->rowvalues);CHKERRQ(ierr);
   ierr = PetscFree(mat->data);CHKERRQ(ierr);
-  ierr = PetscObjectChangeTypeName((PetscObject)mat,0);CHKERRQ(ierr);
+  ierr = PetscObjectChangeTypeName((PetscObject)mat,NULL);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)mat,"MatMPIAdjSetPreallocation_C",NULL);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)mat,"MatMPIAdjCreateNonemptySubcommMat_C",NULL);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -477,148 +475,148 @@ PetscErrorCode  MatConvertFrom_MPIAdj(Mat A,MatType type,MatReuse reuse,Mat *new
 }
 
 /* -------------------------------------------------------------------*/
-static struct _MatOps MatOps_Values = {0,
+static struct _MatOps MatOps_Values = {NULL,
                                        MatGetRow_MPIAdj,
                                        MatRestoreRow_MPIAdj,
-                                       0,
-                                /* 4*/ 0,
-                                       0,
-                                       0,
-                                       0,
-                                       0,
-                                       0,
-                                /*10*/ 0,
-                                       0,
-                                       0,
-                                       0,
-                                       0,
-                                /*15*/ 0,
+                                       NULL,
+                                /* 4*/ NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                /*10*/ NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                /*15*/ NULL,
                                        MatEqual_MPIAdj,
-                                       0,
-                                       0,
-                                       0,
-                                /*20*/ 0,
-                                       0,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                /*20*/ NULL,
+                                       NULL,
                                        MatSetOption_MPIAdj,
-                                       0,
-                                /*24*/ 0,
-                                       0,
-                                       0,
-                                       0,
-                                       0,
-                                /*29*/ 0,
-                                       0,
-                                       0,
-                                       0,
-                                       0,
-                                /*34*/ 0,
-                                       0,
-                                       0,
-                                       0,
-                                       0,
-                                /*39*/ 0,
+                                       NULL,
+                                /*24*/ NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                /*29*/ NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                /*34*/ NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                /*39*/ NULL,
                                        MatCreateSubMatrices_MPIAdj,
-                                       0,
-                                       0,
-                                       0,
-                                /*44*/ 0,
-                                       0,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                /*44*/ NULL,
+                                       NULL,
                                        MatShift_Basic,
-                                       0,
-                                       0,
-                                /*49*/ 0,
+                                       NULL,
+                                       NULL,
+                                /*49*/ NULL,
                                        MatGetRowIJ_MPIAdj,
                                        MatRestoreRowIJ_MPIAdj,
-                                       0,
-                                       0,
-                                /*54*/ 0,
-                                       0,
-                                       0,
-                                       0,
-                                       0,
-                                /*59*/ 0,
+                                       NULL,
+                                       NULL,
+                                /*54*/ NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                /*59*/ NULL,
                                        MatDestroy_MPIAdj,
                                        MatView_MPIAdj,
                                        MatConvertFrom_MPIAdj,
-                                       0,
-                                /*64*/ 0,
-                                       0,
-                                       0,
-                                       0,
-                                       0,
-                                /*69*/ 0,
-                                       0,
-                                       0,
-                                       0,
-                                       0,
-                                /*74*/ 0,
-                                       0,
-                                       0,
-                                       0,
-                                       0,
-                                /*79*/ 0,
-                                       0,
-                                       0,
-                                       0,
-                                       0,
-                                /*84*/ 0,
-                                       0,
-                                       0,
-                                       0,
-                                       0,
-                                /*89*/ 0,
-                                       0,
-                                       0,
-                                       0,
-                                       0,
-                                /*94*/ 0,
-                                       0,
-                                       0,
-                                       0,
-                                       0,
-                                /*99*/ 0,
-                                       0,
-                                       0,
-                                       0,
-                                       0,
-                               /*104*/ 0,
-                                       0,
-                                       0,
-                                       0,
-                                       0,
-                               /*109*/ 0,
-                                       0,
-                                       0,
-                                       0,
-                                       0,
-                               /*114*/ 0,
-                                       0,
-                                       0,
-                                       0,
-                                       0,
-                               /*119*/ 0,
-                                       0,
-                                       0,
-                                       0,
-                                       0,
-                               /*124*/ 0,
-                                       0,
-                                       0,
-                                       0,
+                                       NULL,
+                                /*64*/ NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                /*69*/ NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                /*74*/ NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                /*79*/ NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                /*84*/ NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                /*89*/ NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                /*94*/ NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                /*99*/ NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                               /*104*/ NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                               /*109*/ NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                               /*114*/ NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                               /*119*/ NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                               /*124*/ NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
                                        MatCreateSubMatricesMPI_MPIAdj,
-                               /*129*/ 0,
-                                       0,
-                                       0,
-                                       0,
-                                       0,
-                               /*134*/ 0,
-                                       0,
-                                       0,
-                                       0,
-                                       0,
-                               /*139*/ 0,
-                                       0,
-                                       0
+                               /*129*/ NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                               /*134*/ NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                               /*139*/ NULL,
+                                       NULL,
+                                       NULL
 };
 
 static PetscErrorCode  MatMPIAdjSetPreallocation_MPIAdj(Mat B,PetscInt *i,PetscInt *j,PetscInt *values)
@@ -626,9 +624,6 @@ static PetscErrorCode  MatMPIAdjSetPreallocation_MPIAdj(Mat B,PetscInt *i,PetscI
   Mat_MPIAdj     *b = (Mat_MPIAdj*)B->data;
   PetscBool       useedgeweights;
   PetscErrorCode ierr;
-#if defined(PETSC_USE_DEBUG)
-  PetscInt ii;
-#endif
 
   PetscFunctionBegin;
   ierr = PetscLayoutSetUp(B->rmap);CHKERRQ(ierr);
@@ -637,15 +632,17 @@ static PetscErrorCode  MatMPIAdjSetPreallocation_MPIAdj(Mat B,PetscInt *i,PetscI
   /* Make everybody knows if they are using edge weights or not */
   ierr = MPIU_Allreduce((int*)&useedgeweights,(int*)&b->useedgeweights,1,MPI_INT,MPI_MAX,PetscObjectComm((PetscObject)B));CHKERRQ(ierr);
 
-#if defined(PETSC_USE_DEBUG)
-  if (i[0] != 0) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"First i[] index must be zero, instead it is %D\n",i[0]);
-  for (ii=1; ii<B->rmap->n; ii++) {
-    if (i[ii] < 0 || i[ii] < i[ii-1]) SETERRQ4(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"i[%D]=%D index is out of range: i[%D]=%D",ii,i[ii],ii-1,i[ii-1]);
+  if (PetscDefined(USE_DEBUG)) {
+    PetscInt ii;
+
+    if (i[0] != 0) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"First i[] index must be zero, instead it is %D\n",i[0]);
+    for (ii=1; ii<B->rmap->n; ii++) {
+      if (i[ii] < 0 || i[ii] < i[ii-1]) SETERRQ4(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"i[%D]=%D index is out of range: i[%D]=%D",ii,i[ii],ii-1,i[ii-1]);
+    }
+    for (ii=0; ii<i[B->rmap->n]; ii++) {
+      if (j[ii] < 0 || j[ii] >= B->cmap->N) SETERRQ2(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Column index %D out of range %D\n",ii,j[ii]);
+    }
   }
-  for (ii=0; ii<i[B->rmap->n]; ii++) {
-    if (j[ii] < 0 || j[ii] >= B->cmap->N) SETERRQ2(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Column index %D out of range %D\n",ii,j[ii]);
-  }
-#endif
   B->preallocated = PETSC_TRUE;
 
   b->j      = j;
@@ -653,7 +650,7 @@ static PetscErrorCode  MatMPIAdjSetPreallocation_MPIAdj(Mat B,PetscInt *i,PetscI
   b->values = values;
 
   b->nz        = i[B->rmap->n];
-  b->diag      = 0;
+  b->diag      = NULL;
   b->symmetric = PETSC_FALSE;
   b->freeaij   = PETSC_TRUE;
 
@@ -907,10 +904,3 @@ PetscErrorCode  MatCreateMPIAdj(MPI_Comm comm,PetscInt m,PetscInt N,PetscInt *i,
   ierr = MatMPIAdjSetPreallocation(*A,i,j,values);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
-
-
-
-
-
-
-

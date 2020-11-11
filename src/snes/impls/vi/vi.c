@@ -4,7 +4,7 @@
 /*@C
    SNESVISetComputeVariableBounds - Sets a function that is called to compute the variable bounds
 
-   Input parameter
+   Input parameter:
 +  snes - the SNES context
 -  compute - computes the bounds
 
@@ -45,7 +45,7 @@ PetscErrorCode  SNESVIMonitorResidual(SNES snes,PetscInt its,PetscReal fgnorm,vo
   PetscViewer    viewer = (PetscViewer) dummy;
 
   PetscFunctionBegin;
-  ierr = SNESGetFunction(snes,&F,0,0);CHKERRQ(ierr);
+  ierr = SNESGetFunction(snes,&F,NULL,NULL);CHKERRQ(ierr);
   ierr = SNESGetSolution(snes,&X);CHKERRQ(ierr);
   ierr = SNESVIGetActiveSetIS(snes,X,F,&isactive);CHKERRQ(ierr);
   ierr = VecDuplicate(F,&Finactive);CHKERRQ(ierr);
@@ -254,12 +254,12 @@ PetscErrorCode SNESVIProjectOntoBounds(SNES snes,Vec X)
 /*
    SNESVIGetActiveSetIndices - Gets the global indices for the active set variables
 
-   Input parameter
+   Input parameter:
 .  snes - the SNES context
 .  X    - the snes solution vector
 .  F    - the nonlinear function vector
 
-   Output parameter
+   Output parameter:
 .  ISact - active set index set
  */
 PetscErrorCode SNESVIGetActiveSetIS(SNES snes,Vec X,Vec F,IS *ISact)
@@ -269,7 +269,7 @@ PetscErrorCode SNESVIGetActiveSetIS(SNES snes,Vec X,Vec F,IS *ISact)
   const PetscScalar *x,*f,*xl,*xu;
   PetscInt          *idx_act,i,nlocal,nloc_isact=0,ilow,ihigh,i1=0;
   PetscReal         zerotolerance = snes->vizerotolerance;
-  
+
   PetscFunctionBegin;
   ierr = VecGetLocalSize(X,&nlocal);CHKERRQ(ierr);
   ierr = VecGetOwnershipRange(X,&ilow,&ihigh);CHKERRQ(ierr);

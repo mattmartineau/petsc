@@ -3,7 +3,7 @@
 #include <MBTagConventions.hpp>
 #include <moab/NestedRefine.hpp>
 
-/*@
+/*@C
   DMMoabGenerateHierarchy - Generate a multi-level uniform refinement hierarchy
   by succesively refining a coarse mesh, already defined in the DM object
   provided by the user.
@@ -69,7 +69,7 @@ PetscErrorCode DMMoabGenerateHierarchy(DM dm, PetscInt nlevels, PetscInt *ldegre
     merr = dmmoab->pcomm->assign_global_ids(hsets[ilevel], dmmoab->dim, 0, false, true, false);MBERRNM(merr);
 #endif
 
-    /* Update material and other geometric tags from parent to child sets */ 
+    /* Update material and other geometric tags from parent to child sets */
     merr = dmmoab->hierarchy->update_special_tags(ilevel, hsets[ilevel]);MBERRNM(merr);
   }
 
@@ -80,7 +80,7 @@ PetscErrorCode DMMoabGenerateHierarchy(DM dm, PetscInt nlevels, PetscInt *ldegre
   PetscFunctionReturn(0);
 }
 
-/*@
+/*@C
   DMRefineHierarchy_Moab - Generate a multi-level DM hierarchy
   by succesively refining a coarse mesh.
 
@@ -110,7 +110,7 @@ PETSC_EXTERN PetscErrorCode  DMRefineHierarchy_Moab(DM dm, PetscInt nlevels, DM 
   PetscFunctionReturn(0);
 }
 
-/*@
+/*@C
   DMCoarsenHierarchy_Moab - Generate a multi-level DM hierarchy
   by succesively coarsening a refined mesh.
 
@@ -142,7 +142,7 @@ PETSC_EXTERN PetscErrorCode DMCoarsenHierarchy_Moab(DM dm, PetscInt nlevels, DM 
 
 PETSC_EXTERN PetscErrorCode DMMoab_Compute_NNZ_From_Connectivity(DM, PetscInt*, PetscInt*, PetscInt*, PetscInt*, PetscBool);
 
-/*@
+/*@C
   DMCreateInterpolation_Moab - Generate the interpolation operators to transform
   operators (matrices, vectors) from parent level to child level as defined by
   the DM inputs provided by the user.
@@ -384,7 +384,7 @@ PETSC_EXTERN PetscErrorCode DMCreateInterpolation_Moab(DM dmp, DM dmc, Mat* inte
   PetscFunctionReturn(0);
 }
 
-/*@
+/*@C
   DMCreateInjection_Moab - Generate a multi-level uniform refinement hierarchy
   by succesively refining a coarse mesh, already defined in the DM object
   provided by the user.
@@ -426,7 +426,7 @@ static PetscErrorCode DMMoab_UMR_Private(DM dm, MPI_Comm comm, PetscBool refine,
   PetscValidHeaderSpecific(dm, DM_CLASSID, 1);
   PetscValidPointer(dmref, 4);
 
-  if ( (dmb->hlevel == dmb->nhlevels && refine) || (dmb->hlevel == 0 && !refine) ) {
+  if ((dmb->hlevel == dmb->nhlevels && refine) || (dmb->hlevel == 0 && !refine)) {
     if (dmb->hlevel + 1 > dmb->nhlevels && refine) PetscInfo2(NULL, "Invalid multigrid refinement hierarchy level specified (%D). MOAB UMR max levels = %D. Creating a NULL object.\n", dmb->hlevel + 1, dmb->nhlevels);
     if (dmb->hlevel - 1 < 0 && !refine) PetscInfo1(NULL, "Invalid multigrid coarsen hierarchy level specified (%D). Creating a NULL object.\n", dmb->hlevel - 1);
     *dmref = PETSC_NULL;
@@ -503,7 +503,7 @@ static PetscErrorCode DMMoab_UMR_Private(DM dm, MPI_Comm comm, PetscBool refine,
 }
 
 
-/*@
+/*@C
   DMRefine_Moab - Generate a multi-level uniform refinement hierarchy
   by succesively refining a coarse mesh, already defined in the DM object
   provided by the user.
@@ -533,7 +533,7 @@ PETSC_EXTERN PetscErrorCode DMRefine_Moab(DM dm, MPI_Comm comm, DM* dmf)
   PetscFunctionReturn(0);
 }
 
-/*@
+/*@C
   DMCoarsen_Moab - Generate a multi-level uniform refinement hierarchy
   by succesively refining a coarse mesh, already defined in the DM object
   provided by the user.

@@ -12,7 +12,7 @@ const char *const PCDeflationSpaceTypes[] = {
   "user",
   "PCDeflationSpaceType",
   "PC_DEFLATION_SPACE_",
-  0
+  NULL
 };
 
 static PetscErrorCode PCDeflationSetInitOnly_Deflation(PC pc,PetscBool flg)
@@ -616,9 +616,8 @@ static PetscErrorCode PCSetUp_Deflation(PC pc)
       /* TODO create MatInheritOption(Mat,MatOption) */
       ierr = MatGetOption(Amat,MAT_SPD,&flgspd);CHKERRQ(ierr);
       ierr = MatSetOption(def->WtAW,MAT_SPD,flgspd);CHKERRQ(ierr);
-#if defined(PETSC_USE_DEBUG)
-      /* Check columns of W are not in kernel of A */
-      {
+      if (PetscDefined(USE_DEBUG)) {
+        /* Check columns of W are not in kernel of A */
         PetscReal *norms;
         ierr = PetscMalloc1(m,&norms);CHKERRQ(ierr);
         ierr = MatGetColumnNorms(def->WtAW,NORM_INFINITY,norms);CHKERRQ(ierr);
@@ -629,7 +628,6 @@ static PetscErrorCode PCSetUp_Deflation(PC pc)
         }
         ierr = PetscFree(norms);CHKERRQ(ierr);
       }
-#endif
     } else {
       ierr = MatGetOption(def->WtAW,MAT_SPD,&flgspd);CHKERRQ(ierr);
     }
@@ -883,7 +881,7 @@ static PetscErrorCode PCSetFromOptions_Deflation(PetscOptionItems *PetscOptionsO
      Prof. Reinhard Nabben at the Institute of Mathematics, TU Berlin.
 
    References:
-+    [1] - A. Nicolaides. “Deflation of conjugate gradients with applications to boundary valueproblems”, SIAM J. Numer. Anal. 24.2, 1987.
++    [1] - A. Nicolaides. "Deflation of conjugate gradients with applications to boundary value problems", SIAM J. Numer. Anal. 24.2, 1987.
 .    [2] - Z. Dostal. "Conjugate gradient method with preconditioning by projector", Int J. Comput. Math. 23.3-4, 1988.
 .    [3] - Y. A. Erlangga and R. Nabben. "Multilevel Projection-Based Nested Krylov Iteration for Boundary Value Problems", SIAM J. Sci. Comput. 30.3, 2008.
 -    [4] - J. Kruzik "Implementation of the Deflated Variants of the Conjugate Gradient Method", Master's thesis, VSB-TUO, 2018 - http://dspace5.vsb.cz/bitstream/handle/10084/130303/KRU0097_USP_N2658_2612T078_2018.pdf

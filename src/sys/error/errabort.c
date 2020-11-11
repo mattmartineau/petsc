@@ -1,4 +1,3 @@
-
 /*
        The default error handlers and code that allows one to change
    error handlers.
@@ -43,13 +42,13 @@ $     SETERRQ(comm,number,mess)
    PetscAttachDebuggerErrorHandler(), and PetscAbortErrorHandler().
 
 
-.seealso: PetscPushErrorHandler(), PetscTraceBackErrorHandler(),
-          PetscAttachDebuggerErrorHandler()
+.seealso: PetscError(), PetscPushErrorHandler(), PetscPopErrorHander(), PetscTraceBackErrorHandler(),
+          PetscAttachDebuggerErrorHandler(), PetscMPIAbortErrorHandler(), PetscReturnErrorHandler(), PetscEmacsClientErrorHandler()
 @*/
 PetscErrorCode  PetscAbortErrorHandler(MPI_Comm comm,int line,const char *fun,const char *file,PetscErrorCode n,PetscErrorType p,const char *mess,void *ctx)
 {
   PetscFunctionBegin;
-  (*PetscErrorPrintf)("%s() line %d in %s %s\n",fun,line,file,mess);
+  (*PetscErrorPrintf)("PetscAbortErrorHandler: %s() line %d in %s %s\n  To prevent termination, change the error handler using PetscPushErrorHandler()\n",fun,line,file,mess);
   abort();
   PetscFunctionReturn(0);
 }

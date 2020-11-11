@@ -3,15 +3,18 @@ import config.package
 class Configure(config.package.Package):
   def __init__(self, framework):
     config.package.Package.__init__(self, framework)
-    self.gitcommit         = 'v2.0.2-p2'
+    self.gitcommit        = 'v2.1.0-p2'  # modification to avoid calling zdotc, zladiv on MacOS
     self.download         = ['git://https://bitbucket.org/petsc/pkg-scalapack','https://bitbucket.org/petsc/pkg-scalapack/get/'+self.gitcommit+'.tar.gz']
     self.downloaddirnames = ['petsc-pkg-scalapack','scalapack']
     self.includes         = []
-    self.liblist          = [['libscalapack.a']]
+    self.liblist          = [['libscalapack.a'],
+                             ['libmkl_scalapack_lp64.a','libmkl_blacs_intelmpi_lp64.a'],
+                             ['libmkl_scalapack_lp64.a','libmkl_blacs_mpich_lp64.a'],
+                             ['libmkl_scalapack_lp64.a','libmkl_blacs_sgimpt_lp64.a'],
+                             ['libmkl_scalapack_lp64.a','libmkl_blacs_openmpi_lp64.a']]
     self.functions        = ['pssytrd']
     self.functionsFortran = 1
     self.fc               = 1
-    self.useddirectly     = 0 # PETSc does not use ScaLAPACK, it is only used by MUMPS
     self.precisions       = ['single','double']
     self.downloadonWindows= 1
     return
@@ -40,24 +43,21 @@ class Configure(config.package.Package):
     else:
       fdef = '-DNoChange'
     g.write('CDEFS        = '+fdef+'\n')
-    self.setCompilers.pushLanguage('FC')
-    g.write('FC           = '+self.setCompilers.getCompiler()+'\n')
-    if config.setCompilers.Configure.isNAG(self.setCompilers.getLinker(), self.log):
-      g.write('FCFLAGS      =  -dusty -dcfuns '+self.setCompilers.getCompilerFlags().replace('-Wall','').replace('-Wshadow','').replace('-Mfree','')+'\n')
-    else:
-      g.write('FCFLAGS      = '+self.setCompilers.getCompilerFlags().replace('-Wall','').replace('-Wshadow','').replace('-Mfree','')+'\n')
-    g.write('FCLOADER     = '+self.setCompilers.getLinker()+'\n')
-    g.write('FCLOADFLAGS  = '+self.setCompilers.getLinkerFlags()+'\n')
-    self.setCompilers.popLanguage()
-    self.setCompilers.pushLanguage('C')
-    g.write('CC           = '+self.setCompilers.getCompiler()+'\n')
-    g.write('CCFLAGS      = '+self.removeWarningFlags(self.setCompilers.getCompilerFlags())+' $(MPIINC)\n')
+    self.pushLanguage('FC')
+    g.write('FC           = '+self.getCompiler()+'\n')
+    g.write('FCFLAGS      = '+self.updatePackageFFlags(self.getCompilerFlags())+'\n')
+    g.write('FCLOADER     = '+self.getLinker()+'\n')
+    g.write('FCLOADFLAGS  = '+self.getLinkerFlags()+'\n')
+    self.popLanguage()
+    self.pushLanguage('C')
+    g.write('CC           = '+self.getCompiler()+'\n')
+    g.write('CCFLAGS      = '+self.updatePackageCFlags(self.getCompilerFlags())+' $(MPIINC)\n')
     noopt = self.checkNoOptFlag()
-    g.write('CFLAGS       = '+noopt+ ' '+self.getSharedFlag(self.setCompilers.getCompilerFlags())+' '+self.getPointerSizeFlag(self.setCompilers.getCompilerFlags())+' '+self.getWindowsNonOptFlags(self.setCompilers.getCompilerFlags())+'\n')
+    g.write('CFLAGS       = '+noopt+ ' '+self.getSharedFlag(self.getCompilerFlags())+' '+self.getPointerSizeFlag(self.getCompilerFlags())+' '+self.getWindowsNonOptFlags(self.getCompilerFlags())+'\n')
 
-    g.write('CCLOADER     = '+self.setCompilers.getLinker()+'\n')
-    g.write('CCLOADFLAGS  = '+self.setCompilers.getLinkerFlags()+'\n')
-    self.setCompilers.popLanguage()
+    g.write('CCLOADER     = '+self.getLinker()+'\n')
+    g.write('CCLOADFLAGS  = '+self.getLinkerFlags()+'\n')
+    self.popLanguage()
     g.write('ARCH         = '+self.setCompilers.AR+'\n')
     g.write('ARCHFLAGS    = '+self.setCompilers.AR_FLAGS+'\n')
     g.write('RANLIB       = '+self.setCompilers.RANLIB+'\n')
@@ -65,7 +65,7 @@ class Configure(config.package.Package):
 
     if self.installNeeded('SLmake.inc'):
       try:
-        output,err,ret  = config.package.Package.executeShellCommand('cd '+self.packageDir+' && '+self.make.make+' -f Makefile.parallel cleanlib', timeout=25, log = self.log)
+        output,err,ret  = config.package.Package.executeShellCommand('cd '+self.packageDir+' && '+self.make.make+' -f Makefile.parallel cleanlib', timeout=60, log = self.log)
       except RuntimeError as e:
         pass
       try:
@@ -78,3 +78,8 @@ class Configure(config.package.Package):
         raise RuntimeError('Error running make on SCALAPACK')
       self.postInstall(output,'SLmake.inc')
     return self.installDir
+
+def getSearchDirectories(self):
+  '''Generate list of possible locations of Scalapack'''
+  yield ''
+  if os.getenv('MKLROOT'): yield os.getenv('MKLROOT')

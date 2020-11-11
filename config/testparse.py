@@ -4,7 +4,7 @@ Parse the test file and return a dictionary.
 
 Quick usage::
 
-  lib/petsc/bin/maint/testparse.py -t src/ksp/ksp/examples/tutorials/ex1.c
+  lib/petsc/bin/maint/testparse.py -t src/ksp/ksp/tutorials/ex1.c
 
 From the command line, it prints out the dictionary.  
 This is meant to be used by other scripts, but it is 
@@ -39,6 +39,7 @@ from __future__ import print_function
 import os, re, glob, types
 import sys
 import logging
+from gmakegen import *
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 import inspect
@@ -49,8 +50,8 @@ sys.path.insert(0,maintdir)
 # These are special keys describing build
 buildkeys="requires TODO SKIP depends".split()
 
-acceptedkeys="test nsize requires command suffix args filter filter_output localrunfiles comments TODO SKIP output_file timeoutfactor".split()
-appendlist="args requires comments".split()
+acceptedkeys="test nsize requires command suffix diff_args args filter filter_output localrunfiles comments TODO SKIP output_file timeoutfactor".split()
+appendlist="args diff_args requires comments".split()
 
 import re
 
@@ -68,8 +69,8 @@ def _stripIndent(block,srcfile,entireBlock=False,fileNums=[]):
   Go through and remove a level of indentation
   Also strip of trailing whitespace
   """
-  # The first entry should be test: but it might be indented. 
-  ext=os.path.splitext(srcfile)[1]
+  # The first entry should be test: but it might be indented.
+  ext = getlangext(srcfile)
   stripstr=" "
   if len(fileNums)>0: lineNum=fileNums[0]-1
   for lline in block.split("\n"):
@@ -141,42 +142,50 @@ def parseLoopArgs(varset):
   ftype='separate' if suffx.startswith('separate') else 'shared' 
   return keynm,lvars,ftype
 
-def _getSeparateTestvars(testDict):
+def _getLoopVars(testDict):
   """
   Given: dictionary that may have 
   Return:  Variables that cause a test split
   """
   vals=None
-  sepvars=[]
+  loopVars={}
+  loopVars['separate']=[]
+  loopVars['shared']=[]
   # Check nsize
   if 'nsize' in testDict: 
     varset=testDict['nsize']
     if '{{' in varset:
       keynm,lvars,ftype=parseLoopArgs(varset)
-      if ftype=='separate': sepvars.append(keynm)
+      if ftype=='separate': loopVars['separate'].append(keynm)
 
   # Now check args
-  if 'args' not in testDict: return sepvars
+  if 'args' not in testDict: return loopVars
   for varset in re.split('(^|\W)-(?=[a-zA-Z])',testDict['args']):
     if not varset.strip(): continue
     if '{{' in varset:
       # Assuming only one for loop per var specification
       keynm,lvars,ftype=parseLoopArgs(varset)
-      if ftype=='separate': sepvars.append(keynm)
+      loopVars[ftype].append(keynm)
 
-  return sepvars
+  return loopVars
 
-def _getNewArgs(args):
+def _getNewArgs(args,separate=True):
   """
   Given: String that has args that might have loops in them
   Return:  All of the arguments/values that do not have 
              for 'separate output' in for loops
+             unless separate=False
   """
   newargs=''
   if not args.strip(): return args
   for varset in re.split('(^|\W)-(?=[a-zA-Z])',args):
     if not varset.strip(): continue
-    if '{{' in varset and 'separate' in varset: continue
+    if '{{' in varset:
+      if separate:
+         if 'separate' in varset: continue
+      else:
+         if 'separate' not in varset: continue
+       
     newargs+="-"+varset.strip()+" "
 
   return newargs
@@ -214,13 +223,24 @@ def genTestsSeparateTestvars(intests,indicts,final=False):
   testnames=[]; sdicts=[]
   for i in range(len(intests)):
     testname=intests[i]; sdict=indicts[i]; i+=1
-    separate_testvars=_getSeparateTestvars(sdict)
-    if len(separate_testvars)>0:
+    loopVars=_getLoopVars(sdict)
+    if len(loopVars['shared'])>0 and not final:
+      # Need to remove shared loop vars and push down to subtests
+      if 'subtests' in sdict:
+        for varset in re.split('(^|\W)-(?=[a-zA-Z])',sdict['args']):
+          if '{{' in varset:
+              for stest in sdict['subtests']:
+                if 'args' in sdict[stest]:
+                  sdict[stest]['args']+=' -'+varset
+                else:
+                  sdict[stest]['args']="-"+varset
+        sdict['args']=_getNewArgs(sdict['args'],separate=False)
+    if len(loopVars['separate'])>0:
       sep_dicts=[sdict.copy()]
       if 'args' in sep_dicts[0]:
         sep_dicts[0]['args']=_getNewArgs(sdict['args'])
       sep_testnames=[testname]
-      for kvar in separate_testvars:
+      for kvar in loopVars['separate']:
         kvals=_getVarVals(kvar,sdict)
 
         # Have to do loop over previous var/val combos as well
@@ -309,9 +329,9 @@ def genTestsSubtestSuffix(testnames,sdicts):
 
 def splitTests(testname,sdict):
   """
-  Given: testname and YAML-generated dictionary
+  Given: testname and dictionary generated from the YAML-like definition
   Return: list of names and dictionaries corresponding to each test
-          given that the YAML language allows for multiple tests
+          given that the YAML-like language allows for multiple tests
   """
 
   # Order: Parent sep_tv, subtests suffix, subtests sep_tv
@@ -323,20 +343,67 @@ def splitTests(testname,sdict):
 
   return testnames, sdicts
 
+
+def testSplit(striptest):
+  """
+  Split up a test into lines, but use a shell parser to detect when newlines are within quotation marks
+  and keep those together
+  """
+  import shlex
+
+  sl = shlex.shlex()
+  sl.whitespace_split = True # only split at whitespace
+  sl.commenters = ''
+  sl.push_source(striptest)
+  last_pos = sl.instream.tell()
+  try:
+    last_token = sl.read_token()
+  except ValueError:
+    print(striptest)
+    raise ValueError
+  last_line = ''
+  while last_token != '':
+    new_pos = sl.instream.tell()
+    block = striptest[last_pos:new_pos]
+    token_start = block.find(last_token)
+    leading = block[0:token_start]
+    trailing = block[(token_start + len(last_token)):]
+    leading_split = leading.split('\n')
+    if len(leading_split) > 1:
+      yield last_line
+      last_line = ''
+    last_line += leading_split[-1]
+    last_line += last_token
+    trailing_split = trailing.split('\n')
+    last_line += trailing_split[0]
+    if len(trailing_split) > 1:
+      yield last_line
+      last_line = ''
+    last_pos = new_pos
+    try:
+      last_token = sl.read_token()
+    except ValueError:
+      print(striptest)
+      raise ValueError
+  yield last_line
+
+
 def parseTest(testStr,srcfile,verbosity):
   """
   This parses an individual test
-  YAML is hierarchial so should use a state machine in the general case,
+  Our YAML-like language is hierarchial so should use a state machine in the general case,
   but in practice we only support two levels of test:
   """
   basename=os.path.basename(srcfile)
   # Handle the new at the begininng
   bn=re.sub("new_","",basename)
   # This is the default
-  testname="run"+os.path.splitext(bn)[0]
+  testname="run"+getlangsplit(bn)
 
   # Tests that have default everything (so empty effectively)
-  if len(testStr)==0: return [testname], [{}]
+  if len(testStr)==0: 
+      if '_' not in testname: testname+='_1'
+      return [testname], [{}]
 
   striptest=_stripIndent(testStr,srcfile)
 
@@ -345,7 +412,7 @@ def parseTest(testStr,srcfile,verbosity):
   subdict={}
   comments=[]
   indentlevel=0
-  for ln in striptest.split("\n"):
+  for ln in testSplit(striptest):
     line=ln.split('#')[0].rstrip()
     if verbosity>2: print(line)
     comment=("" if len(ln.split("#"))>0 else " ".join(ln.split("#")[1:]).strip())
@@ -394,13 +461,9 @@ def parseTest(testStr,srcfile,verbosity):
 
 def parseTests(testStr,srcfile,fileNums,verbosity):
   """
-  Parse the yaml string describing tests and return 
+  Parse the YAML-like string describing tests and return
   a dictionary with the info in the form of:
     testDict[test][subtest]
-  This is an inelegant parser as we do not wish to 
-  introduce a new dependency by bringing in pyyaml.
-  The advantage is that validation can be done as 
-  it is parsed (e.g., 'test' is the only top-level node)
   """
 
   testDict={}
@@ -423,10 +486,11 @@ def parseTests(testStr,srcfile,fileNums,verbosity):
       # If a runtime requires are put into build, push them down to all run tests
       # At this point, we are working with strings and not lists
       if 'requires' in testDict['build']:
+         addToRunRequirements=testDict['build']['requires']
+         # People put datafilespath into build, but it needs to be a runtime
          if 'datafilespath' in testDict['build']['requires']: 
              newreqs=re.sub('datafilespath','',testDict['build']['requires'])
              testDict['build']['requires']=newreqs.strip()
-             addToRunRequirements='datafilespath'
 
 
   # Now go through each test.  First elem in split is blank
@@ -438,7 +502,7 @@ def parseTests(testStr,srcfile,fileNums,verbosity):
       # Add in build requirements that need to be moved
       if addToRunRequirements:
           if 'requires' in subdicts[i]:
-              subdicts[i]['requires']+=addToRunRequirements
+              subdicts[i]['requires']+=' '+addToRunRequirements
           else:
               subdicts[i]['requires']=addToRunRequirements
       testDict[testnames[i]]=subdicts[i]
@@ -509,6 +573,9 @@ def printExParseDict(rDict):
     sortkeys=list(rDict[sfile].keys())
     sortkeys.sort()
     for runex in sortkeys:
+      if runex == 'requires':
+        print(indent+runex+':'+str(rDict[sfile][runex]))
+        continue
       print(indent+runex)
       if type(rDict[sfile][runex])==bytes:
         print(indent*2+rDict[sfile][runex])

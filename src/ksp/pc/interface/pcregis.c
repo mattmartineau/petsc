@@ -64,6 +64,9 @@ PETSC_EXTERN PetscErrorCode PCCreate_HPDDM(PC);
 #if defined(PETSC_HAVE_AMGX)
 PETSC_EXTERN PetscErrorCode PCCreate_AMGX(PC);
 #endif
+#if defined(PETSC_HAVE_HARA)
+PETSC_EXTERN PetscErrorCode PCCreate_HARA(PC);
+#endif
 
 /*@C
    PCRegisterAll - Registers all of the preconditioners in the PC package.
@@ -75,7 +78,7 @@ PETSC_EXTERN PetscErrorCode PCCreate_AMGX(PC);
 
    Level: advanced
 
-.seealso: PCRegister(), PCRegisterDestroy()
+.seealso: PCRegister()
 @*/
 PetscErrorCode  PCRegisterAll(void)
 {
@@ -145,8 +148,13 @@ PetscErrorCode  PCRegisterAll(void)
 #if defined(PETSC_HAVE_HPDDM)
   ierr = PCRegister(PCHPDDM        ,PCCreate_HPDDM);CHKERRQ(ierr);
 #endif
+<<<<<<< HEAD
 #if defined(PETSC_HAVE_AMGX)
   ierr = PCRegister(PCAMGX         ,PCCreate_AMGX);CHKERRQ(ierr);
+=======
+#if defined(PETSC_HAVE_HARA)
+  ierr = PCRegister(PCHARA         ,PCCreate_HARA);CHKERRQ(ierr);
+>>>>>>> master
 #endif
   PetscFunctionReturn(0);
 }

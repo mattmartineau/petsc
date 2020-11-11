@@ -1,7 +1,6 @@
 import config.base
 
 import os
-import re
 
 class Configure(config.base.Configure):
   def __init__(self, framework):
@@ -98,28 +97,6 @@ class Configure(config.base.Configure):
     if self.checkLink(includes, body):
       self.addDefine('HAVE_CXX_COMPLEX', 1)
       self.cxx_complex = 1
-    self.popLanguage()
-    return
-
-  def checkFortranStar(self):
-    '''Checks whether integer*4, etc. is handled in Fortran, and if not defines MISSING_FORTRANSTAR'''
-    self.pushLanguage('FC')
-    body = '        integer*4 i\n        real*8 d\n'
-    if not self.checkCompile('', body):
-      self.addDefine('MISSING_FORTRANSTAR', 1)
-    self.popLanguage()
-    return
-
-# reverse of the above - but more standard thing to do for F90 compilers
-  def checkFortranKind(self):
-    '''Checks whether selected_int_kind etc work USE_FORTRANKIND'''
-    self.pushLanguage('FC')
-    body = '''
-        integer(kind=selected_int_kind(10)) i
-        real(kind=selected_real_kind(10)) d
-'''
-    if self.checkCompile('', body):
-      self.addDefine('USE_FORTRANKIND', 1)
     self.popLanguage()
     return
 
@@ -235,6 +212,41 @@ class Configure(config.base.Configure):
     else:
       self.log.write('User turned off visibility attributes')
 
+  def checkMaxPathLen(self):
+    import re
+    HASHLINESPACE = ' *(?:\n#.*\n *)*'
+    self.log.write('Determining PETSC_MAX_PATH_LEN\n')
+    include = ''
+    if self.headers.haveHeader('sys/param.h'):
+      include = (include + '\n#include <sys/param.h>')
+    if self.headers.haveHeader('sys/types.h'):
+      include = (include + '\n#include <sys/types.h>')
+    length = include + '''
+#if defined(MAXPATHLEN)
+#  define PETSC_MAX_PATH_LEN MAXPATHLEN
+#elif defined(MAX_PATH)
+#  define PETSC_MAX_PATH_LEN MAX_PATH
+#elif defined(_MAX_PATH)
+#  define PETSC_MAX_PATH_LEN _MAX_PATH
+#else
+#  define PETSC_MAX_PATH_LEN 4096
+#endif
+#define xstr(s) str(s)
+#define str(s) #s
+char petsc_max_path_len[] = xstr(PETSC_MAX_PATH_LEN);
+'''
+    MaxPathLength = 'unknown'
+    if self.checkCompile(length):
+      buf = self.outputPreprocess(length)
+      try:
+        MaxPathLength = re.compile('\nchar petsc_max_path_len\s?\[\s?\] = '+HASHLINESPACE+'\"([0-9]+)\"'+HASHLINESPACE+';').search(buf).group(1)
+      except:
+        raise RuntimeError('Unable to determine PETSC_MAX_PATH_LEN')
+    if MaxPathLength == 'unknown' or not MaxPathLength.isdigit():
+      raise RuntimeError('Unable to determine PETSC_MAX_PATH_LEN')
+    else:
+      self.addDefine('MAX_PATH_LEN',MaxPathLength)
+
 
   def configure(self):
     self.executeTest(self.check_struct_sigaction)
@@ -247,9 +259,6 @@ class Configure(config.base.Configure):
     self.executeTest(self.checkC99Complex)
     if hasattr(self.compilers, 'CXX'):
       self.executeTest(self.checkCxxComplex)
-    if hasattr(self.compilers, 'FC'):
-      #self.executeTest(self.checkFortranStar)
-      self.executeTest(self.checkFortranKind)
     self.executeTest(self.checkConst)
     for t, sizes in {'void *': (8, 4),
                      'short': (2, 4, 8),
@@ -260,4 +269,5 @@ class Configure(config.base.Configure):
                      'size_t': (8, 4)}.items():
       self.executeTest(self.checkSizeof, args=[t, sizes])
     self.executeTest(self.checkVisibility)
+    self.executeTest(self.checkMaxPathLen)
     return

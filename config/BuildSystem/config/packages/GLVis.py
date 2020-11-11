@@ -53,15 +53,15 @@ class Configure(config.package.GNUPackage):
       g.write('GLVIS_USE_LIBTIFF = NO\n')
       g.write('GLVIS_USE_LIBPNG = NO\n')
 
-      self.setCompilers.pushLanguage('C')
-      g.write('CC = '+self.setCompilers.getCompiler()+'\n')
-      g.write('CFLAGS = ' + self.removeWarningFlags(self.setCompilers.getCompilerFlags())+'\n')
-      self.setCompilers.popLanguage()
+      self.pushLanguage('C')
+      g.write('CC = '+self.getCompiler()+'\n')
+      g.write('CFLAGS = ' + self.updatePackageCFlags(self.getCompilerFlags())+'\n')
+      self.popLanguage()
 
       # build flags for serial MFEM
-      self.setCompilers.pushLanguage('Cxx')
-      mfem_flags='CXX=\"'+self.setCompilers.getCompiler()+'\" CXXFLAGS=\"-O3 '+self.setCompilers.getCompilerFlags()+'\"'
-      self.setCompilers.popLanguage()
+      self.pushLanguage('Cxx')
+      mfem_flags='CXX=\"'+self.getCompiler()+'\" CXXFLAGS=\"-O3 '+self.getCompilerFlags()+'\"'
+      self.popLanguage()
 
       g.write('PETSC_MFEM_FLAGS = '+mfem_flags+'\n')
       g.close()
@@ -78,7 +78,7 @@ class Configure(config.package.GNUPackage):
           [self.installSudo+'mkdir -p '+installBinDir,
            self.installSudo+'cp -f glvis '+installBinDir+'/.',
            self.installSudo+'chmod 750 '+installBinDir+'/glvis'
-          ], cwd=self.packageDir, timeout=50, log = self.log)
+          ], cwd=self.packageDir, timeout=60, log = self.log)
       except RuntimeError as e:
         self.logPrint('Error running make on GLVis: '+str(e))
         raise RuntimeError('Error running make on GLVis')
