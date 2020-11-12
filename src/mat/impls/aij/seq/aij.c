@@ -4927,6 +4927,34 @@ PetscErrorCode  MatCreateSeqAIJWithArrays(MPI_Comm comm,PetscInt m,PetscInt n,Pe
   ierr = MatAssemblyEnd(*mat,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
+
+
+PetscErrorCode MatSetSeqAIJFromCSR(MPI_Comm comm,PetscInt m,PetscInt n,PetscInt rowOffsets[],PetscInt colIndices[],PetscScalar values[],Mat *mat)
+{
+  PetscErrorCode ierr;
+  Mat_SeqAIJ     *aij;
+
+  PetscFunctionBegin;
+  ierr = MatSetType(*mat,MATSEQAIJ);CHKERRQ(ierr);
+
+  aij  = (Mat_SeqAIJ*)(*mat)->data;
+
+  aij->i            = rowOffsets;
+  aij->j            = colIndices;
+  aij->a            = values;
+  aij->singlemalloc = PETSC_FALSE;
+  aij->nonew        = -1;             /*this indicates that inserting a new value in the matrix that generates a new nonzero is an error*/
+  aij->free_a       = PETSC_FALSE;
+  aij->free_ij      = PETSC_FALSE;
+
+  (*mat)->assembled = PETSC_TRUE;
+
+  // Using this to ensure the state appears changed
+  ierr = PetscObjectStateIncrease((PetscObject)(*mat)); CHKERRQ(ierr);
+
+  PetscFunctionReturn(0);
+}
+
 /*@C
      MatCreateSeqAIJFromTriple - Creates an sequential AIJ matrix using matrix elements (in COO format)
               provided by the user.
