@@ -48,8 +48,12 @@ static PetscErrorCode PCDestroy_AMGX(PC pc)
     cudaError_t err = cudaSuccess;
 
     PetscFunctionBegin;
-    ierr = PCReset(pc);
-    CHKERRQ(ierr);
+
+    // XXX I am not sure it is a good idea to automatically call reset here
+    // as it seems to be called internally by PETSc on destroy?
+    //ierr = PCReset(pc);
+    //CHKERRQ(ierr);
+
     /* decrease the number of instances, only the last instance need to destroy resource and finalizing AmgX */
     if (s_count == 1)
     { /* can put this in a PCAMGXInitializePackage method */
