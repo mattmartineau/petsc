@@ -19,6 +19,12 @@ typedef struct _PC_AMGX
     AMGX_resources_handle rsrc;
     void *lib_handle;
     char filename[PETSC_MAX_PATH_LEN];
+
+    // Cached state for re-setup
+    int nnz;
+    int nLocalRows;
+    Mat localA;
+
 } PC_AMGX;
 static PetscInt s_count = 0;
 
@@ -140,110 +146,136 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
 
         /* to calculate the partition offsets and pass those into the API call instead of creating a full partition vector. */
         PetscInt *partition_offsets;
-        int nglobal32, i, n32 = nLocalRows, bs32 = bs;
 
         /* get raw matrix data */
+        const PetscInt *rawCol, *rawRow;
+        PetscScalar *rawData;
+
+        /* get local matrix from redistributed matrix */
+        if (nranks == 1)
         {
-            Mat localA = 0;
-            const PetscInt *rawCol, *rawRow;
-            PetscScalar *rawData;
+            amgx->localA = Pmat;
+        }
+        else
+        {
+            ierr = MatMPIAIJGetLocalMat(Pmat, MAT_INITIAL_MATRIX, &amgx->localA);
+            CHKERRQ(ierr);
+        }
 
-            /* get local matrix from redistributed matrix */
-            if (nranks == 1)
-            {
-                localA = Pmat;
-            }
-            else
-            {
-                ierr = MatMPIAIJGetLocalMat(Pmat, MAT_INITIAL_MATRIX, &localA); CHKERRQ(ierr);
-            }
+        PetscInt rawN;
+        PetscBool done;
+        ierr = MatGetRowIJ(amgx->localA, 0, PETSC_FALSE, PETSC_FALSE, &rawN, &rawRow, &rawCol, &done);
+        CHKERRQ(ierr);
+        if (!done)
+        {
+            SETERRQ(amgx->comm, PETSC_ERR_PLIB, "MatGetRowIJ was not successful\n");
+        }
+        if (rawN != amgx->nLocalRows)
+        {
+            SETERRQ2(amgx->comm, PETSC_ERR_PLIB, "rawN != nLocalRows %D %D\n", rawN, amgx->nLocalRows);
+        }
 
-            ierr = MatGetRowIJ(localA, 0, PETSC_FALSE, PETSC_FALSE, &rawN, &rawRow, &rawCol, &done); CHKERRQ(ierr);
-            if(!done)
-            {
-                SETERRQ(wcomm, PETSC_ERR_PLIB, "MatGetRowIJ was not successful\n");
-            }
-            if (rawN != nLocalRows)
-            {
-                SETERRQ2(wcomm, PETSC_ERR_PLIB, "rawN != nLocalRows %D %D\n", rawN, nLocalRows);
-            }
+        ierr = MatSeqAIJGetArray(amgx->localA, &rawData);
+        CHKERRQ(ierr);
 
-            ierr = MatSeqAIJGetArray(localA, &rawData); CHKERRQ(ierr);
+        /* copy values to STL vector. Note: there is an implicit conversion from */
+        /* PetscInt to int64_t for the column vector */
+        amgx->nnz = rawRow[amgx->nLocalRows];
 
-            /* copy values to STL vector. Note: there is an implicit conversion from */
-            /* PetscInt to int64_t for the column vector */
-            nnz = rawRow[nLocalRows];
+        ierr = PetscMalloc1(amgx->nnz, &cols);
+        CHKERRQ(ierr);
+        ierr = PetscMalloc1(amgx->nnz, &data);
+        CHKERRQ(ierr);
+        ierr = PetscMalloc1(amgx->nLocalRows + 1, &rows);
+        CHKERRQ(ierr);
 
-            ierr = PetscMalloc1(nnz, &cols); CHKERRQ(ierr);
-            ierr = PetscMalloc1(nnz, &data); CHKERRQ(ierr);
-            ierr = PetscMalloc1(nLocalRows+1, &rows); CHKERRQ(ierr);
+        // XXX Unless I am forgetting some technical limitation - I don't think this is necessary or beneficial.
+        // We can surely instead just pass the data into AmgX and allow it to make the copies for us.
+        // Otherwise we perform an additional unnecessary copy.
+        for (int i = 0; i < amgx->nnz; ++i)
+        {
+            cols[i] = rawCol[i];
+            data[i] = rawData[i];
+        }
 
-            // XXX Unless I am forgetting some technical limitation - I don't think this is necessary or beneficial.
-            // We can surely instead just pass the data into AmgX and allow it to make the copies for us.
-            // Otherwise we perform an additional unnecessary copy.
-            for (i = 0; i < nnz; ++i)
-            {
-                cols[i] = rawCol[i];
-                data[i] = rawData[i];
-            }
-            for (i = 0; i < nLocalRows + 1; ++i)
-            {
-                rows[i] = rawRow[i];
-            }
+        for (int i = 0; i < amgx->nLocalRows + 1; ++i)
+        {
+            rows[i] = rawRow[i];
+        }
 
-            ierr = MatRestoreRowIJ(localA, 0, PETSC_FALSE, PETSC_FALSE, &rawN, &rawRow, &rawCol, &done); CHKERRQ(ierr);
-            ierr = MatSeqAIJRestoreArray(localA, &rawData); CHKERRQ(ierr);
+        ierr = MatRestoreRowIJ(amgx->localA, 0, PETSC_FALSE, PETSC_FALSE, &rawN, &rawRow, &rawCol, &done);
+        CHKERRQ(ierr);
+        ierr = MatSeqAIJRestoreArray(amgx->localA, &rawData);
+        CHKERRQ(ierr);
 
-            if (localA != Pmat)
-            {
-                ierr = MatDestroy(&localA); CHKERRQ(ierr);
-            }
+        if (amgx->localA != Pmat)
+        {
+            ierr = MatDestroy(&amgx->localA);
+            CHKERRQ(ierr);
         }
 
         /* pin the memory to improve performance
             WARNING: Even though, internal error handling has been requested,
             AMGX_SAFE_CALL needs to be used on this system call.
             It is an exception to the general rule. */
-        /* AMGX_SAFE_CALL(AMGX_pin_memory(cols, nnz * sizeof(int64_t))); */
-        /* AMGX_SAFE_CALL(AMGX_pin_memory(rows, (n32 + 1)*sizeof(int))); */
-        /* AMGX_SAFE_CALL(AMGX_pin_memory(data, nnz * sizeof(PetscScalar))); */ /* check that this has bs^2 */
+        /* AMGX_SAFE_CALL(AMGX_pin_memory(cols, amgx->nnz * sizeof(int64_t))); */
+        /* AMGX_SAFE_CALL(AMGX_pin_memory(rows, (amgx->nLocalRows + 1)*sizeof(int))); */
+        /* AMGX_SAFE_CALL(AMGX_pin_memory(data, amgx->nnz * sizeof(PetscScalar))); */ /* check that this has bs^2 */
         /* get offsets and upload */
 
-        ierr = PetscMalloc1(nranks + 1, &partition_offsets); CHKERRQ(ierr);
+        ierr = PetscMalloc1(nranks + 1, &partition_offsets);
+        CHKERRQ(ierr);
 
         partition_offsets[0] = 0; /* could use PetscLayoutGetRanges */
 
-        ierr = MPI_Allgather(&nLocalRows, sizeof(PetscInt), MPI_BYTE, &partition_offsets[1], sizeof(PetscInt), MPI_BYTE, wcomm); CHKERRQ(ierr);
+        ierr = MPI_Allgather(&amgx->nLocalRows, sizeof(PetscInt), MPI_BYTE, &partition_offsets[1], sizeof(PetscInt), MPI_BYTE, amgx->comm);
+        CHKERRQ(ierr);
 
-        for (i = 1; i <= nranks; i++)
+        for (int i = 1; i <= nranks; i++)
         {
             partition_offsets[i] += partition_offsets[i - 1];
         }
 
-        nglobal32 = partition_offsets[nranks]; // last element always has global number of rows
+        int nGlobal = partition_offsets[nranks]; // last element always has global number of rows
 
         /* upload - this takes an int for nglobal (does it work for large sysetms ??) */
         int petsc32 = (sizeof(PetscInt) == 4);
         AMGX_distribution_create(&dist, amgx->cfg);
         AMGX_distribution_set_32bit_colindices(dist, petsc32);
         AMGX_distribution_set_partition_data(dist, AMGX_DIST_PARTITION_OFFSETS, partition_offsets);
-        AMGX_matrix_upload_distributed(amgx->AmgXA, nglobal32, n32, nnz, bs32, bs32, rows, cols, data, NULL, dist);
+        AMGX_matrix_upload_distributed(amgx->AmgXA, nGlobal, amgx->nLocalRows, amgx->nnz, bs, bs, rows, cols, data, NULL, dist);
         AMGX_distribution_destroy(dist);
 
-        ierr = PetscFree(partition_offsets); CHKERRQ(ierr);
-        ierr = PetscFree(cols); CHKERRQ(ierr);
-        ierr = PetscFree(data); CHKERRQ(ierr);
-        ierr = PetscFree(rows); CHKERRQ(ierr);
+        ierr = PetscFree(partition_offsets);
+        CHKERRQ(ierr);
+        ierr = PetscFree(cols);
+        CHKERRQ(ierr);
+        ierr = PetscFree(data);
+        CHKERRQ(ierr);
+        ierr = PetscFree(rows);
+        CHKERRQ(ierr);
+
+        /* bind the matrix A to the solver */
+        ierr = MPI_Barrier(amgx->comm);
+        CHKERRQ(ierr);
+
+        AMGX_solver_setup(amgx->AmgXsolver, amgx->AmgXA);
+
+        /* connect (bind) vectors to the matrix */
+        AMGX_vector_bind(amgx->AmgXP, amgx->AmgXA);
+        AMGX_vector_bind(amgx->AmgXRHS, amgx->AmgXA);
     }
+    else
+    {
+        PetscScalar *rawData;
 
-    /* bind the matrix A to the solver */
-    ierr = MPI_Barrier(wcomm); CHKERRQ(ierr);
+        int ierr = MatSeqAIJGetArray(amgx->localA, &rawData);
+        CHKERRQ(ierr);
 
-    AMGX_solver_setup(amgx->AmgXsolver, amgx->AmgXA);
+        AMGX_matrix_replace_coefficients(amgx->AmgXA, amgx->nLocalRows, amgx->nnz, rawData, NULL);
 
-    /* connect (bind) vectors to the matrix */
-    AMGX_vector_bind(amgx->AmgXP, amgx->AmgXA);
-    AMGX_vector_bind(amgx->AmgXRHS, amgx->AmgXA);
+        AMGX_solver_resetup(amgx->AmgXsolver, amgx->AmgXA);
+    }
 
     PetscFunctionReturn(0);
 }
