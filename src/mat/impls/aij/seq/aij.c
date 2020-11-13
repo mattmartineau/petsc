@@ -4929,12 +4929,13 @@ PetscErrorCode  MatCreateSeqAIJWithArrays(MPI_Comm comm,PetscInt m,PetscInt n,Pe
 }
 
 
-PetscErrorCode MatSetSeqAIJFromCSR(MPI_Comm comm,PetscInt m,PetscInt n,PetscInt rowOffsets[],PetscInt colIndices[],PetscScalar values[],Mat *mat)
+PetscErrorCode MatSetAMGXFromCSR(MPI_Comm comm,PetscInt m,PetscInt n,PetscInt rowOffsets[],PetscInt colIndices[],PetscScalar values[],Mat *mat)
 {
+  PetscFunctionBegin;
+
   PetscErrorCode ierr;
   Mat_SeqAIJ     *aij;
 
-  PetscFunctionBegin;
   ierr = MatSetType(*mat,MATSEQAIJ);CHKERRQ(ierr);
 
   aij  = (Mat_SeqAIJ*)(*mat)->data;

@@ -142,12 +142,6 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
         ierr = MatGetBlockSize(Pmat, &bs);
         CHKERRQ(ierr);
 
-#if 0
-        /* get offsets */
-        PetscInt *rows;
-        PetscInt *cols;
-        PetscScalar *data;
-#endif
         AMGX_distribution_handle dist;
 
         /* to calculate the partition offsets and pass those into the API call instead of creating a full partition vector. */
@@ -185,66 +179,21 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
         ierr = MatSeqAIJGetArray(amgx->localA, &rawValues);
         CHKERRQ(ierr);
 
-        cudaMemcpy(&amgx->nnz, &rawRowOffsets[amgx->nLocalRows], sizeof(int), cudaMemcpyDefault);
-#if 0
+        MatType type;
+        ierr = MatGetType(amgx->localA, &type);
 
-        double tmp[100];
-        cudaMemcpy(tmp, rawValues, sizeof(double)*100, cudaMemcpyDefault);
-        for (int i = 0; i < 100; ++i)
+// XXX Need to fix some discriminator here
+        PetscBool isAmgXMatrix;
+        ierr = PetscObjectTypeCompare((PetscObject)amgx->localA, MATSEQAIJ, &isAmgXMatrix);
+        CHKERRQ(ierr);
+        if(isAmgXMatrix)
         {
-            printf("%.12e\n", tmp[i]);
+            cudaMemcpy(&amgx->nnz, &rawRowOffsets[amgx->nLocalRows], sizeof(int), cudaMemcpyDefault);
         }
-#endif
-
-        // amgx->nnz = rawRowOffsets[amgx->nLocalRows];
-
-#if 0
-        /* copy values to STL vector. Note: there is an implicit conversion from */
-        /* PetscInt to int64_t for the column vector */
-
-        ierr = PetscMalloc1(amgx->nnz, &cols);
-        CHKERRQ(ierr);
-        ierr = PetscMalloc1(amgx->nnz, &data);
-        CHKERRQ(ierr);
-        ierr = PetscMalloc1(amgx->nLocalRows + 1, &rows);
-        CHKERRQ(ierr);
-
-        // XXX Unless I am forgetting some technical limitation - I don't think this is necessary or beneficial.
-        // We can surely instead just pass the data into AmgX and allow it to make the copies for us.
-        // Otherwise we perform an additional unnecessary copy.
-        for (int i = 0; i < amgx->nnz; ++i)
+        else
         {
-            cols[i] = rawColIndices[i];
-            data[i] = rawValues[i];
+            amgx->nnz = rawRowOffsets[amgx->nLocalRows];
         }
-
-        for (int i = 0; i < amgx->nLocalRows + 1; ++i)
-        {
-            rows[i] = rawRowOffsets[i];
-        }
-
-        ierr = MatRestoreRowIJ(amgx->localA, 0, PETSC_FALSE, PETSC_FALSE, &rawN, &rawRowOffsets, &rawColIndices, &done);
-        CHKERRQ(ierr);
-        ierr = MatSeqAIJRestoreArray(amgx->localA, &rawValues);
-        CHKERRQ(ierr);
-#endif
-
-#if 0
-        if (amgx->localA != Pmat)
-        {
-            ierr = MatDestroy(&amgx->localA);
-            CHKERRQ(ierr);
-        }
-#endif
-
-        /* pin the memory to improve performance
-            WARNING: Even though, internal error handling has been requested,
-            AMGX_SAFE_CALL needs to be used on this system call.
-            It is an exception to the general rule. */
-        /* AMGX_SAFE_CALL(AMGX_pin_memory(cols, amgx->nnz * sizeof(int64_t))); */
-        /* AMGX_SAFE_CALL(AMGX_pin_memory(rows, (amgx->nLocalRows + 1)*sizeof(int))); */
-        /* AMGX_SAFE_CALL(AMGX_pin_memory(data, amgx->nnz * sizeof(PetscScalar))); */ /* check that this has bs^2 */
-        /* get offsets and upload */
 
         ierr = PetscMalloc1(nranks + 1, &partition_offsets);
         CHKERRQ(ierr);
@@ -275,14 +224,6 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
 
         ierr = PetscFree(partition_offsets);
         CHKERRQ(ierr);
-#if 0
-        ierr = PetscFree(cols);
-        CHKERRQ(ierr);
-        ierr = PetscFree(data);
-        CHKERRQ(ierr);
-        ierr = PetscFree(rows);
-        CHKERRQ(ierr);
-#endif
 
         /* bind the matrix A to the solver */
         ierr = MPI_Barrier(amgx->comm);

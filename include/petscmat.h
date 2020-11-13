@@ -1087,10 +1087,11 @@ PETSC_EXTERN PetscErrorCode MatInodeGetInodeSizes(Mat,PetscInt *,PetscInt *[],Pe
 PETSC_EXTERN PetscErrorCode MatSeqAIJSetColumnIndices(Mat,PetscInt[]);
 PETSC_EXTERN PetscErrorCode MatSeqBAIJSetColumnIndices(Mat,PetscInt[]);
 PETSC_EXTERN PetscErrorCode MatCreateSeqAIJWithArrays(MPI_Comm,PetscInt,PetscInt,PetscInt[],PetscInt[],PetscScalar[],Mat*);
-PETSC_EXTERN PetscErrorCode MatSetSeqAIJFromCSR(MPI_Comm,PetscInt,PetscInt,PetscInt[],PetscInt[],PetscScalar[],Mat*);
 PETSC_EXTERN PetscErrorCode MatCreateSeqBAIJWithArrays(MPI_Comm,PetscInt,PetscInt,PetscInt,PetscInt[],PetscInt[],PetscScalar[],Mat*);
 PETSC_EXTERN PetscErrorCode MatCreateSeqSBAIJWithArrays(MPI_Comm,PetscInt,PetscInt,PetscInt,PetscInt[],PetscInt[],PetscScalar[],Mat*);
 PETSC_EXTERN PetscErrorCode MatCreateSeqAIJFromTriple(MPI_Comm,PetscInt,PetscInt,PetscInt[],PetscInt[],PetscScalar[],Mat*,PetscInt,PetscBool);
+
+PETSC_EXTERN PetscErrorCode MatSetAMGXFromCSR(MPI_Comm,PetscInt,PetscInt,PetscInt[],PetscInt[],PetscScalar[],Mat*);
 
 #define MAT_SKIP_ALLOCATION -4
 
