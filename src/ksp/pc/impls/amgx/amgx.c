@@ -20,10 +20,13 @@ typedef struct _PC_AMGX
     void *lib_handle;
     char filename[PETSC_MAX_PATH_LEN];
 
+
     // Cached state for re-setup
     int nnz;
     int nLocalRows;
     Mat localA;
+    PetscScalar* values;
+
 
 } PC_AMGX;
 static PetscInt s_count = 0;
@@ -96,8 +99,6 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
         /* switch on internal error handling (no need to use AMGX_SAFE_CALL after this point) */
         AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "exception_handling=1"));
 
-        /* create an AmgX resource object, only the first instance is in charge */
-
         // XXX Unless I missed something outside of this file, must change for multi GPU I would expect
         int devID, devCount;
 
@@ -112,6 +113,8 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
         {
             SETERRQ1(PETSC_COMM_SELF, PETSC_ERR_PLIB, "error in cudaGetDeviceCount %s", cudaGetErrorString(err));
         }
+
+        /* create an AmgX resource object, only the first instance is in charge */
 
         err = AMGX_resources_create(&amgx->rsrc, amgx->cfg, &amgx->comm, 1, &devID);
         err = AMGX_matrix_create(&amgx->AmgXA, amgx->rsrc, AMGX_mode_dDDI);
@@ -145,26 +148,31 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
         AMGX_distribution_handle dist;
 
         /* to calculate the partition offsets and pass those into the API call instead of creating a full partition vector. */
-        PetscInt *partition_offsets;
+        PetscInt *partitionOffsets;
 
         /* get raw matrix data */
-        const PetscInt *rawColIndices, *rawRowOffsets;
-        PetscScalar *rawValues;
+        const PetscInt *colIndices, *rowOffsets;
+        PetscScalar *values;
 
-        /* get local matrix from redistributed matrix */
-        if (nranks == 1)
+        // Need some robust check to determine if the matrix is an AmgX matrix
+        PetscBool isAmgXMatrix;
+        ierr = PetscObjectTypeCompare((PetscObject)Pmat, MATSEQAIJ, &isAmgXMatrix); CHKERRQ(ierr);
+
+        // At the present time, an AmgX matrix is a sequential matrix
+        // Non-sequential/MPI matrices must be adapted to extract the local matrix
+        if (isAmgXMatrix || nranks == 1)
         {
             amgx->localA = Pmat;
         }
         else
         {
-            ierr = MatMPIAIJGetLocalMat(Pmat, MAT_INITIAL_MATRIX, &amgx->localA);
-            CHKERRQ(ierr);
+            ierr = MatMPIAIJGetLocalMat(Pmat, MAT_INITIAL_MATRIX, &amgx->localA); CHKERRQ(ierr);
         }
 
+        // Extract the CSR data
         PetscInt rawN;
         PetscBool done;
-        ierr = MatGetRowIJ(amgx->localA, 0, PETSC_FALSE, PETSC_FALSE, &rawN, &rawRowOffsets, &rawColIndices, &done);
+        ierr = MatGetRowIJ(amgx->localA, 0, PETSC_FALSE, PETSC_FALSE, &rawN, &rowOffsets, &colIndices, &done);
         CHKERRQ(ierr);
 
         if (!done)
@@ -176,58 +184,46 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
             SETERRQ2(amgx->comm, PETSC_ERR_PLIB, "rawN != nLocalRows %D %D\n", rawN, amgx->nLocalRows);
         }
 
-        ierr = MatSeqAIJGetArray(amgx->localA, &rawValues);
-        CHKERRQ(ierr);
+        ierr = MatSeqAIJGetArray(amgx->localA, &values); CHKERRQ(ierr);
 
-        MatType type;
-        ierr = MatGetType(amgx->localA, &type);
-
-// XXX Need to fix some discriminator here
-        PetscBool isAmgXMatrix;
-        ierr = PetscObjectTypeCompare((PetscObject)amgx->localA, MATSEQAIJ, &isAmgXMatrix);
-        CHKERRQ(ierr);
         if(isAmgXMatrix)
         {
-            cudaMemcpy(&amgx->nnz, &rawRowOffsets[amgx->nLocalRows], sizeof(int), cudaMemcpyDefault);
+            cudaMemcpy(&amgx->nnz, &rowOffsets[amgx->nLocalRows], sizeof(int), cudaMemcpyDefault);
         }
         else
         {
-            amgx->nnz = rawRowOffsets[amgx->nLocalRows];
+            amgx->nnz = rowOffsets[amgx->nLocalRows];
         }
 
-        ierr = PetscMalloc1(nranks + 1, &partition_offsets);
+        ierr = PetscMalloc1(nranks + 1, &partitionOffsets);
         CHKERRQ(ierr);
 
-        partition_offsets[0] = 0; /* could use PetscLayoutGetRanges */
+        partitionOffsets[0] = 0; /* could use PetscLayoutGetRanges */
 
-        ierr = MPI_Allgather(&amgx->nLocalRows, sizeof(PetscInt), MPI_BYTE, &partition_offsets[1], sizeof(PetscInt), MPI_BYTE, amgx->comm);
+        ierr = MPI_Allgather(&amgx->nLocalRows, sizeof(PetscInt), MPI_BYTE, &partitionOffsets[1], sizeof(PetscInt), MPI_BYTE, amgx->comm);
         CHKERRQ(ierr);
 
         for (int i = 1; i <= nranks; i++)
         {
-            partition_offsets[i] += partition_offsets[i - 1];
+            partitionOffsets[i] += partitionOffsets[i - 1];
         }
 
-        int nGlobal = partition_offsets[nranks]; // last element always has global number of rows
+        int nGlobal = partitionOffsets[nranks]; // last element always has global number of rows
 
         /* upload - this takes an int for nglobal (does it work for large sysetms ??) */
         int petsc32 = (sizeof(PetscInt) == 4);
         AMGX_distribution_create(&dist, amgx->cfg);
         AMGX_distribution_set_32bit_colindices(dist, petsc32);
-        AMGX_distribution_set_partition_data(dist, AMGX_DIST_PARTITION_OFFSETS, partition_offsets);
-
+        AMGX_distribution_set_partition_data(dist, AMGX_DIST_PARTITION_OFFSETS, partitionOffsets);
         AMGX_matrix_upload_distributed(
             amgx->AmgXA, nGlobal, amgx->nLocalRows, amgx->nnz, bs, bs,
-            rawRowOffsets, rawColIndices, rawValues, NULL, dist);
-
+            rowOffsets, colIndices, values, NULL, dist);
         AMGX_distribution_destroy(dist);
 
-        ierr = PetscFree(partition_offsets);
-        CHKERRQ(ierr);
+        ierr = PetscFree(partitionOffsets); CHKERRQ(ierr);
 
         /* bind the matrix A to the solver */
-        ierr = MPI_Barrier(amgx->comm);
-        CHKERRQ(ierr);
+        ierr = MPI_Barrier(amgx->comm); CHKERRQ(ierr);
 
         AMGX_solver_setup(amgx->AmgXsolver, amgx->AmgXA);
 
@@ -237,12 +233,9 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
     }
     else
     {
-        PetscScalar *rawValues;
+        int ierr = MatSeqAIJGetArray(amgx->localA, &amgx->values); CHKERRQ(ierr);
 
-        int ierr = MatSeqAIJGetArray(amgx->localA, &rawValues);
-        CHKERRQ(ierr);
-
-        AMGX_matrix_replace_coefficients(amgx->AmgXA, amgx->nLocalRows, amgx->nnz, rawValues, NULL);
+        AMGX_matrix_replace_coefficients(amgx->AmgXA, amgx->nLocalRows, amgx->nnz, amgx->values, NULL);
 
         AMGX_solver_resetup(amgx->AmgXsolver, amgx->AmgXA);
     }

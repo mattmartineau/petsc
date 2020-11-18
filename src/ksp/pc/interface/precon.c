@@ -1171,8 +1171,11 @@ PetscErrorCode  PCSetOperators(PC pc,Mat Amat,Mat Pmat)
   PetscValidHeaderSpecific(pc,PC_CLASSID,1);
   if (Amat) PetscValidHeaderSpecific(Amat,MAT_CLASSID,2);
   if (Pmat) PetscValidHeaderSpecific(Pmat,MAT_CLASSID,3);
-  if (Amat) PetscCheckSameComm(pc,1,Amat,2);
-  if (Pmat) PetscCheckSameComm(pc,1,Pmat,3);
+
+  // XXX Need to disable while using the AmgX matrix
+  //if (Amat) PetscCheckSameComm(pc,1,Amat,2);
+  //if (Pmat) PetscCheckSameComm(pc,1,Pmat,3);
+
   if (pc->setupcalled && pc->mat && pc->pmat && Amat && Pmat) {
     ierr = MatGetLocalSize(Amat,&m1,&n1);CHKERRQ(ierr);
     ierr = MatGetLocalSize(pc->mat,&m2,&n2);CHKERRQ(ierr);

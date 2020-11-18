@@ -523,8 +523,9 @@ PetscErrorCode  KSPSetOperators(KSP ksp,Mat Amat,Mat Pmat)
   PetscValidHeaderSpecific(ksp,KSP_CLASSID,1);
   if (Amat) PetscValidHeaderSpecific(Amat,MAT_CLASSID,2);
   if (Pmat) PetscValidHeaderSpecific(Pmat,MAT_CLASSID,3);
-  if (Amat) PetscCheckSameComm(ksp,1,Amat,2);
-  if (Pmat) PetscCheckSameComm(ksp,1,Pmat,3);
+  // XXX Need to avoid this check while hacking in the AmgX matrix
+  //if (Amat) PetscCheckSameComm(ksp,1,Amat,2);
+  //if (Pmat) PetscCheckSameComm(ksp,1,Pmat,3);
   if (!ksp->pc) {ierr = KSPGetPC(ksp,&ksp->pc);CHKERRQ(ierr);}
   ierr = PCSetOperators(ksp->pc,Amat,Pmat);CHKERRQ(ierr);
   if (ksp->setupstage == KSP_SETUP_NEWRHS) ksp->setupstage = KSP_SETUP_NEWMATRIX;  /* so that next solve call will call PCSetUp() on new matrix */

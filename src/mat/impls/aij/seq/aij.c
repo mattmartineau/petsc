@@ -4936,7 +4936,8 @@ PetscErrorCode MatSetAMGXFromCSR(MPI_Comm comm,PetscInt m,PetscInt n,PetscInt ro
   PetscErrorCode ierr;
   Mat_SeqAIJ     *aij;
 
-  ierr = MatSetType(*mat,MATSEQAIJ);CHKERRQ(ierr);
+  ierr = MatSetType(*mat, MATSEQAIJ);
+  CHKERRQ(ierr);
 
   aij  = (Mat_SeqAIJ*)(*mat)->data;
 
