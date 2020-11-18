@@ -10,10 +10,10 @@
 
 typedef struct _PC_AMGX
 {
-    AMGX_solver_handle AmgXsolver;
-    AMGX_matrix_handle AmgXA;
-    AMGX_vector_handle AmgXP;
-    AMGX_vector_handle AmgXRHS;
+    AMGX_solver_handle solver;
+    AMGX_matrix_handle A;
+    AMGX_vector_handle P;
+    AMGX_vector_handle RHS;
     AMGX_config_handle cfg;
     MPI_Comm comm;
     AMGX_resources_handle rsrc;
@@ -117,10 +117,10 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
         /* create an AmgX resource object, only the first instance is in charge */
 
         err = AMGX_resources_create(&amgx->rsrc, amgx->cfg, &amgx->comm, 1, &devID);
-        err = AMGX_matrix_create(&amgx->AmgXA, amgx->rsrc, AMGX_mode_dDDI);
-        err = AMGX_vector_create(&amgx->AmgXP, amgx->rsrc, AMGX_mode_dDDI);
-        err = AMGX_vector_create(&amgx->AmgXRHS, amgx->rsrc, AMGX_mode_dDDI);
-        err = AMGX_solver_create(&amgx->AmgXsolver, amgx->rsrc, AMGX_mode_dDDI, amgx->cfg);
+        err = AMGX_matrix_create(&amgx->A, amgx->rsrc, AMGX_mode_dDDI);
+        err = AMGX_vector_create(&amgx->P, amgx->rsrc, AMGX_mode_dDDI);
+        err = AMGX_vector_create(&amgx->RHS, amgx->rsrc, AMGX_mode_dDDI);
+        err = AMGX_solver_create(&amgx->solver, amgx->rsrc, AMGX_mode_dDDI, amgx->cfg);
 
         /* upload matrix */
         int nranks;
@@ -216,7 +216,7 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
         AMGX_distribution_set_32bit_colindices(dist, petsc32);
         AMGX_distribution_set_partition_data(dist, AMGX_DIST_PARTITION_OFFSETS, partitionOffsets);
         AMGX_matrix_upload_distributed(
-            amgx->AmgXA, nGlobal, amgx->nLocalRows, amgx->nnz, bs, bs,
+            amgx->A, nGlobal, amgx->nLocalRows, amgx->nnz, bs, bs,
             rowOffsets, colIndices, values, NULL, dist);
         AMGX_distribution_destroy(dist);
 
@@ -225,19 +225,34 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
         /* bind the matrix A to the solver */
         ierr = MPI_Barrier(amgx->comm); CHKERRQ(ierr);
 
-        AMGX_solver_setup(amgx->AmgXsolver, amgx->AmgXA);
+        AMGX_solver_setup(amgx->solver, amgx->A);
 
         /* connect (bind) vectors to the matrix */
-        AMGX_vector_bind(amgx->AmgXP, amgx->AmgXA);
-        AMGX_vector_bind(amgx->AmgXRHS, amgx->AmgXA);
+        AMGX_vector_bind(amgx->P, amgx->A);
+        AMGX_vector_bind(amgx->RHS, amgx->A);
+
+        size_t freeB;
+        size_t totalB;
+        cudaMemGetInfo(&freeB, &totalB);
+        double freeMB = (double)freeB / 1024.0 / 1024.0;
+        double totalMB = (double)totalB / 1024.0 / 1024.0;
+        double usedMB = totalMB - freeMB;
+        printf("GPU memory usage: used = %f, free = %f MB, total = %f MB\n", usedMB, freeMB, totalMB);
     }
     else
     {
-        int ierr = MatSeqAIJGetArray(amgx->localA, &amgx->values); CHKERRQ(ierr);
+        size_t freeB;
+        size_t totalB;
+        cudaMemGetInfo(&freeB, &totalB);
+        double freeMB = (double)freeB / 1024.0 / 1024.0;
+        double totalMB = (double)totalB / 1024.0 / 1024.0;
+        double usedMB = totalMB - freeMB;
+        printf("GPU memory usage: used = %f, free = %f MB, total = %f MB\n", usedMB, freeMB, totalMB);
 
-        AMGX_matrix_replace_coefficients(amgx->AmgXA, amgx->nLocalRows, amgx->nnz, amgx->values, NULL);
+        // The fast path after the initial setup phase
+        AMGX_matrix_replace_coefficients(amgx->A, amgx->nLocalRows, amgx->nnz, amgx->values, NULL);
 
-        AMGX_solver_resetup(amgx->AmgXsolver, amgx->AmgXA);
+        AMGX_solver_resetup(amgx->solver, amgx->A);
     }
 
     PetscFunctionReturn(0);
@@ -246,7 +261,6 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
 static PetscErrorCode PCApply_AMGX(PC pc, Vec b, Vec x)
 {
     PC_AMGX *amgx = (PC_AMGX *)pc->data;
-    PetscErrorCode ierr;
     PetscScalar *unks;
     const PetscScalar *rhs;
     PetscInt n;
@@ -254,17 +268,17 @@ static PetscErrorCode PCApply_AMGX(PC pc, Vec b, Vec x)
 
     PetscFunctionBegin;
 
-    ierr = VecGetLocalSize(x, &n); CHKERRQ(ierr);
+    PetscErrorCode ierr = VecGetLocalSize(x, &n); CHKERRQ(ierr);
     ierr = VecGetArray(x, &unks); CHKERRQ(ierr);
     ierr = VecGetArrayRead(b, &rhs); CHKERRQ(ierr);
 
-    AMGX_vector_upload(amgx->AmgXP, n, 1, unks);
-    AMGX_vector_upload(amgx->AmgXRHS, n, 1, rhs);
+    AMGX_vector_upload(amgx->P, n, 1, unks);
+    AMGX_vector_upload(amgx->RHS, n, 1, rhs);
 
     ierr = MPI_Barrier(amgx->comm); CHKERRQ(ierr);
 
-    AMGX_solver_solve(amgx->AmgXsolver, amgx->AmgXRHS, amgx->AmgXP);
-    AMGX_solver_get_status(amgx->AmgXsolver, &status);
+    AMGX_solver_solve(amgx->solver, amgx->RHS, amgx->P);
+    AMGX_solver_get_status(amgx->solver, &status);
 
     if (status == AMGX_SOLVE_FAILED)
     {
@@ -273,7 +287,7 @@ static PetscErrorCode PCApply_AMGX(PC pc, Vec b, Vec x)
             "The error code is %d.\n", status);
     }
 
-    AMGX_vector_download(amgx->AmgXP, unks);
+    AMGX_vector_download(amgx->P, unks);
 
     ierr = VecRestoreArray(x, &unks); CHKERRQ(ierr);
     ierr = VecRestoreArrayRead(b, &rhs); CHKERRQ(ierr);
