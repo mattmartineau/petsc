@@ -177,8 +177,8 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
         PetscInt *partitionOffsets;
 
         /* get raw matrix data */
-        const PetscInt *colIndices, *rowOffsets;
-        PetscScalar *values;
+        const PetscInt *colIndices;
+        const PetscInt *rowOffsets;
 
         // Need some robust check to determine if the matrix is an AmgX matrix
         PetscBool isAmgXMatrix;
@@ -212,7 +212,7 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
             SETERRQ2(amgx->comm, PETSC_ERR_PLIB, "rawN != nLocalRows %D %D\n", rawN, amgx->nLocalRows);
         }
 
-        ierr = MatSeqAIJGetArray(amgx->localA, &values);
+        ierr = MatSeqAIJGetArray(amgx->localA, &amgx->values);
         CHKERRQ(ierr);
 
         if (isAmgXMatrix)
@@ -244,23 +244,26 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
         AMGX_distribution_create(&dist, amgx->cfg);
         AMGX_distribution_set_32bit_colindices(dist, petsc32);
         AMGX_distribution_set_partition_data(dist, AMGX_DIST_PARTITION_OFFSETS, partitionOffsets);
-        AMGX_matrix_upload_distributed(
-            amgx->A, nGlobal, amgx->nLocalRows, amgx->nnz, bs, bs,
-            rowOffsets, colIndices, values, NULL, dist);
-        AMGX_distribution_destroy(dist);
-
         ierr = PetscFree(partitionOffsets);
         CHKERRQ(ierr);
 
-        /* bind the matrix A to the solver */
+        AMGX_matrix_upload_distributed(
+            amgx->A, nGlobal, amgx->nLocalRows, amgx->nnz, bs, bs,
+            rowOffsets, colIndices, amgx->values, NULL, dist);
+        AMGX_distribution_destroy(dist);
+
         ierr = MPI_Barrier(amgx->comm);
         CHKERRQ(ierr);
 
         AMGX_solver_setup(amgx->solver, amgx->A);
 
-        /* connect (bind) vectors to the matrix */
         AMGX_vector_bind(amgx->P, amgx->A);
         AMGX_vector_bind(amgx->RHS, amgx->A);
+
+#ifdef AMGXDEBUG
+        printMemory();
+#endif
+
     }
     else
     {
