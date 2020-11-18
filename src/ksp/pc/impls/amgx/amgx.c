@@ -8,6 +8,8 @@
 // AmgX
 #include <amgx_c.h>
 
+#define AMGXDEBUG
+
 typedef struct _PC_AMGX
 {
     AMGX_solver_handle solver;
@@ -20,13 +22,11 @@ typedef struct _PC_AMGX
     void *lib_handle;
     char filename[PETSC_MAX_PATH_LEN];
 
-
     // Cached state for re-setup
     int nnz;
     int nLocalRows;
     Mat localA;
-    PetscScalar* values;
-
+    PetscScalar *values;
 
 } PC_AMGX;
 static PetscInt s_count = 0;
@@ -34,19 +34,26 @@ static PetscInt s_count = 0;
 /* ----------------------------------------------------------------------------- */
 PetscErrorCode PCReset_AMGX(PC pc)
 {
+#ifdef AMGXDEBUG
+    printf("in %s\n", __func__);
+#endif
+
     PC_AMGX *amgx = (PC_AMGX *)pc->data;
 
     PetscFunctionBegin;
-    AMGX_solver_destroy(amgx->AmgXsolver);
-    AMGX_matrix_destroy(amgx->AmgXA);
-    AMGX_vector_destroy(amgx->AmgXP);
-    AMGX_vector_destroy(amgx->AmgXRHS);
+    AMGX_solver_destroy(amgx->solver);
+    AMGX_matrix_destroy(amgx->A);
+    AMGX_vector_destroy(amgx->P);
+    AMGX_vector_destroy(amgx->RHS);
     PetscFunctionReturn(0);
 }
 
 static PetscErrorCode PCDestroy_AMGX(PC pc)
 {
-    PetscErrorCode ierr;
+#ifdef AMGXDEBUG
+    printf("in %s\n", __func__);
+#endif
+
     PC_AMGX *amgx = (PC_AMGX *)pc->data;
     cudaError_t err = cudaSuccess;
 
@@ -69,7 +76,7 @@ static PetscErrorCode PCDestroy_AMGX(PC pc)
         AMGX_SAFE_CALL(AMGX_config_destroy(amgx->cfg));
         AMGX_SAFE_CALL(AMGX_finalize_plugins());
         AMGX_SAFE_CALL(AMGX_finalize());
-        ierr = MPI_Comm_free(&amgx->comm);
+        PetscErrorCode ierr = MPI_Comm_free(&amgx->comm);
         CHKERRQ(ierr);
 #ifdef AMGX_DYNAMIC_LOADING
         amgx_libclose(amgx->lib_handle);
@@ -80,13 +87,28 @@ static PetscErrorCode PCDestroy_AMGX(PC pc)
         AMGX_SAFE_CALL(AMGX_config_destroy(amgx->cfg));
     }
     s_count -= 1;
-    ierr = PetscFree(amgx); CHKERRQ(ierr);
+    PetscErrorCode ierr = PetscFree(amgx);
+    CHKERRQ(ierr);
 
     PetscFunctionReturn(0);
 }
 
+void printMemory()
+{
+    size_t freeB;
+    size_t totalB;
+    cudaMemGetInfo(&freeB, &totalB);
+    double freeMB = (double)freeB / 1024.0 / 1024.0;
+    double totalMB = (double)totalB / 1024.0 / 1024.0;
+    double usedMB = totalMB - freeMB;
+    printf("GPU memory usage: used = %f, free = %f MB, total = %f MB\n", usedMB, freeMB, totalMB);
+}
+
 static PetscErrorCode PCSetUp_AMGX(PC pc)
 {
+#ifdef AMGXDEBUG
+    printf("in %s\n", __func__);
+#endif
     PC_AMGX *amgx = (PC_AMGX *)pc->data;
     Mat Pmat = pc->pmat;
 
@@ -94,6 +116,10 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
 
     if (!pc->setupcalled)
     {
+#ifdef AMGXDEBUG
+        printMemory();
+#endif
+
         AMGX_SAFE_CALL(AMGX_config_create_from_file(&amgx->cfg, amgx->filename));
 
         /* switch on internal error handling (no need to use AMGX_SAFE_CALL after this point) */
@@ -156,7 +182,8 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
 
         // Need some robust check to determine if the matrix is an AmgX matrix
         PetscBool isAmgXMatrix;
-        ierr = PetscObjectTypeCompare((PetscObject)Pmat, MATSEQAIJ, &isAmgXMatrix); CHKERRQ(ierr);
+        ierr = PetscObjectTypeCompare((PetscObject)Pmat, MATSEQAIJ, &isAmgXMatrix);
+        CHKERRQ(ierr);
 
         // At the present time, an AmgX matrix is a sequential matrix
         // Non-sequential/MPI matrices must be adapted to extract the local matrix
@@ -166,7 +193,8 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
         }
         else
         {
-            ierr = MatMPIAIJGetLocalMat(Pmat, MAT_INITIAL_MATRIX, &amgx->localA); CHKERRQ(ierr);
+            ierr = MatMPIAIJGetLocalMat(Pmat, MAT_INITIAL_MATRIX, &amgx->localA);
+            CHKERRQ(ierr);
         }
 
         // Extract the CSR data
@@ -184,9 +212,10 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
             SETERRQ2(amgx->comm, PETSC_ERR_PLIB, "rawN != nLocalRows %D %D\n", rawN, amgx->nLocalRows);
         }
 
-        ierr = MatSeqAIJGetArray(amgx->localA, &values); CHKERRQ(ierr);
+        ierr = MatSeqAIJGetArray(amgx->localA, &values);
+        CHKERRQ(ierr);
 
-        if(isAmgXMatrix)
+        if (isAmgXMatrix)
         {
             cudaMemcpy(&amgx->nnz, &rowOffsets[amgx->nLocalRows], sizeof(int), cudaMemcpyDefault);
         }
@@ -220,34 +249,24 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
             rowOffsets, colIndices, values, NULL, dist);
         AMGX_distribution_destroy(dist);
 
-        ierr = PetscFree(partitionOffsets); CHKERRQ(ierr);
+        ierr = PetscFree(partitionOffsets);
+        CHKERRQ(ierr);
 
         /* bind the matrix A to the solver */
-        ierr = MPI_Barrier(amgx->comm); CHKERRQ(ierr);
+        ierr = MPI_Barrier(amgx->comm);
+        CHKERRQ(ierr);
 
         AMGX_solver_setup(amgx->solver, amgx->A);
 
         /* connect (bind) vectors to the matrix */
         AMGX_vector_bind(amgx->P, amgx->A);
         AMGX_vector_bind(amgx->RHS, amgx->A);
-
-        size_t freeB;
-        size_t totalB;
-        cudaMemGetInfo(&freeB, &totalB);
-        double freeMB = (double)freeB / 1024.0 / 1024.0;
-        double totalMB = (double)totalB / 1024.0 / 1024.0;
-        double usedMB = totalMB - freeMB;
-        printf("GPU memory usage: used = %f, free = %f MB, total = %f MB\n", usedMB, freeMB, totalMB);
     }
     else
     {
-        size_t freeB;
-        size_t totalB;
-        cudaMemGetInfo(&freeB, &totalB);
-        double freeMB = (double)freeB / 1024.0 / 1024.0;
-        double totalMB = (double)totalB / 1024.0 / 1024.0;
-        double usedMB = totalMB - freeMB;
-        printf("GPU memory usage: used = %f, free = %f MB, total = %f MB\n", usedMB, freeMB, totalMB);
+#ifdef AMGXDEBUG
+        printMemory();
+#endif
 
         // The fast path after the initial setup phase
         AMGX_matrix_replace_coefficients(amgx->A, amgx->nLocalRows, amgx->nnz, amgx->values, NULL);
@@ -260,6 +279,10 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
 
 static PetscErrorCode PCApply_AMGX(PC pc, Vec b, Vec x)
 {
+#ifdef AMGXDEBUG
+    printf("in %s\n", __func__);
+#endif
+
     PC_AMGX *amgx = (PC_AMGX *)pc->data;
     PetscScalar *unks;
     const PetscScalar *rhs;
@@ -268,14 +291,18 @@ static PetscErrorCode PCApply_AMGX(PC pc, Vec b, Vec x)
 
     PetscFunctionBegin;
 
-    PetscErrorCode ierr = VecGetLocalSize(x, &n); CHKERRQ(ierr);
-    ierr = VecGetArray(x, &unks); CHKERRQ(ierr);
-    ierr = VecGetArrayRead(b, &rhs); CHKERRQ(ierr);
+    PetscErrorCode ierr = VecGetLocalSize(x, &n);
+    CHKERRQ(ierr);
+    ierr = VecGetArray(x, &unks);
+    CHKERRQ(ierr);
+    ierr = VecGetArrayRead(b, &rhs);
+    CHKERRQ(ierr);
 
     AMGX_vector_upload(amgx->P, n, 1, unks);
     AMGX_vector_upload(amgx->RHS, n, 1, rhs);
 
-    ierr = MPI_Barrier(amgx->comm); CHKERRQ(ierr);
+    ierr = MPI_Barrier(amgx->comm);
+    CHKERRQ(ierr);
 
     AMGX_solver_solve(amgx->solver, amgx->RHS, amgx->P);
     AMGX_solver_get_status(amgx->solver, &status);
@@ -283,29 +310,40 @@ static PetscErrorCode PCApply_AMGX(PC pc, Vec b, Vec x)
     if (status == AMGX_SOLVE_FAILED)
     {
         SETERRQ1(amgx->comm, PETSC_ERR_CONV_FAILED,
-            "AmgX solver failed to solve the system! "
-            "The error code is %d.\n", status);
+                 "AmgX solver failed to solve the system! "
+                 "The error code is %d.\n",
+                 status);
     }
 
     AMGX_vector_download(amgx->P, unks);
 
-    ierr = VecRestoreArray(x, &unks); CHKERRQ(ierr);
-    ierr = VecRestoreArrayRead(b, &rhs); CHKERRQ(ierr);
+    ierr = VecRestoreArray(x, &unks);
+    CHKERRQ(ierr);
+    ierr = VecRestoreArrayRead(b, &rhs);
+    CHKERRQ(ierr);
 
     PetscFunctionReturn(0);
 }
 
 PetscErrorCode PCSetFromOptions_AMGX(PetscOptionItems *PetscOptionsObject, PC pc)
 {
+#ifdef AMGXDEBUG
+    printf("in %s\n", __func__);
+#endif
+
     PC_AMGX *amgx = (PC_AMGX *)pc->data;
     PetscErrorCode ierr;
     PetscBool exists;
 
     PetscFunctionBegin;
-    ierr = PetscOptionsHead(PetscOptionsObject, "AMGX options"); CHKERRQ(ierr);
-    ierr = PetscOptionsString("-pc_amgx_json", "AMGX parameter file (json)", "amgx.c", amgx->filename, amgx->filename, PETSC_MAX_PATH_LEN, NULL); CHKERRQ(ierr);
-    ierr = PetscStrreplace(PetscObjectComm((PetscObject)pc), amgx->filename, amgx->filename, PETSC_MAX_PATH_LEN); CHKERRQ(ierr);
-    ierr = PetscTestFile(amgx->filename, 'r', &exists); CHKERRQ(ierr);
+    ierr = PetscOptionsHead(PetscOptionsObject, "AMGX options");
+    CHKERRQ(ierr);
+    ierr = PetscOptionsString("-pc_amgx_json", "AMGX parameter file (json)", "amgx.c", amgx->filename, amgx->filename, PETSC_MAX_PATH_LEN, NULL);
+    CHKERRQ(ierr);
+    ierr = PetscStrreplace(PetscObjectComm((PetscObject)pc), amgx->filename, amgx->filename, PETSC_MAX_PATH_LEN);
+    CHKERRQ(ierr);
+    ierr = PetscTestFile(amgx->filename, 'r', &exists);
+    CHKERRQ(ierr);
 
     if (!exists)
     {
@@ -313,9 +351,12 @@ PetscErrorCode PCSetFromOptions_AMGX(PetscOptionItems *PetscOptionsObject, PC pc
 
         /* try to add prefix */
         char str[PETSC_MAX_PATH_LEN];
-        ierr = PetscSNPrintf(str, PETSC_MAX_PATH_LEN - 1, "${PETSC_DIR}/share/petsc/amgx/%s", amgx->filename); CHKERRQ(ierr);
-        ierr = PetscStrreplace(PetscObjectComm((PetscObject)pc), str, amgx->filename, PETSC_MAX_PATH_LEN); CHKERRQ(ierr);
-        ierr = PetscTestFile(amgx->filename, 'r', &exists); CHKERRQ(ierr);
+        ierr = PetscSNPrintf(str, PETSC_MAX_PATH_LEN - 1, "${PETSC_DIR}/share/petsc/amgx/%s", amgx->filename);
+        CHKERRQ(ierr);
+        ierr = PetscStrreplace(PetscObjectComm((PetscObject)pc), str, amgx->filename, PETSC_MAX_PATH_LEN);
+        CHKERRQ(ierr);
+        ierr = PetscTestFile(amgx->filename, 'r', &exists);
+        CHKERRQ(ierr);
 
         if (!exists)
         {
@@ -326,12 +367,17 @@ PetscErrorCode PCSetFromOptions_AMGX(PetscOptionItems *PetscOptionsObject, PC pc
     {
         printf("As per -pc_amgx_json, found parameter file at %s.\n", amgx->filename);
     }
-    ierr = PetscOptionsTail(); CHKERRQ(ierr);
+
+    ierr = PetscOptionsTail();
+    CHKERRQ(ierr);
     PetscFunctionReturn(0);
 }
 
 PetscErrorCode PCView_AMGX(PC pc, PetscViewer viewer)
 {
+#ifdef AMGXDEBUG
+    printf("in %s\n", __func__);
+#endif
     PetscErrorCode ierr;
     PetscBool iascii;
 
@@ -368,11 +414,14 @@ static void print_callback(const char *msg, int length)
 M*/
 PETSC_EXTERN PetscErrorCode PCCreate_AMGX(PC pc)
 {
-    PetscErrorCode ierr;
+#ifdef AMGXDEBUG
+    printf("in %s\n", __func__);
+#endif
+
     PC_AMGX *amgx;
 
     PetscFunctionBegin;
-    ierr = PetscNewLog(pc, &amgx);
+    PetscErrorCode ierr = PetscNewLog(pc, &amgx);
     CHKERRQ(ierr);
     pc->ops->apply = PCApply_AMGX;
     pc->ops->setfromoptions = PCSetFromOptions_AMGX;
@@ -383,7 +432,7 @@ PETSC_EXTERN PetscErrorCode PCCreate_AMGX(PC pc)
     pc->data = (void *)amgx;
     s_count += 1;
     if (s_count == 1)
-    { /* can put this in a PCAMGXFinalizePackage method */
+    {   /* can put this in a PCAMGXFinalizePackage method */
         /* load the library (if it was dynamically loaded) */
 #ifdef AMGX_DYNAMIC_LOADING
         amgx->lib_handle = NULL;
@@ -412,11 +461,14 @@ PETSC_EXTERN PetscErrorCode PCCreate_AMGX(PC pc)
     {
         MPI_Comm comm_in = PetscObjectComm((PetscObject)pc);
         /* This communicator is not yet known to this system, so we duplicate it and make an internal communicator */
-        ierr = MPI_Comm_dup(comm_in, &amgx->comm); CHKERRQ(ierr);
+        ierr = MPI_Comm_dup(comm_in, &amgx->comm);
+        CHKERRQ(ierr);
     }
     /* set a default path/filename, use -pc_amgx_json to set at runtime */
-    ierr = PetscSNPrintf(amgx->filename, PETSC_MAX_PATH_LEN - 1, "${PETSC_DIR}/share/petsc/amgx/AMG_CLASSICAL_AGGRESSIVE_L1_RT6.json"); CHKERRQ(ierr);
-    ierr = PetscStrreplace(PetscObjectComm((PetscObject)pc), amgx->filename, amgx->filename, PETSC_MAX_PATH_LEN); CHKERRQ(ierr);
+    ierr = PetscSNPrintf(amgx->filename, PETSC_MAX_PATH_LEN - 1, "${PETSC_DIR}/share/petsc/amgx/AMG_CLASSICAL_AGGRESSIVE_L1_RT6.json");
+    CHKERRQ(ierr);
+    ierr = PetscStrreplace(PetscObjectComm((PetscObject)pc), amgx->filename, amgx->filename, PETSC_MAX_PATH_LEN);
+    CHKERRQ(ierr);
 
     PetscFunctionReturn(0);
 }
