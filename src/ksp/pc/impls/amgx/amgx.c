@@ -177,6 +177,9 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
 
         /* get raw matrix data */
         const PetscInt *colIndices;
+
+        // BUG If PetscInt is 64-bit and int is 32-bit this will lead to a
+        // bug, as passed through to AmgX as PetscInt, but expects int
         const PetscInt *rowOffsets;
 
         // Need some robust check to determine if the matrix is an AmgX matrix
@@ -216,7 +219,7 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
 
         if (isAmgXMatrix)
         {
-            cudaMemcpy(&amgx->nnz, &rowOffsets[amgx->nLocalRows], sizeof(int), cudaMemcpyDefault);
+            cudaMemcpy(&amgx->nnz, &rowOffsets[amgx->nLocalRows], sizeof(PetscInt), cudaMemcpyDefault);
         }
         else
         {
@@ -247,7 +250,7 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
 
         int nGlobal = partitionOffsets[nranks]; // last element always has global number of rows
 
-        /* upload - this takes an int for nglobal (does it work for large sysetms ??) */
+        int nGlobalRows = partitionOffsets[nranks];
         int petsc32 = (sizeof(PetscInt) == 4);
         AMGX_distribution_create(&dist, amgx->cfg);
         AMGX_distribution_set_32bit_colindices(dist, petsc32);
@@ -256,7 +259,7 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
         CHKERRQ(ierr);
 
         AMGX_matrix_upload_distributed(
-            amgx->A, nGlobal, (int)amgx->nLocalRows, amgx->nnz, bs, bs,
+            amgx->A, nGlobalRows, (int)amgx->nLocalRows, (int)amgx->nnz, bs, bs,
             rowOffsets, colIndices, amgx->values, NULL, dist);
         AMGX_distribution_destroy(dist);
 
