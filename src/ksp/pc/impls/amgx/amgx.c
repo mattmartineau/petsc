@@ -2,29 +2,29 @@
   This file implements a PC interface to the AMGx CUDA GPU solver library
 */
 #include <petsc/private/pcimpl.h> /*I "petscpc.h" I*/
-
-#include "cuda_runtime.h"
-
-// AmgX
 #include <amgx_c.h>
+#include "cuda_runtime.h"
 
 #define AMGXDEBUG
 
 typedef struct _PC_AMGX
 {
     AMGX_solver_handle solver;
+    AMGX_config_handle cfg;
+    AMGX_resources_handle rsrc;
+
     AMGX_matrix_handle A;
     AMGX_vector_handle P;
     AMGX_vector_handle RHS;
-    AMGX_config_handle cfg;
+
     MPI_Comm comm;
-    AMGX_resources_handle rsrc;
+
     void *lib_handle;
     char filename[PETSC_MAX_PATH_LEN];
 
     // Cached state for re-setup
-    int nnz;
-    int nLocalRows;
+    PetscInt nnz;
+    PetscInt nLocalRows;
     Mat localA;
     PetscScalar *values;
 
@@ -55,21 +55,24 @@ static PetscErrorCode PCDestroy_AMGX(PC pc)
 #endif
 
     PC_AMGX *amgx = (PC_AMGX *)pc->data;
-    cudaError_t err = cudaSuccess;
 
     PetscFunctionBegin;
 
     // XXX I am not sure it is a good idea to automatically call reset here
     // as it seems to be called internally by PETSc on destroy?
-    //ierr = PCReset(pc);
-    //CHKERRQ(ierr);
+    // ierr = PCReset(pc);
+    // CHKERRQ(ierr);
 
     /* decrease the number of instances, only the last instance need to destroy resource and finalizing AmgX */
     if (s_count == 1)
-    { /* can put this in a PCAMGXInitializePackage method */
+    {
+        /* can put this in a PCAMGXInitializePackage method */
         if (!amgx->rsrc)
+        {
             SETERRQ(PETSC_COMM_SELF, PETSC_ERR_PLIB, "s_rsrc == NULL");
-        err = AMGX_resources_destroy(amgx->rsrc);
+        }
+
+        cudaError_t err = AMGX_resources_destroy(amgx->rsrc);
         if (err != cudaSuccess)
             SETERRQ1(PETSC_COMM_SELF, PETSC_ERR_PLIB, "error: %s", cudaGetErrorString(err));
         /* destroy config (need to use AMGX_SAFE_CALL after this point) */
@@ -154,27 +157,23 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
         MPI_Comm_size(amgx->comm, &nranks);
         MPI_Comm_rank(amgx->comm, &rank);
 
-        PetscInt nGlobalRows;
-        PetscErrorCode ierr = MatGetSize(Pmat, &nGlobalRows, NULL);
-        CHKERRQ(ierr);
-
-        // XXX This isn't a requirement on AmgX, rather this integration doesn't yet handle 64bit indices correctly
-        if (nGlobalRows >= 2147483648)
-        {
-            SETERRQ1(PETSC_COMM_SELF, PETSC_ERR_PLIB, "AMGx only supports 32 bit ints. N = %D", nGlobalRows);
-        }
-
-        ierr = MatGetLocalSize(Pmat, &amgx->nLocalRows, NULL);
+        PetscErrorCode ierr = MatGetLocalSize(Pmat, &amgx->nLocalRows, NULL);
         CHKERRQ(ierr);
 
         PetscInt bs;
         ierr = MatGetBlockSize(Pmat, &bs);
         CHKERRQ(ierr);
 
-        AMGX_distribution_handle dist;
+        // XXX This is probably true internally for global rows too, so perhaps
+        // a check for that should be implemented
+        if (amgx->nLocalRows >= 2147483648)
+        {
+            SETERRQ1(PETSC_COMM_SELF, PETSC_ERR_PLIB,
+                "AmgX restricted to int local rows but "
+                "nLocalRows = %D > max<int>", amgx->nLocalRows);
+        }
 
-        /* to calculate the partition offsets and pass those into the API call instead of creating a full partition vector. */
-        PetscInt *partitionOffsets;
+        AMGX_distribution_handle dist;
 
         /* get raw matrix data */
         const PetscInt *colIndices;
@@ -224,6 +223,15 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
             amgx->nnz = rowOffsets[amgx->nLocalRows];
         }
 
+        if (amgx->nnz >= 2147483648)
+        {
+            SETERRQ1(PETSC_COMM_SELF, PETSC_ERR_PLIB,
+                "AmgX restricted to int nnz but "
+                "nnz = %D > max<int>", amgx->nnz);
+        }
+
+        /* to calculate the partition offsets and pass those into the API call instead of creating a full partition vector. */
+        PetscInt *partitionOffsets;
         ierr = PetscMalloc1(nranks + 1, &partitionOffsets);
         CHKERRQ(ierr);
 
@@ -248,7 +256,7 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
         CHKERRQ(ierr);
 
         AMGX_matrix_upload_distributed(
-            amgx->A, nGlobal, amgx->nLocalRows, amgx->nnz, bs, bs,
+            amgx->A, nGlobal, (int)amgx->nLocalRows, amgx->nnz, bs, bs,
             rowOffsets, colIndices, amgx->values, NULL, dist);
         AMGX_distribution_destroy(dist);
 
@@ -287,17 +295,18 @@ static PetscErrorCode PCApply_AMGX(PC pc, Vec b, Vec x)
 #endif
 
     PC_AMGX *amgx = (PC_AMGX *)pc->data;
-    PetscScalar *unks;
-    const PetscScalar *rhs;
-    PetscInt n;
-    AMGX_SOLVE_STATUS status;
 
     PetscFunctionBegin;
 
+    PetscInt n;
     PetscErrorCode ierr = VecGetLocalSize(x, &n);
     CHKERRQ(ierr);
+
+    PetscScalar *unks;
     ierr = VecGetArray(x, &unks);
     CHKERRQ(ierr);
+
+    const PetscScalar *rhs;
     ierr = VecGetArrayRead(b, &rhs);
     CHKERRQ(ierr);
 
@@ -308,6 +317,8 @@ static PetscErrorCode PCApply_AMGX(PC pc, Vec b, Vec x)
     CHKERRQ(ierr);
 
     AMGX_solver_solve(amgx->solver, amgx->RHS, amgx->P);
+
+    AMGX_SOLVE_STATUS status;
     AMGX_solver_get_status(amgx->solver, &status);
 
     if (status == AMGX_SOLVE_FAILED)
@@ -335,16 +346,18 @@ PetscErrorCode PCSetFromOptions_AMGX(PetscOptionItems *PetscOptionsObject, PC pc
 #endif
 
     PC_AMGX *amgx = (PC_AMGX *)pc->data;
-    PetscErrorCode ierr;
-    PetscBool exists;
 
     PetscFunctionBegin;
-    ierr = PetscOptionsHead(PetscOptionsObject, "AMGX options");
+    PetscErrorCode ierr = PetscOptionsHead(PetscOptionsObject, "AMGX options");
     CHKERRQ(ierr);
+
     ierr = PetscOptionsString("-pc_amgx_json", "AMGX parameter file (json)", "amgx.c", amgx->filename, amgx->filename, PETSC_MAX_PATH_LEN, NULL);
     CHKERRQ(ierr);
+
     ierr = PetscStrreplace(PetscObjectComm((PetscObject)pc), amgx->filename, amgx->filename, PETSC_MAX_PATH_LEN);
     CHKERRQ(ierr);
+
+    PetscBool exists;
     ierr = PetscTestFile(amgx->filename, 'r', &exists);
     CHKERRQ(ierr);
 
@@ -356,8 +369,10 @@ PetscErrorCode PCSetFromOptions_AMGX(PetscOptionItems *PetscOptionsObject, PC pc
         char str[PETSC_MAX_PATH_LEN];
         ierr = PetscSNPrintf(str, PETSC_MAX_PATH_LEN - 1, "${PETSC_DIR}/share/petsc/amgx/%s", amgx->filename);
         CHKERRQ(ierr);
+
         ierr = PetscStrreplace(PetscObjectComm((PetscObject)pc), str, amgx->filename, PETSC_MAX_PATH_LEN);
         CHKERRQ(ierr);
+
         ierr = PetscTestFile(amgx->filename, 'r', &exists);
         CHKERRQ(ierr);
 
@@ -373,6 +388,7 @@ PetscErrorCode PCSetFromOptions_AMGX(PetscOptionItems *PetscOptionsObject, PC pc
 
     ierr = PetscOptionsTail();
     CHKERRQ(ierr);
+
     PetscFunctionReturn(0);
 }
 
