@@ -18,6 +18,9 @@ typedef struct _PC_AMGX
     AMGX_vector_handle RHS;
 
     MPI_Comm comm;
+    int rank;
+    int nranks;
+    int devID;
 
     void *lib_handle;
     char filename[PETSC_MAX_PATH_LEN];
@@ -30,6 +33,21 @@ typedef struct _PC_AMGX
 
 } PC_AMGX;
 static PetscInt s_count = 0;
+
+/** \brief A macro to check the returned CUDA error code.
+ *
+ * \param call [in] Function call to CUDA API.
+ */
+#define CHECK(call)                                                         \
+{                                                                           \
+    const cudaError_t error = call;                                         \
+    if (error != cudaSuccess)                                               \
+    {                                                                       \
+        SETERRQ4(PETSC_COMM_WORLD, PETSC_ERR_SIG,                           \
+            "Error: %s:%d, code:%d, reason: %s\n",                          \
+            __FILE__, __LINE__, error, cudaGetErrorString(error));          \
+    }                                                                       \
+}
 
 /* ----------------------------------------------------------------------------- */
 PetscErrorCode PCReset_AMGX(PC pc)
@@ -72,9 +90,7 @@ static PetscErrorCode PCDestroy_AMGX(PC pc)
             SETERRQ(PETSC_COMM_SELF, PETSC_ERR_PLIB, "s_rsrc == NULL");
         }
 
-        cudaError_t err = AMGX_resources_destroy(amgx->rsrc);
-        if (err != cudaSuccess)
-            SETERRQ1(PETSC_COMM_SELF, PETSC_ERR_PLIB, "error: %s", cudaGetErrorString(err));
+        CHECK(AMGX_resources_destroy(amgx->rsrc));
         /* destroy config (need to use AMGX_SAFE_CALL after this point) */
         AMGX_SAFE_CALL(AMGX_config_destroy(amgx->cfg));
         AMGX_SAFE_CALL(AMGX_finalize_plugins());
@@ -119,6 +135,7 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
 
     if (!pc->setupcalled)
     {
+        // Read configuration file and set exception handling
 #ifdef AMGXDEBUG
         printMemory();
 #endif
@@ -128,34 +145,12 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
         /* switch on internal error handling (no need to use AMGX_SAFE_CALL after this point) */
         AMGX_SAFE_CALL(AMGX_config_add_parameters(&amgx->cfg, "exception_handling=1"));
 
-        // XXX Unless I missed something outside of this file, must change for multi GPU I would expect
-        int devID, devCount;
-
-        cudaError_t err = cudaGetDevice(&devID);
-        if (err != cudaSuccess)
-        {
-            SETERRQ1(PETSC_COMM_SELF, PETSC_ERR_PLIB, "error in cudaGetDevice %s", cudaGetErrorString(err));
-        }
-
-        err = cudaGetDeviceCount(&devCount);
-        if (err != cudaSuccess)
-        {
-            SETERRQ1(PETSC_COMM_SELF, PETSC_ERR_PLIB, "error in cudaGetDeviceCount %s", cudaGetErrorString(err));
-        }
-
-        /* create an AmgX resource object, only the first instance is in charge */
-
-        err = AMGX_resources_create(&amgx->rsrc, amgx->cfg, &amgx->comm, 1, &devID);
-        err = AMGX_matrix_create(&amgx->A, amgx->rsrc, AMGX_mode_dDDI);
-        err = AMGX_vector_create(&amgx->P, amgx->rsrc, AMGX_mode_dDDI);
-        err = AMGX_vector_create(&amgx->RHS, amgx->rsrc, AMGX_mode_dDDI);
-        err = AMGX_solver_create(&amgx->solver, amgx->rsrc, AMGX_mode_dDDI, amgx->cfg);
-
-        /* upload matrix */
-        int nranks;
-        int rank;
-        MPI_Comm_size(amgx->comm, &nranks);
-        MPI_Comm_rank(amgx->comm, &rank);
+        // Initialise resources and matrices
+        CHECK(AMGX_resources_create(&amgx->rsrc, amgx->cfg, &amgx->comm, 1, &amgx->devID));
+        CHECK(AMGX_matrix_create(&amgx->A, amgx->rsrc, AMGX_mode_dDDI));
+        CHECK(AMGX_vector_create(&amgx->P, amgx->rsrc, AMGX_mode_dDDI));
+        CHECK(AMGX_vector_create(&amgx->RHS, amgx->rsrc, AMGX_mode_dDDI));
+        CHECK(AMGX_solver_create(&amgx->solver, amgx->rsrc, AMGX_mode_dDDI, amgx->cfg));
 
         PetscErrorCode ierr = MatGetLocalSize(Pmat, &amgx->nLocalRows, NULL);
         CHKERRQ(ierr);
@@ -173,9 +168,6 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
                 "nLocalRows = %D > max<int>", amgx->nLocalRows);
         }
 
-        AMGX_distribution_handle dist;
-
-        /* get raw matrix data */
         const PetscInt *colIndices;
 
         // BUG If PetscInt is 64-bit and int is 32-bit this will lead to a
@@ -189,7 +181,7 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
 
         // At the present time, an AmgX matrix is a sequential matrix
         // Non-sequential/MPI matrices must be adapted to extract the local matrix
-        if (isAmgXMatrix || nranks == 1)
+        if (isAmgXMatrix || amgx->nranks == 1)
         {
             amgx->localA = Pmat;
         }
@@ -211,15 +203,35 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
         }
         if (rawN != amgx->nLocalRows)
         {
-            SETERRQ2(amgx->comm, PETSC_ERR_PLIB, "rawN != nLocalRows %D %D\n", rawN, amgx->nLocalRows);
+            SETERRQ2(amgx->comm, PETSC_ERR_PLIB,
+                     "MatGetRowIJ disagrees with MatGetLocalSize "
+                     "rawN != nLocalRows %D %D\n", rawN, amgx->nLocalRows);
         }
 
         ierr = MatSeqAIJGetArray(amgx->localA, &amgx->values);
         CHKERRQ(ierr);
 
+        struct cudaPointerAttributes attr;
+#if (CUDART_VERSION >= 11000)
+        if (cudaPointerGetAttributes(&attr, amgx->values) == cudaSuccess)
+        {
+            if (attr.type == cudaMemoryTypeUnregistered)
+            {
+                CHECK(cudaHostRegister(amgx->values, amgx->nnz * sizeof(PetscScalar), cudaHostRegisterDefault));
+            }
+        }
+#else
+        if (cudaPointerGetAttributes(&attr, amgx->values) == cudaErrorInvalidValue)
+        {
+            // Need to flush cudaErrorInvalidValue
+            cudaGetLastError();
+            CHECK(cudaHostRegister(amgx->values, amgx->nnz * sizeof(PetscScalar), cudaHostRegisterDefault));
+        }
+#endif
+
         if (isAmgXMatrix)
         {
-            cudaMemcpy(&amgx->nnz, &rowOffsets[amgx->nLocalRows], sizeof(PetscInt), cudaMemcpyDefault);
+            CHECK(cudaMemcpy(&amgx->nnz, &rowOffsets[amgx->nLocalRows], sizeof(PetscInt), cudaMemcpyDefault));
         }
         else
         {
@@ -233,41 +245,54 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
                 "nnz = %D > max<int>", amgx->nnz);
         }
 
-        /* to calculate the partition offsets and pass those into the API call instead of creating a full partition vector. */
+        // Allocate space for some partition offsets
         PetscInt *partitionOffsets;
-        ierr = PetscMalloc1(nranks + 1, &partitionOffsets);
+        ierr = PetscMalloc1(amgx->nranks + 1, &partitionOffsets);
         CHKERRQ(ierr);
 
+        // Fetch the number of local rows per rank
         partitionOffsets[0] = 0; /* could use PetscLayoutGetRanges */
-
         ierr = MPI_Allgather(&amgx->nLocalRows, sizeof(PetscInt), MPI_BYTE, &partitionOffsets[1], sizeof(PetscInt), MPI_BYTE, amgx->comm);
         CHKERRQ(ierr);
 
-        for (int i = 1; i <= nranks; i++)
+        // Prefix sum to get offsets
+        for (int i = 1; i <= amgx->nranks; i++)
         {
             partitionOffsets[i] += partitionOffsets[i - 1];
         }
 
-        int nGlobal = partitionOffsets[nranks]; // last element always has global number of rows
+        // Fetch the number of global rows
+        int nGlobalRows = partitionOffsets[amgx->nranks];
 
-        int nGlobalRows = partitionOffsets[nranks];
+        // Determine if PETSc compiled in 64-bit mode
         int petsc32 = (sizeof(PetscInt) == 4);
+
+        if(!petsc32)
+        {
+            SETERRQ(PETSC_COMM_SELF, PETSC_ERR_PLIB,
+                "PETSc compiled with 64-bit integers. "
+                "AmgX backend does not currently support\n");
+        }
+
+        // Create the distribution and upload the matrix data
+        AMGX_distribution_handle dist;
         AMGX_distribution_create(&dist, amgx->cfg);
         AMGX_distribution_set_32bit_colindices(dist, petsc32);
         AMGX_distribution_set_partition_data(dist, AMGX_DIST_PARTITION_OFFSETS, partitionOffsets);
-        ierr = PetscFree(partitionOffsets);
-        CHKERRQ(ierr);
 
         AMGX_matrix_upload_distributed(
             amgx->A, nGlobalRows, (int)amgx->nLocalRows, (int)amgx->nnz, bs, bs,
             rowOffsets, colIndices, amgx->values, NULL, dist);
+
+        // Must happen AFTER AMGX_matrix_upload_distributed
+        ierr = PetscFree(partitionOffsets);
+        CHKERRQ(ierr);
         AMGX_distribution_destroy(dist);
 
         ierr = MPI_Barrier(amgx->comm);
         CHKERRQ(ierr);
 
         AMGX_solver_setup(amgx->solver, amgx->A);
-
         AMGX_vector_bind(amgx->P, amgx->A);
         AMGX_vector_bind(amgx->RHS, amgx->A);
 
@@ -453,6 +478,7 @@ PETSC_EXTERN PetscErrorCode PCCreate_AMGX(PC pc)
     pc->ops->reset = PCReset_AMGX;
     pc->data = (void *)amgx;
     s_count += 1;
+
     if (s_count == 1)
     {   /* can put this in a PCAMGXFinalizePackage method */
         /* load the library (if it was dynamically loaded) */
@@ -486,9 +512,23 @@ PETSC_EXTERN PetscErrorCode PCCreate_AMGX(PC pc)
         ierr = MPI_Comm_dup(comm_in, &amgx->comm);
         CHKERRQ(ierr);
     }
+
+    MPI_Comm_size(amgx->comm, &amgx->nranks);
+    MPI_Comm_rank(amgx->comm, &amgx->rank);
+
+    {
+        // XXX This should be handled by the calling application?
+        // Assumes equal device count per node
+        int dcount;
+        cudaGetDeviceCount(&dcount);
+        amgx->devID = amgx->rank % dcount;
+        cudaSetDevice(amgx->devID);
+    }
+
     /* set a default path/filename, use -pc_amgx_json to set at runtime */
     ierr = PetscSNPrintf(amgx->filename, PETSC_MAX_PATH_LEN - 1, "${PETSC_DIR}/share/petsc/amgx/AMG_CLASSICAL_AGGRESSIVE_L1_RT6.json");
     CHKERRQ(ierr);
+
     ierr = PetscStrreplace(PetscObjectComm((PetscObject)pc), amgx->filename, amgx->filename, PETSC_MAX_PATH_LEN);
     CHKERRQ(ierr);
 
