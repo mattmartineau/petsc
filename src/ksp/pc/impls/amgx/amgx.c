@@ -534,3 +534,4 @@ PETSC_EXTERN PetscErrorCode PCCreate_AMGX(PC pc)
 
     PetscFunctionReturn(0);
 }
+
