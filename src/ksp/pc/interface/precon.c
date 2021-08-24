@@ -1172,9 +1172,11 @@ PetscErrorCode  PCSetOperators(PC pc,Mat Amat,Mat Pmat)
   if (Amat) PetscValidHeaderSpecific(Amat,MAT_CLASSID,2);
   if (Pmat) PetscValidHeaderSpecific(Pmat,MAT_CLASSID,3);
 
-  // XXX Need to disable while using the AmgX matrix
-  //if (Amat) PetscCheckSameComm(pc,1,Amat,2);
-  //if (Pmat) PetscCheckSameComm(pc,1,Pmat,3);
+#ifndef ENABLE_AMGX_CSR_UPLOAD
+  // XXX When AmgX CSR upload was enabled this check would fail. Long term needs fixing.
+  if (Amat) PetscCheckSameComm(pc,1,Amat,2);
+  if (Pmat) PetscCheckSameComm(pc,1,Pmat,3);
+#endif
 
   if (pc->setupcalled && pc->mat && pc->pmat && Amat && Pmat) {
     ierr = MatGetLocalSize(Amat,&m1,&n1);CHKERRQ(ierr);

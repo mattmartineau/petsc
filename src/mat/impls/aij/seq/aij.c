@@ -4928,8 +4928,17 @@ PetscErrorCode  MatCreateSeqAIJWithArrays(MPI_Comm comm,PetscInt m,PetscInt n,Pe
   PetscFunctionReturn(0);
 }
 
-
-PetscErrorCode MatSetAMGXFromCSR(MPI_Comm comm,PetscInt m,PetscInt n,PetscInt rowOffsets[],PetscInt colIndices[],PetscScalar values[],Mat *mat)
+#ifdef ENABLE_AMGX_CSR_UPLOAD
+// Hacky custom routine for AmgX that allows copying CSR data up directly,
+// which was important for OpenFOAM where we want to transform prior to the copy
+PetscErrorCode MatSetAMGXFromCSR(
+    MPI_Comm comm,
+    PetscInt m,
+    PetscInt n,
+    PetscInt rowOffsets[],
+    PetscInt colIndices[],
+    PetscScalar values[],
+    Mat *mat)
 {
   PetscFunctionBegin;
 
@@ -4956,6 +4965,7 @@ PetscErrorCode MatSetAMGXFromCSR(MPI_Comm comm,PetscInt m,PetscInt n,PetscInt ro
 
   PetscFunctionReturn(0);
 }
+#endif
 
 /*@C
      MatCreateSeqAIJFromTriple - Creates an sequential AIJ matrix using matrix elements (in COO format)
