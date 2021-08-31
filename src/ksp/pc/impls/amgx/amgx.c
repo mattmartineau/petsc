@@ -1,6 +1,5 @@
 // Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
-// Copyright (c) 1991-2021, UChicago Argonne, LLC and the PETSc Development Team
-// All rights reserved.
+// Copyright (c) 1991-2021, UChicago Argonne, LLC and the PETSc Development Team. All rights reserved.
 // SPDX-License-Identifier: BSD-2-Clause
 
 /*
