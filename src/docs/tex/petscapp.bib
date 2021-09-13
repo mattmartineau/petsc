@@ -10,30 +10,41 @@
   publisher={SIAM}
 }
 @techreport{petscforgpuexascale,
-  title={Toward Performance-Portable PETSc for GPU-based Exascale Systems},
-  author={Mark F. Adams and Satish Balay and Jed Brown and Alp Dener and Matthew Knepley and Scott E. Kruger and Hannah~Morgan and Todd Munson and Karl Rupp and Barry F. Smith and Stefano Zampini and Hong Zhang and Junchao Zhang}},
-  year={2020},
-  url={https://arxiv.org/abs/2011.00715},
-  institution={Argonne National Laboratory}
+  title  = {Toward Performance-Portable PETSc for GPU-based Exascale Systems},
+  author = {Richard Tran Mills and Mark F. Adams and Satish Balay and Jed Brown and Alp Dener and Matthew Knepley and Scott E. Kruger and Hannah~Morgan and Todd Munson and Karl Rupp and Barry F. Smith and Stefano Zampini and Hong Zhang and Junchao Zhang},
+  institution = {Argonne National Laboratory},
+  number = {ANL/MCS-P9401-1020},
+  note   = {\url{https://arxiv.org/abs/2011.00715}},
+  year   = {2020}
+}
+@article{MillsAdamsBalayBrownDenerKnepleyKrugerMorganMunsonRuppSmithZampiniZhangZhang2021,
+  title         = {Toward Performance-Portable PETSc for GPU-based Exascale Systems},
+  author        = {Richard Tran Mills and Mark F. Adams and Satish Balay and Jed Brown and Alp Dener and Matthew Knepley and Scott E. Kruger and Hannah~Morgan and Todd Munson and Karl Rupp and Barry F. Smith and Stefano Zampini and Hong Zhang and Junchao Zhang},
+  journal       = {Parallel Computing},
+  note          = {accepted},
+  archivePrefix = {arxiv},
+  eprint        = {2011.00715},
+  primaryClass  = {cs},
+  year          = {2021}
 }
 @article{Rupp:2016:PIS:2988256.2907944,
- author = {Rupp, Karl and Weinbub, Josef and J\"{u}ngel, Ansgar and Grasser, Tibor},
- title = {Pipelined Iterative Solvers with Kernel Fusion for Graphics Processing Units},
+ author  = {Karl Rupp and Josef Weinbub and Ansgar J\"{u}ngel and Tibor Grasser},
+ title   = {Pipelined Iterative Solvers with Kernel Fusion for Graphics Processing Units},
  journal = {ACM Trans. Math. Softw.},
  issue_date = {September 2016},
- volume = {43},
- number = {2},
- month = aug,
- year = {2016},
- issn = {0098-3500},
- pages = {11:1--11:27},
+ volume  = {43},
+ number  = {2},
+ month   = {Aug},
+ year    = {2016},
+ issn    = {0098-3500},
+ pages   = {11:1--11:27},
  articleno = {11},
- numpages = {27},
- doi = {10.1145/2907944},
- acmid = {2907944},
+ numpages  = {27},
+ doi       = {10.1145/2907944},
+ acmid     = {2907944},
  publisher = {ACM},
- address = {New York, NY, USA},
- keywords = {BiCGStab method, CUDA, GMRES method, GPU, Iterative solvers, OpenCL, conjugate gradient method},
+ address   = {New York, NY, USA},
+ keywords  = {BiCGStab method, CUDA, GMRES method, GPU, Iterative solvers, OpenCL, conjugate gradient method},
 }
 @article{dalcin2011parallel,
   title={Parallel distributed computing using python},
@@ -1070,6 +1081,18 @@ year = 2003,
 % LiteralHTML:
 % LiteralHTML:  <a name="fusion"><H3><center>Fusion</center></H3>
 % LiteralHTML:
+@article{AdamsBrennanKnepleyWang2021,
+  title     = {Exascale {Landau} collision operator in the {CUDA} programming model applied to thermal quench plasmas},
+  author    = {Mark. F. Adams and Dylan P. Brennan and Matthew G. Knepley and Peng Wang},
+  booktitle = {ACM/IEEE SC 2021 Conference (SC'21)},
+  note      = {Submitted},
+  year      = {2021}
+}
+@misc{AdamsKnepleyBrennan2021,
+  title  = {Runaway Electron Generation with High-Performance, Structure Preserving Discretization of Fokker-Plank-Landau},
+  author = {Mark F. Adams and Matthew G. Knepley and Dylan Brennan},
+  year   = {2021}
+}
 @article{AdamsHirvijokiKnepleyBrownIsaacMills2017,
   title    = {{Landau} Collision Integral Solver with Adaptive Mesh Refinement on Emerging Architectures},
   author   = {Mark F. Adams and Eero Hirvijoki and Matthew G. Knepley and Jed Brown and Tobin Isaac and Richard Mills},
@@ -1083,16 +1106,23 @@ year = 2003,
 }
 
 @article{Hirvijoki2017,
-author = {E. Hirvijoki and M. F. Adams},
-title = {Conservative discretization of the {Landau} collision integral},
-journal = {Physics of Plasmas},
-volume = {24},
-number = {3},
-pages = {032121},
-year = {2017},
-doi = {10.1063/1.4979122},
+  author  = {Eero Hirvijoki and Mark F. Adams},
+  title   = {Conservative discretization of the {Landau} collision integral},
+  journal = {Physics of Plasmas},
+  volume  = {24},
+  number  = {3},
+  pages   = {032121},
+  doi     = {10.1063/1.4979122},
+  year    = {2017},
 }
-
+@article{MollenAdamsKnepleyHagerChang2021,
+  title         = {Implementation of higher-order velocity mapping between marker particles and grid in the particle-in-cell code XGC},
+  author        = {Albert Moll\'en and Mark F. Adams and Matthew G. Knepley and Robert Hager and C. S. Chang},
+  journal       = {Journal of Plasma Physics},
+  eprint        = {2012.11764},
+  note          = {accepted},
+  year          = {2021}
+}
 @article{lsmh2014,
   author  = "M. Landreman and H. M. Smith and A. Mollen and P. Helander",
   title   = "Comparison of particle trajectories and collision operators for collisional transport in nonaxisymmetric plasmas",
@@ -1335,9 +1365,23 @@ year    = 2014
   title   = {Fully Parallel Mesh {I/O} using {PETSc} {DMPlex} with an Application to Waveform Modeling},
   author  = {Vaclav Hapla and Matthew G. Knepley and Michael Afanasiev and Christian Boehm and Martin van Driel and Lion Krischer and Andreas Fichtner},
   journal = {SIAM Journal on Scientific Computing},
+  volume  = {43},
+  number  = {2},
+  pages   = {C127--C153},
   eprint  = {http://arxiv.org/abs/2004.08729},
-  note    = {accepted},
-  year    = {2020}
+  doi     = {10.1137/20M1332748},
+  year    = {2021}
+}
+@article{Parsani2021,
+  title   = {High-order accurate entropy-stable discontinuous collocated Galerkin methods with the summation-by-parts property for compressible CFD frameworks: Scalable SSDC algorithms and flow solver},
+  author  = {Matteo Parsani and Radouan Boukharfane and Irving Reyna Nolasco and David C. {Del Rey Fernández} and Stefano Zampini and Bilel Hadri and Lisandro Dalcin},
+  journal = {Journal of Computational Physics},
+  volume  = {424},
+  pages   = {109844},
+  issn    = {0021-9991},
+  doi     = {https://doi.org/10.1016/j.jcp.2020.109844},
+  url     = {http://www.sciencedirect.com/science/article/pii/S0021999120306185},
+  year    = {2021}
 }
 @article {YoungOppenheimDimant2017,
   author  = {Matthew A. Young and Meers M. Oppenheim and Yakov S. Dimant},
@@ -1422,11 +1466,19 @@ author = "D.A. May and J. Brown and L. {Le Pourhiet}",
 }
 @article{FarrellKnepleyWechsungMitchell2020,
   title   = {{PCPATCH}: software for the topological construction of multigrid relaxation methods},
-  author  = {Patrick E Farrell and Matthew G Knepley and Florian Wechsung and Lawrence Mitchell},
+  author  = {Patrick E Farrell and Matthew G Knepley and Lawrence Mitchell and Florian Wechsung},
   journal = {ACM Transaction on Mathematical Software},
   eprint  = {http://arxiv.org/abs/1912.08516},
-  note    = {In review},
-  year    = {2020}
+  volume  = {47},
+  number  = {3},
+  pages   = {1--22},
+  year    = {2021}
+}
+@article{FarrellMitchellScottWechsung2020,
+  title={Robust multigrid methods for nearly incompressible elasticity using macro elements},
+  author={Patrick E Farrell and Lawrence Mitchell and L Ridgway Scott and Florian Wechsung},
+  journal={arXiv preprint arXiv:2002.02051},
+  year={2020}
 }
 @article{RathgeberHamMitchellLangeLuporiniMcRaeBerceaMarkallKelly2016,
   title   = {Firedrake: automating the finite element method by composing abstractions},
@@ -2227,6 +2279,16 @@ keywords = {Stokes flow, Krylov, Preconditioner, Schur complement, BFBt}
   booktitle = "Fourth Annual Conference on Carbon Capture and Sequestration DOE/NETL",
  Lab = {LANL}
 }
+@article{HammondLichtnerMills2014,
+  title   = {Evaluating the Performance of Parallel Subsurface Simulators: An Illustrative Example with {PFLOTRAN}},
+  author  = {Glenn E. Hammond and Peter C. Lichtner and Richard Tran Mills},
+  journal = {Water Resources Research},
+  volume  = {50},
+  number  = {1},
+  pages   = {208--228},
+  doi     = {10.1002/2012WR013483},
+  year    = {2014}
+}
 @Article{smw2003,
   author =	 {R.  Scheichl and R.  Masson and J.  Wendebourg},
   title =	 {Decoupling and Block Preconditioning for Sedimentary Basin Simulations},
@@ -2813,6 +2875,33 @@ year    = 2005
 % LiteralHTML:
 % LiteralHTML:  <a name="cfd"><H3><center>CFD</center></H3>
 % LiteralHTML:
+@article{FarrellMitchellScottWechsung2021,
+  title   = {A {Reynolds-robust} preconditioner for the {Scott-Vogelius} discretization of the stationary incompressible {Navier-Stokes} equations},
+  author  = {Patrick E Farrell and Lawrence Mitchell and L Ridgway Scott and Florian Wechsung},
+  journal = {The SMAI journal of computational mathematics},
+  volume  = {7},
+  pages   = {75--96},
+  year    = {2021}
+}
+@article{AdlerBensonCyrFarrellMacLachlanTuminaro2021,
+  title   = {Monolithic Multigrid Methods for Magnetohydrodynamics},
+  author  = {James H Adler and Thomas R Benson and Eric C Cyr and Patrick E Farrell and Scott P MacLachlan and Ray S Tuminaro},
+  journal = {SIAM Journal on Scientific Computing},
+  number  = {0},
+  pages   = {S70--S91},
+  year    = {2021}
+}
+@article{FarrellGaticaLamichhaneOyarzuaRuizBaier2021,
+  title   = {Mixed Kirchhoff stress–displacement–pressure formulations for incompressible hyperelasticity},
+  author  = {Patrick E. Farrell and Luis F. Gatica and Bishnu P. Lamichhane and Ricardo Oyar\'ua and Ricardo Ruiz-Baier},
+  journal = {Computer Methods in Applied Mechanics and Engineering},
+  volume  = {374},
+  pages   = {113562},
+  issn    = {0045-7825},
+  doi     = {https://doi.org/10.1016/j.cma.2020.113562},
+  url     = {https://www.sciencedirect.com/science/article/pii/S0045782520307477},
+  year    = {2021}
+}
 @article{FarrellMitchellWechsung2018,
   title   = {An augmented {Lagrangian} preconditioner for the {3D} stationary incompressible {Navier-Stokes} equations at high {Reynolds} number},
   author  = {Patrick E Farrell and Lawrence Mitchell and Florian Wechsung},
@@ -5439,8 +5528,8 @@ url    = "http://lyre.mit.edu/\~{ }powell/rheoplast.html"
             and Richard Tran Mills and Todd Munson and Karl Rupp and Patrick Sanan
             and Barry~F. Smith and Stefano Zampini and Hong Zhang and Hong Zhang},
   title =  {{PETS}c {W}eb page},
-  url =    {https://www.mcs.anl.gov/petsc},
-  howpublished = {\url{https://www.mcs.anl.gov/petsc}},
+  url =    {https://petsc.org/},
+  howpublished = {\url{https://petsc.org/}},
   year = {2019}
 }
 @Unpublished{petsc-debian-package,
@@ -5511,6 +5600,21 @@ url    = "http://lyre.mit.edu/\~{ }powell/rheoplast.html"
 % LiteralHTML:
 % LiteralHTML:  <a name="software"><H3><center>Software Engineering</center></H3>
 % LiteralHTML:
+@article{PETScCommunity2021,
+  title  = {The Community is the Infrastructure: A Short Discussion of the {PETSc} User Community},
+  author = {Mark Adams and Satish Balay and Jed Brown and Victor Eijkhout and Jacob Faibussowitsch and Fande Kong and Matthew Knepley and Scott Kruger and Oana Marin and Richard Mills and Todd Munson and Patrick Sanan and Barry Smith and Hong Zhang and Hong Zhang and Junchao Zhang},
+  url    = {https://figshare.com/articles/conference_contribution/The_Community_is_the_Infrastructure_A_Short_Discussion_of_the_PETSc_User_Community/16523043},
+  doi    = "10.6084/m9.figshare.16523043.v1",
+  month  = {8},
+  year   = {2021}
+}
+@article{ZhangBrownBalayFaibussowitschKnepleyMarinMillsMunsonSmithZampini2021,
+  title   = {The PetscSF Scalable Communication Layer},
+  author  = {Junchao Zhang and Jed Brown and Satish Balay and Jacob Faibussowitsch and Matthew G. Knepley and Oana Marin and Richard Tran Mills and Todd Munson and Barry F. Smith and Stefano Zampini},
+  journal = {IEEE Transactions on Parallel and Distributed Systems},
+  note    = {Accepted},
+  year    = {2021}
+}
 @article{BrownKnepleySmith14,
   author  = {Jed Brown and Matthew G. Knepley and Barry Smith},
   title   = {Run-time extensibility and librarization of simulation software},
@@ -5812,8 +5916,8 @@ url    = "http://lyre.mit.edu/\~{ }powell/rheoplast.html"
             and Barry~F. Smith and Stefano Zampini and Hong Zhang and Hong Zhang},
   title  = {{PETS}c Users Manual},
   institution = {Argonne National Laboratory},
-  year   = 2020,
-  number = {ANL-95/11 - Revision 3.14}
+  year   = 2021,
+  number = {ANL-95/11 - Revision 3.15}
 }
 %  url    = {http://www.mcs.anl.gov/petsc}
 @TechReport{petsc-developers,
@@ -6104,6 +6208,8 @@ url    = "http://lyre.mit.edu/\~{ }powell/rheoplast.html"
   title   = {Understanding performance variability in standard and pipelined parallel {Krylov} solvers},
   author  = {Hannah Morgan and Patrick Sanan and Matthew G. Knepley and Richard Tran Mills},
   journal = {The International Journal of High Performance Computing Applications},
+  volume  = {35},
+  issue   = {1},
   doi     = {10.1177/1094342020966835},
   url     = {https://doi.org/10.1177/1094342020966835},
   eprint  = {https://doi.org/10.1177/1094342020966835},

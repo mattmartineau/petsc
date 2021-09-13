@@ -13,7 +13,8 @@ class Configure(config.package.CMakePackage):
     self.includes         = ['StrumpackSparseSolver.h']
     self.liblist          = [['libstrumpack.a']]
     self.cxx              = 1
-    self.requirescxx11    = 1
+
+    self.minCxxVersion    = 'c++11'
     self.fc               = 1
     self.hastests         = 1
     return
@@ -57,29 +58,10 @@ class Configure(config.package.CMakePackage):
     else:
       args.append('-DTPL_ENABLE_SCOTCH=OFF')
 
-    if self.compilerFlags.debugging:
-      args.append('-DCMAKE_BUILD_TYPE=Debug')
-    else:
-      args.append('-DCMAKE_BUILD_TYPE=Release')
-
     if self.openmp.found:
       args.append('-DSTRUMPACK_USE_OPENMP=ON')
     else:
       args.append('-DSTRUMPACK_USE_OPENMP=OFF')
-
-    self.pushLanguage('C')
-    args.append('-DMPI_C_COMPILER="' + self.getCompiler() + '"')
-    self.popLanguage()
-
-    self.pushLanguage('Cxx')
-    args.append('-DMPI_CXX_COMPILER="' + self.getCompiler() + '"')
-    self.popLanguage()
-
-    self.pushLanguage('FC')
-    args.append('-DMPI_Fortran_COMPILER="' + self.getCompiler() + '"')
-    self.popLanguage()
-
-    args.append('-DCMAKE_INSTALL_NAME_DIR:STRING="'+os.path.join(self.installDir,self.libdir)+'"')
 
     return args
 

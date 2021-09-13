@@ -4,8 +4,7 @@
 
 #include <../src/sys/classes/draw/impls/x/ximpl.h>
 
-PETSC_INTERN PetscErrorCode PetscDrawGetImage_X(PetscDraw,unsigned char[][3],unsigned int*,unsigned int*,unsigned char*[]);
-
+PETSC_INTERN PetscErrorCode PetscDrawGetImage_X(PetscDraw,unsigned char[PETSC_DRAW_MAXCOLOR][3],unsigned int*,unsigned int*,unsigned char*[]);
 
 PETSC_STATIC_INLINE PetscErrorCode PetscArgSortPixVal(const PetscDrawXiPixVal v[PETSC_DRAW_MAXCOLOR],int idx[],int right)
 {
@@ -61,13 +60,13 @@ PetscErrorCode PetscDrawGetImage_X(PetscDraw draw,unsigned char palette[PETSC_DR
   if (out_w)      *out_w      = 0;
   if (out_h)      *out_h      = 0;
   if (out_pixels) *out_pixels = NULL;
-  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)draw),&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)draw),&rank);CHKERRMPI(ierr);
 
   /* make sure the X server processed requests from all processes */
   ierr = PetscDrawCollectiveBegin(draw);CHKERRQ(ierr);
   XSync(Xwin->disp,True);
   ierr = PetscDrawCollectiveEnd(draw);CHKERRQ(ierr);
-  ierr = MPI_Barrier(PetscObjectComm((PetscObject)draw));CHKERRQ(ierr);
+  ierr = MPI_Barrier(PetscObjectComm((PetscObject)draw));CHKERRMPI(ierr);
 
   /* only the first process return image data */
   ierr = PetscDrawCollectiveBegin(draw);CHKERRQ(ierr);

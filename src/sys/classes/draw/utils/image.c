@@ -49,7 +49,6 @@ PETSC_EXTERN PetscErrorCode PetscDrawImageSavePPM(const char filename[],unsigned
 static PetscErrorCode PetscDrawImageSave_PPM(const char filename[],unsigned char palette[][3],unsigned int w,unsigned int h,const unsigned char pixels[])
 { return PetscDrawImageSavePPM(filename,palette,w,h,pixels); }
 
-
 /*
    Code to write images in PNG format
 */
@@ -118,7 +117,6 @@ static PetscErrorCode PetscDrawImageSave_PNG(const char filename[],unsigned char
 { return PetscDrawImageSavePNG(filename,palette,w,h,pixels); }
 
 #endif/*!PETSC_HAVE_LIBPNG*/
-
 
 /*
    Code to write images in GIF format
@@ -341,14 +339,13 @@ PetscErrorCode PetscDrawImageCheckFormat(const char *ext[])
     *ext = PetscDrawImageSaveTable[0].extension;
     PetscFunctionReturn(0);
   }
-  /* check the extension mathes a supported format otherwise */
+  /* check the extension matches a supported format */
   PetscValidCharPointer(*ext,1);
   for (k=0; k<sizeof(PetscDrawImageSaveTable)/sizeof(PetscDrawImageSaveTable[0]); k++) {
     ierr = PetscStrcasecmp(*ext,PetscDrawImageSaveTable[k].extension,&match);CHKERRQ(ierr);
     if (match && PetscDrawImageSaveTable[k].SaveImage) PetscFunctionReturn(0);
   }
-  SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_SUP,"Image extension %s not supported, use .ppm",*ext);
-  PetscFunctionReturn(0);
+  SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_SUP,"Image extension %s not supported, use .ppm or see PetscDrawSetSave() for what ./configure option you may need",*ext);
 }
 
 PetscErrorCode PetscDrawImageSave(const char basename[],const char ext[],unsigned char palette[][3],unsigned int w,unsigned int h,const unsigned char pixels[])
@@ -374,7 +371,6 @@ PetscErrorCode PetscDrawImageSave(const char basename[],const char ext[],unsigne
     }
   }
   SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_SUP,"Image extension %s not supported, use .ppm",ext);
-  PetscFunctionReturn(0);
 }
 
 PetscErrorCode PetscDrawMovieCheckFormat(const char *ext[])
@@ -395,7 +391,7 @@ PetscErrorCode PetscDrawMovieSave(const char basename[],PetscInt count,const cha
   PetscFunctionBegin;
   PetscValidCharPointer(basename,1);
   PetscValidCharPointer(imext,3);
-  if (mvext) PetscValidCharPointer(mvext,4);
+  if (mvext) PetscValidCharPointer(mvext,5);
   if (count < 1) PetscFunctionReturn(0);
 
   ierr = PetscStrcasecmp(imext,".gif",&gifinput);CHKERRQ(ierr);

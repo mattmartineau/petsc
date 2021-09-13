@@ -14,7 +14,6 @@
 !   Processors: n
 !T*/
 
-
 program main
 #include <petsc/finclude/petscksp.h>
       use petscksp
@@ -181,7 +180,6 @@ program main
 
       call PetscObjectTypeCompare(myPc,PCBJACOBI,isbjacobi,ierr)
 
-
       if (isbjacobi) then
 
         ! Call KSPSetUp() to set the block Jacobi data structures (including
@@ -194,7 +192,6 @@ program main
         call PCBJacobiGetSubKSP(myPc,nlocal,first,PETSC_NULL_KSP,ierr)
         allocate(subksp(nlocal))
         call PCBJacobiGetSubKSP(myPc,nlocal,first,subksp,ierr)
-
 
         ! Loop over the local blocks, setting various KSP options for each block
 
@@ -241,7 +238,6 @@ program main
       !               Check solution and clean up
       !-------------------------------------------------------------------
 
-
       !  -----------------------------------------------------------------
       ! Check the error
       !  -----------------------------------------------------------------
@@ -251,7 +247,6 @@ program main
       call VecAXPY(x,myNone,u,ierr)
 
       !call VecView(x,PETSC_VIEWER_STDOUT_WORLD,ierr)
-
 
       call VecNorm(x,NORM_2,norm,ierr); CHKERRA(ierr)
       call KSPGetIterationNumber(ksp,its,ierr); CHKERRA(ierr)
@@ -279,6 +274,6 @@ end program main
 !   test:
 !      suffix: 2
 !      nsize: 2
-!      args: -ksp_view
+!      args: -ksp_view ::ascii_info_detail
 !
 !TEST*/

@@ -370,7 +370,6 @@ PetscErrorCode  PetscBinaryRead(int fd,void *data,PetscInt num,PetscInt *count,P
 
    Because byte-swapping may be done on the values in data it cannot be declared const
 
-
 .seealso: PetscBinaryRead(), PetscBinaryOpen(), PetscBinaryClose(), PetscViewerBinaryGetDescriptor(), PetscBinarySynchronizedWrite(),
           PetscBinarySynchronizedRead(), PetscBinarySynchronizedSeek()
 @*/
@@ -483,7 +482,6 @@ PetscErrorCode  PetscBinaryWrite(int fd,const void *p,PetscInt n,PetscDataType t
 
    Level: advanced
 
-
    Notes:
     Files access with PetscBinaryRead() and PetscBinaryWrite() are ALWAYS written in
    big-endian format. This means the file can be accessed using PetscBinaryOpen() and
@@ -526,7 +524,6 @@ PetscErrorCode  PetscBinaryClose(int fd)
   PetscFunctionReturn(0);
 }
 
-
 /*@C
    PetscBinarySeek - Moves the file pointer on a PETSc binary file.
 
@@ -550,7 +547,6 @@ PetscErrorCode  PetscBinaryClose(int fd)
    they are stored in the machine as 32 or 64, this means the same
    binary file may be read on any machine. Hence you CANNOT use sizeof()
    to determine the offset or location.
-
 
 .seealso: PetscBinaryRead(), PetscBinaryWrite(), PetscBinaryOpen(), PetscBinarySynchronizedWrite(), PetscBinarySynchronizedRead(),
           PetscBinarySynchronizedSeek()
@@ -602,14 +598,13 @@ PetscErrorCode  PetscBinarySeek(int fd,off_t off,PetscBinarySeekType whence,off_
    they are stored in the machine as 32 or 64, this means the same
    binary file may be read on any machine.
 
-
 .seealso: PetscBinaryWrite(), PetscBinaryOpen(), PetscBinaryClose(), PetscBinaryRead(), PetscBinarySynchronizedWrite(),
           PetscBinarySynchronizedSeek()
 @*/
 PetscErrorCode  PetscBinarySynchronizedRead(MPI_Comm comm,int fd,void *data,PetscInt num,PetscInt *count,PetscDataType type)
 {
   PetscErrorCode ierr;
-  PetscMPIInt    rank;
+  PetscMPIInt    rank,size;
   MPI_Datatype   mtype;
   PetscInt       ibuf[2] = {0, 0};
   char           *fname = NULL;
@@ -625,14 +620,19 @@ PetscErrorCode  PetscBinarySynchronizedRead(MPI_Comm comm,int fd,void *data,Pets
     if (!fname) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_MEM,"Cannot allocate space for function name");
   }
 
-  ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(comm,&rank);CHKERRMPI(ierr);
+  ierr = MPI_Comm_size(comm,&size);CHKERRMPI(ierr);
   if (!rank) {
     ibuf[0] = PetscBinaryRead(fd,data,num,count?&ibuf[1]:NULL,type);
   }
-  ierr = MPI_Bcast(ibuf,2,MPIU_INT,0,comm);CHKERRQ(ierr);
+  ierr = MPI_Bcast(ibuf,2,MPIU_INT,0,comm);CHKERRMPI(ierr);
   ierr = (PetscErrorCode)ibuf[0];CHKERRQ(ierr);
-  ierr = PetscDataTypeToMPIDataType(type,&mtype);CHKERRQ(ierr);
-  ierr = MPI_Bcast(data,count?ibuf[1]:num,mtype,0,comm);CHKERRQ(ierr);
+
+  /* skip MPI call on potentially huge amounts of data when running with one process; this allows the amount of data to basically unlimited in that case */
+  if (size > 1) {
+    ierr = PetscDataTypeToMPIDataType(type,&mtype);CHKERRQ(ierr);
+    ierr = MPI_Bcast(data,count?ibuf[1]:num,mtype,0,comm);CHKERRMPI(ierr);
+  }
   if (count) *count = ibuf[1];
 
   if (type == PETSC_FUNCTION) {
@@ -674,7 +674,6 @@ PetscErrorCode  PetscBinarySynchronizedRead(MPI_Comm comm,int fd,void *data,Pets
    WARNING: This is NOT like PetscSynchronizedFPrintf()! This routine ignores calls on all but process 0,
    while PetscSynchronizedFPrintf() has all processes print their strings in order.
 
-
 .seealso: PetscBinaryWrite(), PetscBinaryOpen(), PetscBinaryClose(), PetscBinaryRead(), PetscBinarySynchronizedRead(),
           PetscBinarySynchronizedSeek()
 @*/
@@ -684,7 +683,7 @@ PetscErrorCode  PetscBinarySynchronizedWrite(MPI_Comm comm,int fd,const void *p,
   PetscMPIInt    rank;
 
   PetscFunctionBegin;
-  ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(comm,&rank);CHKERRMPI(ierr);
   if (!rank) {
     ierr = PetscBinaryWrite(fd,p,n,type);CHKERRQ(ierr);
   }
@@ -693,7 +692,6 @@ PetscErrorCode  PetscBinarySynchronizedWrite(MPI_Comm comm,int fd,const void *p,
 
 /*@C
    PetscBinarySynchronizedSeek - Moves the file pointer on a PETSc binary file.
-
 
    Input Parameters:
 +  fd - the file
@@ -714,7 +712,6 @@ PetscErrorCode  PetscBinarySynchronizedWrite(MPI_Comm comm,int fd,const void *p,
    binary file may be read on any machine. Hence you CANNOT use sizeof()
    to determine the offset or location.
 
-
 .seealso: PetscBinaryRead(), PetscBinaryWrite(), PetscBinaryOpen(), PetscBinarySynchronizedWrite(), PetscBinarySynchronizedRead(),
           PetscBinarySynchronizedSeek()
 @*/
@@ -724,7 +721,7 @@ PetscErrorCode  PetscBinarySynchronizedSeek(MPI_Comm comm,int fd,off_t off,Petsc
   PetscMPIInt    rank;
 
   PetscFunctionBegin;
-  ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(comm,&rank);CHKERRMPI(ierr);
   if (!rank) {
     ierr = PetscBinarySeek(fd,off,whence,offset);CHKERRQ(ierr);
   }
@@ -792,11 +789,10 @@ PetscErrorCode MPIU_File_write_all(MPI_File fd,void *data,PetscMPIInt cnt,MPI_Da
   PetscDataType  pdtype;
   PetscErrorCode ierr;
 
-
   PetscFunctionBegin;
   ierr = PetscMPIDataTypeToPetscDataType(dtype,&pdtype);CHKERRQ(ierr);
   if (!PetscBinaryBigEndian()) {ierr = PetscByteSwap(data,pdtype,cnt);CHKERRQ(ierr);}
-  ierr = MPI_File_write_all(fd,data,cnt,dtype,status);CHKERRQ(ierr);
+  ierr = MPI_File_write_all(fd,data,cnt,dtype,status);CHKERRMPI(ierr);
   if (!PetscBinaryBigEndian()) {ierr = PetscByteSwap(data,pdtype,cnt);CHKERRQ(ierr);}
   PetscFunctionReturn(0);
 }
@@ -808,7 +804,7 @@ PetscErrorCode MPIU_File_read_all(MPI_File fd,void *data,PetscMPIInt cnt,MPI_Dat
 
   PetscFunctionBegin;
   ierr = PetscMPIDataTypeToPetscDataType(dtype,&pdtype);CHKERRQ(ierr);
-  ierr = MPI_File_read_all(fd,data,cnt,dtype,status);CHKERRQ(ierr);
+  ierr = MPI_File_read_all(fd,data,cnt,dtype,status);CHKERRMPI(ierr);
   if (!PetscBinaryBigEndian()) {ierr = PetscByteSwap(data,pdtype,cnt);CHKERRQ(ierr);}
   PetscFunctionReturn(0);
 }
@@ -818,11 +814,10 @@ PetscErrorCode MPIU_File_write_at(MPI_File fd,MPI_Offset off,void *data,PetscMPI
   PetscDataType  pdtype;
   PetscErrorCode ierr;
 
-
   PetscFunctionBegin;
   ierr = PetscMPIDataTypeToPetscDataType(dtype,&pdtype);CHKERRQ(ierr);
   if (!PetscBinaryBigEndian()) {ierr = PetscByteSwap(data,pdtype,cnt);CHKERRQ(ierr);}
-  ierr = MPI_File_write_at(fd,off,data,cnt,dtype,status);CHKERRQ(ierr);
+  ierr = MPI_File_write_at(fd,off,data,cnt,dtype,status);CHKERRMPI(ierr);
   if (!PetscBinaryBigEndian()) {ierr = PetscByteSwap(data,pdtype,cnt);CHKERRQ(ierr);}
   PetscFunctionReturn(0);
 }
@@ -834,7 +829,7 @@ PetscErrorCode MPIU_File_read_at(MPI_File fd,MPI_Offset off,void *data,PetscMPII
 
   PetscFunctionBegin;
   ierr = PetscMPIDataTypeToPetscDataType(dtype,&pdtype);CHKERRQ(ierr);
-  ierr = MPI_File_read_at(fd,off,data,cnt,dtype,status);CHKERRQ(ierr);
+  ierr = MPI_File_read_at(fd,off,data,cnt,dtype,status);CHKERRMPI(ierr);
   if (!PetscBinaryBigEndian()) {ierr = PetscByteSwap(data,pdtype,cnt);CHKERRQ(ierr);}
   PetscFunctionReturn(0);
 }
@@ -844,11 +839,10 @@ PetscErrorCode MPIU_File_write_at_all(MPI_File fd,MPI_Offset off,void *data,Pets
   PetscDataType  pdtype;
   PetscErrorCode ierr;
 
-
   PetscFunctionBegin;
   ierr = PetscMPIDataTypeToPetscDataType(dtype,&pdtype);CHKERRQ(ierr);
   if (!PetscBinaryBigEndian()) {ierr = PetscByteSwap(data,pdtype,cnt);CHKERRQ(ierr);}
-  ierr = MPI_File_write_at_all(fd,off,data,cnt,dtype,status);CHKERRQ(ierr);
+  ierr = MPI_File_write_at_all(fd,off,data,cnt,dtype,status);CHKERRMPI(ierr);
   if (!PetscBinaryBigEndian()) {ierr = PetscByteSwap(data,pdtype,cnt);CHKERRQ(ierr);}
   PetscFunctionReturn(0);
 }
@@ -860,7 +854,7 @@ PetscErrorCode MPIU_File_read_at_all(MPI_File fd,MPI_Offset off,void *data,Petsc
 
   PetscFunctionBegin;
   ierr = PetscMPIDataTypeToPetscDataType(dtype,&pdtype);CHKERRQ(ierr);
-  ierr = MPI_File_read_at_all(fd,off,data,cnt,dtype,status);CHKERRQ(ierr);
+  ierr = MPI_File_read_at_all(fd,off,data,cnt,dtype,status);CHKERRMPI(ierr);
   if (!PetscBinaryBigEndian()) {ierr = PetscByteSwap(data,pdtype,cnt);CHKERRQ(ierr);}
   PetscFunctionReturn(0);
 }

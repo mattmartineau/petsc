@@ -48,7 +48,6 @@ int main(int argc,char **argv)
   ierr = DMCreateLocalVector(da,&local);CHKERRQ(ierr);
   ierr = VecDuplicate(local,&local_copy);CHKERRQ(ierr);
 
-
   /* zero out vectors so that ghostpoints are zero */
   value = 0;
   ierr  = VecSet(local,value);CHKERRQ(ierr);
@@ -65,14 +64,12 @@ int main(int argc,char **argv)
   ierr = DMGlobalToLocalBegin(da,global,INSERT_VALUES,local);CHKERRQ(ierr);
   ierr = DMGlobalToLocalEnd(da,global,INSERT_VALUES,local);CHKERRQ(ierr);
 
-
   ierr = DMLocalToLocalBegin(da,local,INSERT_VALUES,local_copy);CHKERRQ(ierr);
   ierr = DMLocalToLocalEnd(da,local,INSERT_VALUES,local_copy);CHKERRQ(ierr);
 
-
   ierr = PetscOptionsGetBool(NULL,NULL,"-save",&flg,NULL);CHKERRQ(ierr);
   if (flg) {
-    ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
+    ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
     sprintf(filename,"local.%d",rank);
     ierr = PetscViewerASCIIOpen(PETSC_COMM_SELF,filename,&viewer);CHKERRQ(ierr);
     ierr = PetscViewerASCIIGetPointer(viewer,&file);CHKERRQ(ierr);
@@ -84,7 +81,7 @@ int main(int argc,char **argv)
 
   ierr = VecAXPY(local_copy,-1.0,local);CHKERRQ(ierr);
   ierr = VecNorm(local_copy,NORM_MAX,&work);CHKERRQ(ierr);
-  ierr = MPI_Allreduce(&work,&norm,1,MPIU_REAL,MPIU_MAX,PETSC_COMM_WORLD);CHKERRQ(ierr);
+  ierr = MPI_Allreduce(&work,&norm,1,MPIU_REAL,MPIU_MAX,PETSC_COMM_WORLD);CHKERRMPI(ierr);
   ierr = PetscPrintf(PETSC_COMM_WORLD,"Norm of difference %g should be zero\n",(double)norm);CHKERRQ(ierr);
 
   ierr = VecDestroy(&local_copy);CHKERRQ(ierr);
@@ -94,7 +91,6 @@ int main(int argc,char **argv)
   ierr = PetscFinalize();
   return ierr;
 }
-
 
 /*TEST
 

@@ -45,7 +45,6 @@ PetscErrorCode FormJacobian(SNES,Vec,Mat,Mat,void*),
     WriteRestartFile(GRID*, PetscInt),
     ReadRestartFile(GRID*);
 
-
 /* Global Variables */
 
                                                /*============================*/
@@ -95,8 +94,8 @@ int main(int argc,char **args)
   ierr = PetscInitializeFortran();CHKERRQ(ierr);
   comm = PETSC_COMM_WORLD;
   f77FORLINK();                               /* Link FORTRAN and C COMMONS */
-  ierr = MPI_Comm_rank(MPI_COMM_WORLD,&rank);CHKERRQ(ierr);
-  ierr = MPI_Comm_size(MPI_COMM_WORLD,&CommSize);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(MPI_COMM_WORLD,&rank);CHKERRMPI(ierr);
+  ierr = MPI_Comm_size(MPI_COMM_WORLD,&CommSize);CHKERRMPI(ierr);
 
   /*PetscPrintf(MPI_COMM_WORLD, " Program name is %s\n",
                 OptionsGetProgramName());*/
@@ -133,7 +132,6 @@ int main(int argc,char **args)
   c_runge->nitfo = 0;
   ierr           = PetscOptionsGetInt(NULL,NULL,"-first_order_it",&c_runge->nitfo,&flg);CHKERRQ(ierr);
 
-
 /* Read & process the grid */
 /*  f77RDGPAR(&f_pntr.nnodes,  &f_pntr.ncell,   &f_pntr.nedge,
            &f_pntr.nccolor, &f_pntr.ncolor,
@@ -143,7 +141,6 @@ int main(int argc,char **args)
            &f_pntr.ntte,
            &f_pntr.nsface,  &f_pntr.nvface,  &f_pntr.nfface,
            &rank);*/
-
 
 /* Read the grid information */
 
@@ -191,8 +188,6 @@ int main(int argc,char **args)
   user.grid  = &f_pntr;
   user.tsCtx = &tsCtx;
 
-
-
   /*
    Preload the executable to get accurate timings. This runs the following chunk of
    code twice, first to get the executable pages into memory and the second time for
@@ -224,14 +219,12 @@ int main(int argc,char **args)
   /*ierr = SNESMonitorSet(snes,Monitor,(void*)&monP);CHKERRQ(ierr);*/
   ierr = SNESSetFromOptions(snes);CHKERRQ(ierr);
 
-
 /* Initialize the flowfield */
   ierr = FormInitialGuess(snes,user.grid);CHKERRQ(ierr);
 
   /* Solve nonlinear system */
 
   ierr = Update(snes,&user);CHKERRQ(ierr);
-
 
 /* Write restart file */
   ierr = VecGetArray(user.grid->qnode, &qnode);CHKERRQ(ierr);
@@ -576,7 +569,7 @@ int Update(SNES snes, void *ctx)
     /*cpu_fin = PetscGetCPUTime();*/
     cpuloc = time2-time1;
     cpuglo = 0.0;
-    ierr   = MPI_Allreduce(&cpuloc,&cpuglo,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);CHKERRQ(ierr);
+    ierr   = MPI_Allreduce(&cpuloc,&cpuglo,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);CHKERRMPI(ierr);
 
     /*cpu_fin = PetscGetCPUTime();
     cpuloc = cpu_fin - cpu_ini;
@@ -677,7 +670,6 @@ int ComputeTimeStep(SNES snes, int iter, void *ctx)
   double   newcfl, fnorm;
   PetscErrorCode      ierr;
   /*int     iramp = tsCtx->iramp;*/
-
 
   /*VecDuplicate(tsCtx->qold,&func);*/
   /* Set the flag to calculate the local time step in GETRES */
@@ -825,7 +817,7 @@ int GetLocalOrdering(GRID *grid)
       fclose(fptr);
     }
   }
-  ierr = MPI_Bcast(v2p,nnodes,MPI_INT,0,comm);CHKERRQ(ierr);
+  ierr = MPI_Bcast(v2p,nnodes,MPI_INT,0,comm);CHKERRMPI(ierr);
   for (inode = 0; inode < nnodes; inode++) {
     if (v2p[inode] == rank) {
       l2a[nnodesLoc] = inode ;
@@ -838,7 +830,7 @@ int GetLocalOrdering(GRID *grid)
   time_fin -= time_ini;
   ierr      = PetscPrintf(comm,"Partition Vector read successfully\n");CHKERRQ(ierr);
   ierr      = PetscPrintf(comm,"Time taken in this phase was %g\n",time_fin);CHKERRQ(ierr);
-  ierr      = MPI_Scan(&nnodesLoc,&rstart,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);CHKERRQ(ierr);
+  ierr      = MPI_Scan(&nnodesLoc,&rstart,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);CHKERRMPI(ierr);
   rstart   -= nnodesLoc;
   ICALLOC(nnodesLoc, &pordering);
   for (i=0; i < nnodesLoc; i++) pordering[i] = rstart + i;
@@ -1017,7 +1009,7 @@ int GetLocalOrdering(GRID *grid)
     }
     i+= readEdges;
     remEdges = remEdges - readEdges;
-    ierr     = MPI_Barrier(MPI_COMM_WORLD);CHKERRQ(ierr);
+    ierr     = MPI_Barrier(MPI_COMM_WORLD);CHKERRMPI(ierr);
   }
   ierr = PetscFree(ftmp);CHKERRQ(ierr);
   FCALLOC(nedgeLoc, &ftmp);
@@ -1041,7 +1033,7 @@ int GetLocalOrdering(GRID *grid)
     }
     i+= readEdges;
     remEdges = remEdges - readEdges;
-    ierr     = MPI_Barrier(MPI_COMM_WORLD);CHKERRQ(ierr);
+    ierr     = MPI_Barrier(MPI_COMM_WORLD);CHKERRMPI(ierr);
   }
   ierr = PetscFree(ftmp);CHKERRQ(ierr);
   FCALLOC(nedgeLoc, &ftmp);
@@ -1065,7 +1057,7 @@ int GetLocalOrdering(GRID *grid)
     }
     i+= readEdges;
     remEdges = remEdges - readEdges;
-    ierr     = MPI_Barrier(MPI_COMM_WORLD);CHKERRQ(ierr);
+    ierr     = MPI_Barrier(MPI_COMM_WORLD);CHKERRMPI(ierr);
   }
   ierr = PetscFree(ftmp);CHKERRQ(ierr);
   FCALLOC(nedgeLoc, &ftmp);
@@ -1089,7 +1081,7 @@ int GetLocalOrdering(GRID *grid)
     }
     i+= readEdges;
     remEdges = remEdges - readEdges;
-    ierr     = MPI_Barrier(MPI_COMM_WORLD);CHKERRQ(ierr);
+    ierr     = MPI_Barrier(MPI_COMM_WORLD);CHKERRMPI(ierr);
   }
   ierr = PetscFree(ftmp);CHKERRQ(ierr);
   FCALLOC(nedgeLoc, &ftmp);
@@ -1121,7 +1113,7 @@ int GetLocalOrdering(GRID *grid)
     }
     i+= nnodesLocEst;
     remNodes -= nnodesLocEst;
-    ierr = MPI_Barrier(MPI_COMM_WORLD);CHKERRQ(ierr);
+    ierr = MPI_Barrier(MPI_COMM_WORLD);CHKERRMPI(ierr);
   }
 
   FCALLOC(nvertices, &grid->y);
@@ -1137,7 +1129,7 @@ int GetLocalOrdering(GRID *grid)
     }
     i+= nnodesLocEst;
     remNodes -= nnodesLocEst;
-    ierr      = MPI_Barrier(MPI_COMM_WORLD);CHKERRQ(ierr);
+    ierr      = MPI_Barrier(MPI_COMM_WORLD);CHKERRMPI(ierr);
   }
 
   FCALLOC(nvertices, &grid->z);
@@ -1153,9 +1145,8 @@ int GetLocalOrdering(GRID *grid)
     }
     i+= nnodesLocEst;
     remNodes -= nnodesLocEst;
-    ierr      = MPI_Barrier(MPI_COMM_WORLD);CHKERRQ(ierr);
+    ierr      = MPI_Barrier(MPI_COMM_WORLD);CHKERRMPI(ierr);
   }
-
 
   /* Renumber dual volume */
   FCALLOC(nvertices, &grid->area);
@@ -1171,7 +1162,7 @@ int GetLocalOrdering(GRID *grid)
     }
     i+= nnodesLocEst;
     remNodes -= nnodesLocEst;
-    ierr = MPI_Barrier(MPI_COMM_WORLD);CHKERRQ(ierr);
+    ierr = MPI_Barrier(MPI_COMM_WORLD);CHKERRMPI(ierr);
   }
 
   ierr = PetscFree(ftmp);CHKERRQ(ierr);
@@ -1517,7 +1508,6 @@ int GetLocalOrdering(GRID *grid)
     grid->f2ntf[2*nffacetLoc+i] = tmp[j++] + 1;
   }
 
-
   ierr = PetscFree(tmp);CHKERRQ(ierr);
   ierr = PetscFree(tmp1);CHKERRQ(ierr);
   ierr = PetscFree(tmp2);CHKERRQ(ierr);
@@ -1564,7 +1554,7 @@ int GetLocalOrdering(GRID *grid)
   FCALLOC(7*nnodesLoc,    &grid->rxy);
 
 /* Print the different mappings
- *
+
  */
   {
     int partLoc[7],partMax[7],partMin[7], partSum[7];
@@ -1662,7 +1652,6 @@ int GetLocalOrdering(GRID *grid)
     }
     fprintf(fptr1, "\n");
 
-
     fprintf(fptr1, "---------------------------------------------\n");
     fprintf(fptr1, "Viscous Boundary Nodes\n");
     fprintf(fptr1, "---------------------------------------------\n");
@@ -1733,7 +1722,6 @@ int GetLocalOrdering(GRID *grid)
 
   return 0;
 }
-
 
 /*---------------------------------------------------------------------*/
 int SetPetscDS(GRID *grid, TstepCtx *tsCtx)
@@ -1895,7 +1883,7 @@ int SetPetscDS(GRID *grid, TstepCtx *tsCtx)
     ierr = PetscMemoryView(PETSC_VIEWER_STDOUT_WORLD,"Memory usage after allocating PETSc data structures\n");CHKERRQ(ierr);
   }
 /* Set local to global mapping for setting the matrix elements in
-* local ordering : first set row by row mapping
+ local ordering : first set row by row mapping
 */
   ierr = ISLocalToGlobalMappingCreate(MPI_COMM_SELF,bs,nvertices,loc2pet,PETSC_COPY_VALUES,&isl2g);CHKERRQ(ierr);
   ierr = MatSetLocalToGlobalMapping(grid->A,isl2g,isl2g);CHKERRQ(ierr);
@@ -2355,17 +2343,17 @@ int WriteRestartFile(GRID *grid, int timeStep)
     for (i = 1; i < CommSize; i++) {
       if (rank == i) {
         ierr = VecGetArray(qnodeLoc, &qnode);
-        ierr = MPI_Send(&nnodesLoc,1,MPI_INT,0,0,MPI_COMM_WORLD);CHKERRQ(ierr);
-        ierr = MPI_Send(qnode,bs*nnodesLoc,MPI_DOUBLE,0,1,MPI_COMM_WORLD);CHKERRQ(ierr);
+        ierr = MPI_Send(&nnodesLoc,1,MPI_INT,0,0,MPI_COMM_WORLD);CHKERRMPI(ierr);
+        ierr = MPI_Send(qnode,bs*nnodesLoc,MPI_DOUBLE,0,1,MPI_COMM_WORLD);CHKERRMPI(ierr);
         ierr = VecRestoreArray(qnodeLoc, &qnode);CHKERRQ(ierr);
       }
       if (!rank) {
         int        nnodesLocIpr;
         MPI_Status mstatus;
 
-        ierr = MPI_Recv(&nnodesLocIpr,1,MPI_INT,i,0,MPI_COMM_WORLD,&mstatus);CHKERRQ(ierr);
+        ierr = MPI_Recv(&nnodesLocIpr,1,MPI_INT,i,0,MPI_COMM_WORLD,&mstatus);CHKERRMPI(ierr);
         FCALLOC(bs*nnodesLocIpr, &qnode);
-        ierr = MPI_Recv(qnode,bs*nnodesLocIpr,MPI_DOUBLE,i,1,MPI_COMM_WORLD,&mstatus);CHKERRQ(ierr);
+        ierr = MPI_Recv(qnode,bs*nnodesLocIpr,MPI_DOUBLE,i,1,MPI_COMM_WORLD,&mstatus);CHKERRMPI(ierr);
         ierr = PetscBinaryWrite(fdes,qnode,bs*nnodesLocIpr,PETSC_SCALAR);CHKERRQ(ierr);
         /* Write the solution vector in vtk (Visualization Toolkit) format*/
         if (flg_vtk != 0) {
@@ -2431,16 +2419,16 @@ int ReadRestartFile(GRID *grid)
   for (i = 1; i < CommSize; i++) {
     if (rank == i) {
       ierr = VecGetArray(qnodeLoc, &qnode);
-      ierr = MPI_Send(&nnodesLoc,1,MPI_INT,0,0,MPI_COMM_WORLD);CHKERRQ(ierr);
-      ierr = MPI_Recv(qnode,bs*nnodesLoc,MPI_DOUBLE,0,1,MPI_COMM_WORLD,&status);CHKERRQ(ierr);
+      ierr = MPI_Send(&nnodesLoc,1,MPI_INT,0,0,MPI_COMM_WORLD);CHKERRMPI(ierr);
+      ierr = MPI_Recv(qnode,bs*nnodesLoc,MPI_DOUBLE,0,1,MPI_COMM_WORLD,&status);CHKERRMPI(ierr);
       ierr = VecRestoreArray(qnodeLoc, &qnode);CHKERRQ(ierr);
     }
     if (!rank) {
       int nnodesLocIpr;
-      ierr = MPI_Recv(&nnodesLocIpr,1,MPI_INT,i,0,MPI_COMM_WORLD,&status);CHKERRQ(ierr);
+      ierr = MPI_Recv(&nnodesLocIpr,1,MPI_INT,i,0,MPI_COMM_WORLD,&status);CHKERRMPI(ierr);
       FCALLOC(bs*nnodesLocIpr, &qnode);
       ierr = PetscBinaryRead(fdes,qnode,bs*nnodesLocIpr,PETSC_SCALAR);CHKERRQ(ierr);
-      ierr = MPI_Send(qnode,bs*nnodesLocIpr,MPI_DOUBLE,i,1,MPI_COMM_WORLD);CHKERRQ(ierr);
+      ierr = MPI_Send(qnode,bs*nnodesLocIpr,MPI_DOUBLE,i,1,MPI_COMM_WORLD);CHKERRMPI(ierr);
       ierr = PetscFree(qnode);CHKERRQ(ierr);
     }
     ierr = MPI_Barrier(MPI_COMM_WORLD);
@@ -2536,7 +2524,6 @@ int set_up_grid(GRID *grid)
   nffacet = grid->nffacet;
   ntte    = grid->ntte;
   /* end of stuff */
-
 
   if (ileast == 0) lnodes = 1;
   /*   printf("In set_up_grid->jvisc = %d\n",grid->jvisc); */
@@ -2687,7 +2674,6 @@ int set_up_grid(GRID *grid)
   return 0;
 }
 
-
 /*========================== WRITE_FINE_GRID ================================*/
 /*                                                                           */
 /* Write memory locations and other information for the fine grid            */
@@ -2752,7 +2738,7 @@ int write_fine_grid(GRID *grid)
   fprintf(output,"grid.zn      = %p\n", grid->zn);
   fprintf(output,"grid.rl      = %p\n", grid->rl);
 /*
-* close output file
+  close output file
 */
   fclose(output);
   return 0;

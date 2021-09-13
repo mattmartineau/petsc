@@ -72,7 +72,6 @@
 !
       sizeofbag = size(transfer(dummydata,dummychar))
 
-
 ! create the bag
       call PetscBagCreate(PETSC_COMM_WORLD,sizeofbag,bag,ierr);CHKERRA(ierr)
       call PetscBagGetData(bag,data,ierr);CHKERRA(ierr)
@@ -125,7 +124,7 @@
 !/*TEST
 !
 !   build:
-!      requires: define(PETSC_USING_F2003) define(PETSC_USING_F90FREEFORM)
+!      requires: defined(PETSC_USING_F2003) defined(PETSC_USING_F90FREEFORM)
 !
 !   test:
 !      args: -pbag_rarray 4,5,88

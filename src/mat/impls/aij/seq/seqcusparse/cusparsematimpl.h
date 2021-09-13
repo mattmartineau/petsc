@@ -1,8 +1,9 @@
-#if !defined(__CUSPARSEMATIMPL)
-#define __CUSPARSEMATIMPL
+#if !defined(CUSPARSEMATIMPL)
+#define CUSPARSEMATIMPL
 
 #include <petscpkg_version.h>
 #include <petsc/private/cudavecimpl.h>
+#include <petscaijdevice.h>
 
 #include <cusparse_v2.h>
 
@@ -15,19 +16,29 @@
 #include <thrust/transform.h>
 #include <thrust/functional.h>
 #include <thrust/sequence.h>
+#include <thrust/system/system_error.h>
 
 #if (CUSPARSE_VER_MAJOR > 10 || CUSPARSE_VER_MAJOR == 10 && CUSPARSE_VER_MINOR >= 2) /* According to cuda/10.1.168 on OLCF Summit */
-#define CHKERRCUSPARSE(stat) \
-do { \
-   if (PetscUnlikely(stat)) { \
-      const char *name  = cusparseGetErrorName(stat); \
-      const char *descr = cusparseGetErrorString(stat); \
-      SETERRQ3(PETSC_COMM_SELF,PETSC_ERR_GPU,"cuSPARSE error %d (%s) : %s",(int)stat,name,descr); \
-   } \
+#define CHKERRCUSPARSE(stat)\
+do {\
+  if (PetscUnlikely(stat)) {\
+    const char *name  = cusparseGetErrorName(stat);\
+    const char *descr = cusparseGetErrorString(stat);\
+    if ((stat == CUSPARSE_STATUS_NOT_INITIALIZED) || (stat == CUSPARSE_STATUS_ALLOC_FAILED)) SETERRQ3(PETSC_COMM_SELF,PETSC_ERR_GPU_RESOURCE,"cuSPARSE error %d (%s) : %s. Reports not initialized or alloc failed; this indicates the GPU has run out resources",(int)stat,name,descr); \
+    else SETERRQ3(PETSC_COMM_SELF,PETSC_ERR_GPU,"cuSPARSE error %d (%s) : %s",(int)stat,name,descr);\
+  }\
 } while (0)
 #else
 #define CHKERRCUSPARSE(stat) do {if (PetscUnlikely(stat)) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_GPU,"cusparse error %d",(int)stat);} while (0)
 #endif
+
+#define PetscStackCallThrust(body) do {                                     \
+    try {                                                                   \
+      body;                                                                 \
+    } catch(thrust::system_error& e) {                                      \
+      SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_LIB,"Error in Thrust %s",e.what());\
+    }                                                                       \
+  } while (0)
 
 #if defined(PETSC_USE_COMPLEX)
   #if defined(PETSC_USE_REAL_SINGLE)
@@ -93,14 +104,22 @@ do { \
   #if defined(PETSC_USE_COMPLEX)
     #if defined(PETSC_USE_REAL_SINGLE)
       #define cusparse_scalartype CUDA_C_32F
+      #define cusparse_csr_spgeam(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t)            cusparseCcsrgeam2(a,b,c,(cuComplex*)d,e,f,(cuComplex*)g,h,i,(cuComplex*)j,k,l,(cuComplex*)m,n,o,p,(cuComplex*)q,r,s,t)
+      #define cusparse_csr_spgeam_bufferSize(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t) cusparseCcsrgeam2_bufferSizeExt(a,b,c,(cuComplex*)d,e,f,(cuComplex*)g,h,i,(cuComplex*)j,k,l,(cuComplex*)m,n,o,p,(cuComplex*)q,r,s,t)
     #elif defined(PETSC_USE_REAL_DOUBLE)
       #define cusparse_scalartype CUDA_C_64F
+      #define cusparse_csr_spgeam(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t)            cusparseZcsrgeam2(a,b,c,(cuDoubleComplex*)d,e,f,(cuDoubleComplex*)g,h,i,(cuDoubleComplex*)j,k,l,(cuDoubleComplex*)m,n,o,p,(cuDoubleComplex*)q,r,s,t)
+      #define cusparse_csr_spgeam_bufferSize(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t) cusparseZcsrgeam2_bufferSizeExt(a,b,c,(cuDoubleComplex*)d,e,f,(cuDoubleComplex*)g,h,i,(cuDoubleComplex*)j,k,l,(cuDoubleComplex*)m,n,o,p,(cuDoubleComplex*)q,r,s,t)
     #endif
   #else /* not complex */
     #if defined(PETSC_USE_REAL_SINGLE)
       #define cusparse_scalartype CUDA_R_32F
+      #define cusparse_csr_spgeam            cusparseScsrgeam2
+      #define cusparse_csr_spgeam_bufferSize cusparseScsrgeam2_bufferSizeExt
     #elif defined(PETSC_USE_REAL_DOUBLE)
       #define cusparse_scalartype CUDA_R_64F
+      #define cusparse_csr_spgeam            cusparseDcsrgeam2
+      #define cusparse_csr_spgeam_bufferSize cusparseDcsrgeam2_bufferSizeExt
     #endif
   #endif
 #else
@@ -112,6 +131,8 @@ do { \
       #define cusparse_hyb_spmv(a,b,c,d,e,f,g,h)                 cusparseChybmv((a),(b),(cuComplex*)(c),(d),(e),(cuComplex*)(f),(cuComplex*)(g),(cuComplex*)(h))
       #define cusparse_csr2hyb(a,b,c,d,e,f,g,h,i,j)              cusparseCcsr2hyb((a),(b),(c),(d),(cuComplex*)(e),(f),(g),(h),(i),(j))
       #define cusparse_hyb2csr(a,b,c,d,e,f)                      cusparseChyb2csr((a),(b),(c),(cuComplex*)(d),(e),(f))
+      #define cusparse_csr_spgemm(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t) cusparseCcsrgemm(a,b,c,d,e,f,g,h,(cuComplex*)i,j,k,l,m,(cuComplex*)n,o,p,q,(cuComplex*)r,s,t)
+      #define cusparse_csr_spgeam(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s)   cusparseCcsrgeam(a,b,c,(cuComplex*)d,e,f,(cuComplex*)g,h,i,(cuComplex*)j,k,l,(cuComplex*)m,n,o,p,(cuComplex*)q,r,s)
     #elif defined(PETSC_USE_REAL_DOUBLE)
       #define cusparse_csr_spmv(a,b,c,d,e,f,g,h,i,j,k,l,m)       cusparseZcsrmv((a),(b),(c),(d),(e),(cuDoubleComplex*)(f),(g),(cuDoubleComplex*)(h),(i),(j),(cuDoubleComplex*)(k),(cuDoubleComplex*)(l),(cuDoubleComplex*)(m))
       #define cusparse_csr_spmm(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p) cusparseZcsrmm((a),(b),(c),(d),(e),(f),(cuDoubleComplex*)(g),(h),(cuDoubleComplex*)(i),(j),(k),(cuDoubleComplex*)(l),(m),(cuDoubleComplex*)(n),(cuDoubleComplex*)(o),(p))
@@ -119,6 +140,8 @@ do { \
       #define cusparse_hyb_spmv(a,b,c,d,e,f,g,h)                 cusparseZhybmv((a),(b),(cuDoubleComplex*)(c),(d),(e),(cuDoubleComplex*)(f),(cuDoubleComplex*)(g),(cuDoubleComplex*)(h))
       #define cusparse_csr2hyb(a,b,c,d,e,f,g,h,i,j)              cusparseZcsr2hyb((a),(b),(c),(d),(cuDoubleComplex*)(e),(f),(g),(h),(i),(j))
       #define cusparse_hyb2csr(a,b,c,d,e,f)                      cusparseZhyb2csr((a),(b),(c),(cuDoubleComplex*)(d),(e),(f))
+      #define cusparse_csr_spgemm(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t) cusparseZcsrgemm(a,b,c,d,e,f,g,h,(cuDoubleComplex*)i,j,k,l,m,(cuDoubleComplex*)n,o,p,q,(cuDoubleComplex*)r,s,t)
+      #define cusparse_csr_spgeam(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s)   cusparseZcsrgeam(a,b,c,(cuDoubleComplex*)d,e,f,(cuDoubleComplex*)g,h,i,(cuDoubleComplex*)j,k,l,(cuDoubleComplex*)m,n,o,p,(cuDoubleComplex*)q,r,s)
     #endif
   #else
     #if defined(PETSC_USE_REAL_SINGLE)
@@ -128,6 +151,8 @@ do { \
       #define cusparse_hyb_spmv cusparseShybmv
       #define cusparse_csr2hyb  cusparseScsr2hyb
       #define cusparse_hyb2csr  cusparseShyb2csr
+      #define cusparse_csr_spgemm cusparseScsrgemm
+      #define cusparse_csr_spgeam cusparseScsrgeam
     #elif defined(PETSC_USE_REAL_DOUBLE)
       #define cusparse_csr_spmv cusparseDcsrmv
       #define cusparse_csr_spmm cusparseDcsrmm
@@ -135,6 +160,8 @@ do { \
       #define cusparse_hyb_spmv cusparseDhybmv
       #define cusparse_csr2hyb  cusparseDcsr2hyb
       #define cusparse_hyb2csr  cusparseDhyb2csr
+      #define cusparse_csr_spgemm cusparseDcsrgemm
+      #define cusparse_csr_spgeam cusparseDcsrgeam
     #endif
   #endif
 #endif
@@ -169,6 +196,7 @@ struct Mat_SeqAIJCUSPARSETriFactorStruct {
   void                        *solveBuffer;
   size_t                      csr2cscBufferSize; /* to transpose the triangular factor (only used for CUDA >= 11.0) */
   void                        *csr2cscBuffer;
+  PetscScalar                 *AA_h; /* managed host buffer for moving values to the GPU */
 };
 
 /* This is a larger struct holding all the triangular factors for a solve, transpose solve, and any indices used in a reordering */
@@ -182,6 +210,10 @@ struct Mat_SeqAIJCUSPARSETriFactors {
   THRUSTARRAY                       *workVector;
   cusparseHandle_t                  handle;   /* a handle to the cusparse library */
   PetscInt                          nnz;      /* number of nonzeros ... need this for accurate logging between ICC and ILU */
+  PetscScalar                       *a_band_d; /* GPU data for banded CSR LU factorization matrix diag(L)=1 */
+  int                               *i_band_d; /* this could be optimized away */
+  cudaDeviceProp                    dev_prop;
+  PetscBool                         init_dev_prop;
 };
 
 struct Mat_CusparseSpMV {
@@ -221,7 +253,6 @@ struct Mat_SeqAIJCUSPARSE {
   cudaStream_t                 stream;          /* a stream for the parallel SpMV ... this is not owned and should not be deleted */
   cusparseHandle_t             handle;          /* a handle to the cusparse library ... this may not be owned (if we're working in parallel i.e. multiGPUs) */
   PetscObjectState             nonzerostate;    /* track nonzero state to possibly recreate the GPU matrix */
-  PetscBool                    transgen;        /* whether or not to generate explicit transpose for MatMultTranspose operations */
  #if PETSC_PKG_CUDA_VERSION_GE(11,0,0)
   size_t                       csr2cscBufferSize; /* stuff used to compute the matTranspose above */
   void                         *csr2cscBuffer;    /* This is used as a C struct and is calloc'ed by PetscNewLog() */
@@ -229,15 +260,35 @@ struct Mat_SeqAIJCUSPARSE {
   cusparseSpMVAlg_t            spmvAlg;
   cusparseSpMMAlg_t            spmmAlg;
  #endif
-  PetscSplitCSRDataStructure   *deviceMat;       /* Matrix on device for, eg, assembly */
-  THRUSTINTARRAY               *cooPerm;
-  THRUSTINTARRAY               *cooPerm_a;
-  THRUSTARRAY                  *cooPerm_v;
-  THRUSTARRAY                  *cooPerm_w;
+  THRUSTINTARRAY               *csr2csc_i;
+  PetscSplitCSRDataStructure   deviceMat;       /* Matrix on device for, eg, assembly */
+  THRUSTINTARRAY               *cooPerm;        /* permutation array that sorts the input coo entris by row and col */
+  THRUSTINTARRAY               *cooPerm_a;      /* ordered array that indicate i-th nonzero (after sorting) is the j-th unique nonzero */
 };
 
 PETSC_INTERN PetscErrorCode MatCUSPARSECopyToGPU(Mat);
 PETSC_INTERN PetscErrorCode MatCUSPARSESetStream(Mat, const cudaStream_t stream);
 PETSC_INTERN PetscErrorCode MatCUSPARSESetHandle(Mat, const cusparseHandle_t handle);
 PETSC_INTERN PetscErrorCode MatCUSPARSEClearHandle(Mat);
+PETSC_INTERN PetscErrorCode MatSetPreallocationCOO_SeqAIJCUSPARSE(Mat,PetscInt,const PetscInt[],const PetscInt[]);
+PETSC_INTERN PetscErrorCode MatSetValuesCOO_SeqAIJCUSPARSE(Mat,const PetscScalar[],InsertMode);
+PETSC_INTERN PetscErrorCode MatSeqAIJCUSPARSEMergeMats(Mat,Mat,MatReuse,Mat*);
+PETSC_INTERN PetscErrorCode MatSeqAIJCUSPARSETriFactors_Reset(Mat_SeqAIJCUSPARSETriFactors_p*);
+
+PETSC_STATIC_INLINE bool isCudaMem(const void *data)
+{
+  cudaError_t                  cerr;
+  struct cudaPointerAttributes attr;
+  enum cudaMemoryType          mtype;
+  cerr = cudaPointerGetAttributes(&attr,data); /* Do not check error since before CUDA 11.0, passing a host pointer returns cudaErrorInvalidValue */
+  cudaGetLastError(); /* Reset the last error */
+  #if (CUDART_VERSION < 10000)
+    mtype = attr.memoryType;
+  #else
+    mtype = attr.type;
+  #endif
+  if (cerr == cudaSuccess && mtype == cudaMemoryTypeDevice) return true;
+  else return false;
+}
+
 #endif

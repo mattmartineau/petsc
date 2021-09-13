@@ -3,7 +3,6 @@ static char help[] = "Test VecCreate{Seq|MPI}CUDAWithArrays.\n\n";
 
 #include "petsc.h"
 
-
 int main(int argc,char **argv)
 {
   PetscErrorCode ierr;
@@ -13,7 +12,7 @@ int main(int argc,char **argv)
   PetscScalar    xHost[5] = {0.,1.,2.,3.,4.};
 
   ierr = PetscInitialize(&argc, &argv, (char*)0, help); if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
 
   if (size == 1) {
     ierr = VecCreateSeqCUDAWithArrays(PETSC_COMM_WORLD,1,n,xHost,NULL,&x);CHKERRQ(ierr);

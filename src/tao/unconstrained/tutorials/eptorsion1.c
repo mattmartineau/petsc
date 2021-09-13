@@ -21,13 +21,12 @@
   file automatically includes files for lower-level support, such as those
   provided by the PETSc library:
      petsc.h       - base PETSc routines   petscvec.h - vectors
-     petscsys.h    - sysem routines        petscmat.h - matrices
+     petscsys.h    - system routines        petscmat.h - matrices
      petscis.h     - index sets            petscksp.h - Krylov subspace methods
      petscviewer.h - viewers               petscpc.h  - preconditioners
 */
 
 #include <petsctao.h>
-
 
 static  char help[]=
 "Demonstrates use of the TAO package to solve \n\
@@ -97,7 +96,7 @@ PetscErrorCode main(int argc,char **argv)
 
   /* Initialize TAO,PETSc */
   ierr = PetscInitialize(&argc,&argv,(char *)0,help);if (ierr) return ierr;
-  ierr = MPI_Comm_size(MPI_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(MPI_COMM_WORLD,&size);CHKERRMPI(ierr);
   if (size >1) SETERRQ(PETSC_COMM_WORLD,PETSC_ERR_WRONG_MPI_SIZE,"Incorrect number of processors");
 
   /* Specify default parameters for the problem, check for command-line overrides */
@@ -485,9 +484,10 @@ PetscErrorCode FormHessian(Tao tao,Vec X,Mat H,Mat Hpre, void *ptr)
 */
 PetscErrorCode MatrixFreeHessian(Tao tao,Vec X,Mat H,Mat PrecH, void *ptr)
 {
-  AppCtx     *user = (AppCtx *) ptr;
+  AppCtx *user = (AppCtx *) ptr;
 
   /* Sets location of vector for use in computing matrix-vector products  of the form H(X)*y  */
+  PetscFunctionBeginUser;
   user->xvec = X;
   PetscFunctionReturn(0);
 }
@@ -614,7 +614,6 @@ PetscErrorCode HessianProduct(void *ptr,Vec svec,Vec y)
   ierr = PetscLogFlops(18.0*nx*ny);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
-
 
 /*TEST
 

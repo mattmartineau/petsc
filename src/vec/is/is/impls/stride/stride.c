@@ -57,8 +57,7 @@ PetscErrorCode ISInvertPermutation_Stride(IS is,PetscInt nlocal,IS *perm)
 }
 
 /*@
-   ISStrideGetInfo - Returns the first index in a stride index set and
-   the stride width.
+   ISStrideGetInfo - Returns the first index in a stride index set and the stride width.
 
    Not Collective
 
@@ -75,8 +74,7 @@ PetscErrorCode ISInvertPermutation_Stride(IS is,PetscInt nlocal,IS *perm)
    Returns info on stride index set. This is a pseudo-public function that
    should not be needed by most users.
 
-
-.seealso: ISCreateStride(), ISGetSize()
+.seealso: ISCreateStride(), ISGetSize(), ISSTRIDE
 @*/
 PetscErrorCode  ISStrideGetInfo(IS is,PetscInt *first,PetscInt *step)
 {
@@ -180,8 +178,8 @@ PetscErrorCode ISView_Stride(IS is,PetscViewer viewer)
   if (iascii) {
     PetscBool matl, isperm;
 
-    ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)is),&rank);CHKERRQ(ierr);
-    ierr = MPI_Comm_size(PetscObjectComm((PetscObject)is),&size);CHKERRQ(ierr);
+    ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)is),&rank);CHKERRMPI(ierr);
+    ierr = MPI_Comm_size(PetscObjectComm((PetscObject)is),&size);CHKERRMPI(ierr);
     ierr = PetscViewerGetFormat(viewer,&fmt);CHKERRQ(ierr);
     matl = (PetscBool)(fmt == PETSC_VIEWER_ASCII_MATLAB);
     ierr = ISGetInfo(is,IS_PERMUTATION,IS_GLOBAL,PETSC_FALSE,&isperm);CHKERRQ(ierr);
@@ -308,7 +306,6 @@ static PetscErrorCode ISContiguousLocal_Stride(IS is,PetscInt gstart,PetscInt ge
   PetscFunctionReturn(0);
 }
 
-
 static struct _ISOps myops = { ISGetIndices_Stride,
                                ISRestoreIndices_Stride,
                                ISInvertPermutation_Stride,
@@ -334,7 +331,6 @@ static struct _ISOps myops = { ISGetIndices_Stride,
                                ISIntervalLocal_Stride,
                                NULL};
 
-
 /*@
    ISStrideSetStride - Sets the stride information for a stride index set.
 
@@ -348,7 +344,7 @@ static struct _ISOps myops = { ISGetIndices_Stride,
 
    Level: beginner
 
-.seealso: ISCreateGeneral(), ISCreateBlock(), ISAllGather()
+.seealso: ISCreateGeneral(), ISCreateBlock(), ISAllGather(), ISSTRIDE, ISCreateStride(), ISStrideGetInfo()
 @*/
 PetscErrorCode  ISStrideSetStride(IS is,PetscInt n,PetscInt first,PetscInt step)
 {
@@ -406,7 +402,7 @@ PetscErrorCode  ISStrideSetStride_Stride(IS is,PetscInt n,PetscInt first,PetscIn
 
    Level: beginner
 
-.seealso: ISCreateGeneral(), ISCreateBlock(), ISAllGather()
+.seealso: ISCreateGeneral(), ISCreateBlock(), ISAllGather(), ISSTRIDE
 @*/
 PetscErrorCode  ISCreateStride(MPI_Comm comm,PetscInt n,PetscInt first,PetscInt step,IS *is)
 {

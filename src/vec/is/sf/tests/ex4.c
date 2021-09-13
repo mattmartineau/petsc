@@ -19,7 +19,7 @@ int main(int argc, char **argv)
   PetscBool          flag = PETSC_FALSE;
 
   ierr = PetscInitialize(&argc,&argv,NULL,help);if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
 
   if (size != 1) SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_USER, "Only coded for one MPI process");
 
@@ -88,8 +88,8 @@ int main(int argc, char **argv)
   ierr = VecGetArrayRead(a, &arrayR);CHKERRQ(ierr);
   ierr = VecGetArray(b, &arrayW);CHKERRQ(ierr);
 
-  ierr = PetscSFBcastBegin(sfA, MPIU_SCALAR, arrayR, arrayW);CHKERRQ(ierr);
-  ierr = PetscSFBcastEnd(sfA, MPIU_SCALAR, arrayR, arrayW);CHKERRQ(ierr);
+  ierr = PetscSFBcastBegin(sfA, MPIU_SCALAR, arrayR, arrayW,MPI_REPLACE);CHKERRQ(ierr);
+  ierr = PetscSFBcastEnd(sfA, MPIU_SCALAR, arrayR, arrayW,MPI_REPLACE);CHKERRQ(ierr);
   ierr = VecRestoreArray(b, &arrayW);CHKERRQ(ierr);
   ierr = VecRestoreArrayRead(a, &arrayR);CHKERRQ(ierr);
   ierr = PetscPrintf(PETSC_COMM_WORLD, "\nBroadcast A->B over sfA\n");CHKERRQ(ierr);
@@ -98,8 +98,8 @@ int main(int argc, char **argv)
   ierr = VecGetArrayRead(b, &arrayR);CHKERRQ(ierr);
   ierr = VecGetArray(ba, &arrayW);CHKERRQ(ierr);
   arrayW[0] = 10.0;             /* Not touched by bcast */
-  ierr = PetscSFBcastBegin(sfB, MPIU_SCALAR, arrayR, arrayW);CHKERRQ(ierr);
-  ierr = PetscSFBcastEnd(sfB, MPIU_SCALAR, arrayR, arrayW);CHKERRQ(ierr);
+  ierr = PetscSFBcastBegin(sfB, MPIU_SCALAR, arrayR, arrayW,MPI_REPLACE);CHKERRQ(ierr);
+  ierr = PetscSFBcastEnd(sfB, MPIU_SCALAR, arrayR, arrayW,MPI_REPLACE);CHKERRQ(ierr);
   ierr = VecRestoreArrayRead(b, &arrayR);CHKERRQ(ierr);
   ierr = VecRestoreArray(ba, &arrayW);CHKERRQ(ierr);
 
@@ -112,8 +112,8 @@ int main(int argc, char **argv)
   ierr = VecGetArrayRead(a, &arrayR);CHKERRQ(ierr);
   ierr = VecGetArray(ba, &arrayW);CHKERRQ(ierr);
   arrayW[0] = 11.0;             /* Not touched by bcast */
-  ierr = PetscSFBcastBegin(sfBA, MPIU_SCALAR, arrayR, arrayW);CHKERRQ(ierr);
-  ierr = PetscSFBcastEnd(sfBA, MPIU_SCALAR, arrayR, arrayW);CHKERRQ(ierr);
+  ierr = PetscSFBcastBegin(sfBA, MPIU_SCALAR, arrayR, arrayW,MPI_REPLACE);CHKERRQ(ierr);
+  ierr = PetscSFBcastEnd(sfBA, MPIU_SCALAR, arrayR, arrayW,MPI_REPLACE);CHKERRQ(ierr);
   ierr = VecRestoreArray(ba, &arrayW);CHKERRQ(ierr);
   ierr = VecRestoreArrayRead(a, &arrayR);CHKERRQ(ierr);
   ierr = PetscPrintf(PETSC_COMM_WORLD, "\nBroadcast A->BA over sfBA (sfB o sfA)\n");CHKERRQ(ierr);
@@ -150,7 +150,7 @@ int main(int argc, char **argv)
      filter: grep -v "type" | grep -v "sort"
      output_file: output/ex4_2.out
      args: -sparse_sfB -sf_type window -sf_window_sync {{fence active lock}} -sf_window_flavor {{create dynamic allocate}}
-     requires: define(PETSC_HAVE_MPI_ONE_SIDED)
+     requires: defined(PETSC_HAVE_MPI_ONE_SIDED) defined(PETSC_HAVE_MPI_FEATURE_DYNAMIC_WINDOW)
 
    # The nightly test suite with MPICH uses ch3:sock, which is broken when winsize == 0 in some of the processes
    test:
@@ -158,6 +158,6 @@ int main(int argc, char **argv)
      filter: grep -v "type" | grep -v "sort"
      output_file: output/ex4_2.out
      args: -sparse_sfB -sf_type window -sf_window_sync {{fence active lock}} -sf_window_flavor shared
-     requires: define(PETSC_HAVE_MPI_PROCESS_SHARED_MEMORY) !define(PETSC_HAVE_MPICH_NUMVERSION) define(PETSC_HAVE_MPI_ONE_SIDED)
+     requires: defined(PETSC_HAVE_MPI_PROCESS_SHARED_MEMORY) !defined(PETSC_HAVE_MPICH_NUMVERSION) defined(PETSC_HAVE_MPI_ONE_SIDED)
 
 TEST*/

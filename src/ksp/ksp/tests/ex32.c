@@ -133,7 +133,7 @@ PetscErrorCode ComputeMatrix(DM da,Mat B)
   PetscFunctionBeginUser;
   ierr = DMDAGetInfo(da,0,&mx,&my,&mz,0,0,0,&dof,0,0,0,0,0);CHKERRQ(ierr);
   /* For simplicity, this example only works on mx=my=mz */
-  if (mx != my || mx != mz) SETERRQ3(PETSC_COMM_SELF,1,"This example only works with mx %D = my %D = mz %D\n",mx,my,mz);
+  if (mx != my || mx != mz) SETERRQ3(PETSC_COMM_SELF,PETSC_ERR_SUP,"This example only works with mx %D = my %D = mz %D\n",mx,my,mz);
 
   Hx      = 1.0 / (PetscReal)(mx-1); Hy = 1.0 / (PetscReal)(my-1); Hz = 1.0 / (PetscReal)(mz-1);
   HxHydHz = Hx*Hy/Hz; HxHzdHy = Hx*Hz/Hy; HyHzdHx = Hy*Hz/Hx;
@@ -160,7 +160,7 @@ PetscErrorCode ComputeMatrix(DM da,Mat B)
     for (j=ys; j<ys+ym; j++) {
       for (i=xs; i<xs+xm; i++) {
         row.i = i; row.j = j; row.k = k;
-        if (i==0 || j==0 || k==0 || i==mx-1 || j==my-1 || k==mz-1) { /* boudary points */
+        if (i==0 || j==0 || k==0 || i==mx-1 || j==my-1 || k==mz-1) { /* boundary points */
           ierr = MatSetValuesBlockedStencil(B,1,&row,1,&row,v,INSERT_VALUES);CHKERRQ(ierr);
         } else { /* interior points */
           /* center */
@@ -193,8 +193,6 @@ PetscErrorCode ComputeMatrix(DM da,Mat B)
   ierr = PetscFree(v);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
-
-
 
 /*TEST
 

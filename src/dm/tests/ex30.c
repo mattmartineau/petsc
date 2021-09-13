@@ -18,8 +18,8 @@ int main(int argc,char *argv[])
 
   ierr = PetscInitialize(&argc,&argv,0,help);if (ierr) return ierr;
   comm = PETSC_COMM_WORLD;
-  ierr = MPI_Comm_size(comm,&size);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(comm,&size);CHKERRMPI(ierr);
+  ierr = MPI_Comm_rank(comm,&rank);CHKERRMPI(ierr);
 
   ierr = PetscOptionsBegin(comm,0,"Options for DMSliced test",0);CHKERRQ(ierr);
   {
@@ -42,7 +42,7 @@ int main(int argc,char *argv[])
   n         = PETSC_DECIDE;
   ierr      = PetscSplitOwnership(comm,&n,&N);CHKERRQ(ierr);
   rstart    = 0;
-  ierr      = MPI_Scan(&n,&rstart,1,MPIU_INT,MPI_SUM,comm);CHKERRQ(ierr);
+  ierr      = MPI_Scan(&n,&rstart,1,MPIU_INT,MPI_SUM,comm);CHKERRMPI(ierr);
   rstart   -= n;
   ghosts[0] = (N+rstart-1)%N;
   ghosts[1] = (rstart+n)%N;
@@ -70,7 +70,7 @@ int main(int argc,char *argv[])
 
   ierr = VecGhostGetLocalForm(x,&lf);CHKERRQ(ierr);
   ierr = VecGetSize(lf,&m);CHKERRQ(ierr);
-  if (m != (n+2)*bs) SETERRQ2(PETSC_COMM_SELF,1,"size of local form %D, expected %D",m,(n+2)*bs);
+  if (m != (n+2)*bs) SETERRQ2(PETSC_COMM_SELF,PETSC_ERR_ARG_SIZ,"size of local form %D, expected %D",m,(n+2)*bs);
   ierr = VecGetArray(lf,&xx);CHKERRQ(ierr);
   for (i=0; i<n; i++) {
     PetscInt        row[2],col[9],im,ip;
@@ -105,7 +105,7 @@ int main(int argc,char *argv[])
       xx[2*i]   = 0.2*PetscExpReal(-PetscSqr(xref)/(2*PetscSqr(sigma)));
       xx[2*i+1] = 0;
       break;
-    default: SETERRQ1(PETSC_COMM_SELF,1,"not implemented for block size %D",bs);
+    default: SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_SUP,"not implemented for block size %D",bs);
     }
   }
   ierr = VecRestoreArray(lf,&xx);CHKERRQ(ierr);
@@ -135,7 +135,6 @@ int main(int argc,char *argv[])
   ierr = PetscFinalize();
   return ierr;
 }
-
 
 /*TEST
 

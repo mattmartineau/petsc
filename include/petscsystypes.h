@@ -140,6 +140,22 @@ M*/
    typedef int PetscBLASInt;
 #endif
 
+/*MC
+   PetscCuBLASInt - datatype used to represent 'int' parameters to cuBLAS/cuSOLVER functions.
+
+   Notes:
+    As of this writing PetscCuBLASInt is always the system `int`.
+
+    PetscErrorCode PetscCuBLASIntCast(a,&b) checks if the given PetscInt a will fit in a PetscCuBLASInt, if not it
+      generates a PETSC_ERR_ARG_OUTOFRANGE error
+
+   Level: intermediate
+
+.seealso: PetscBLASInt, PetscMPIInt, PetscInt, PetscCuBLASIntCast()
+
+M*/
+typedef int PetscCuBLASInt;
+
 /*E
     PetscBool  - Logical variable. Actually an int in C and a logical in Fortran.
 
@@ -155,7 +171,6 @@ typedef enum { PETSC_FALSE,PETSC_TRUE } PetscBool;
 
 /*MC
    PetscReal - PETSc type that represents a real number version of PetscScalar
-
 
    Notes:
    For MPI calls that require datatypes, use MPIU_REAL as the datatype for PetscScalar and MPIU_SUM, MPIU_MAX, etc. for operations.
@@ -200,49 +215,79 @@ M*/
 
           Complex numbers are automatically available if PETSc was able to find a working complex implementation
 
+    Petsc has a 'fix' for complex numbers to support expressions such as std::complex<PetscReal> + PetscInt, which are not supported by the standard
+    C++ library, but are convenient for petsc users. If the C++ compiler is able to compile code in petsccxxcomplexfix.h (This is checked by
+    configure), we include petsccxxcomplexfix.h to provide this convenience.
+
+    If the fix causes conflicts, or one really does not want this fix for a particular C++ file, one can define PETSC_SKIP_CXX_COMPLEX_FIX
+    at the beginning of the C++ file to skip the fix.
+
    Level: beginner
 
 .seealso: PetscReal, PetscScalar, PetscComplex, PetscInt, MPIU_REAL, MPIU_SCALAR, MPIU_COMPLEX, MPIU_INT, PETSC_i
 M*/
-
-#if defined(__cplusplus) && defined(PETSC_HAVE_CXX_COMPLEX) && !defined(PETSC_USE_REAL___FLOAT128)
-#  if !defined(PETSC_SKIP_COMPLEX)
-     /* C++ support of complex number */
-#    define PETSC_HAVE_COMPLEX 1
-#    if defined(PETSC_HAVE_CUDA) && __CUDACC_VER_MAJOR__ > 6
-       /* complex headers in thrust only available in CUDA 7.0 and above */
-#      define petsccomplexlib thrust
-#      include <thrust/complex.h>
-#    else
-#      define petsccomplexlib std
-#      include <complex>
+#if !defined(PETSC_SKIP_COMPLEX)
+#  if defined(PETSC_CLANGUAGE_CXX)
+#    if !defined(PETSC_USE_REAL___FP16) && !defined(PETSC_USE_REAL___FLOAT128)
+#      if defined(__cplusplus) && defined(PETSC_HAVE_CXX_COMPLEX)  /* enable complex for library code */
+#        define PETSC_HAVE_COMPLEX 1
+#      elif !defined(__cplusplus) && defined(PETSC_HAVE_C99_COMPLEX) && defined(PETSC_HAVE_CXX_COMPLEX)  /* User code only - conditional on libary code complex support */
+#        define PETSC_HAVE_COMPLEX 1
+#      endif
+#    elif defined(PETSC_USE_REAL___FLOAT128) && defined(PETSC_HAVE_C99_COMPLEX)
+#        define PETSC_HAVE_COMPLEX 1
 #    endif
-#    if defined(PETSC_USE_REAL_SINGLE)
-       typedef petsccomplexlib::complex<float> PetscComplex;
-#    elif defined(PETSC_USE_REAL_DOUBLE)
-       typedef petsccomplexlib::complex<double> PetscComplex;
-#    elif defined(PETSC_USE_REAL___FLOAT128)
-       typedef petsccomplexlib::complex<__float128> PetscComplex; /* Notstandard and not expected to work, use __complex128 */
-#    endif  /* PETSC_USE_REAL_ */
-#  endif  /* ! PETSC_SKIP_COMPLEX */
-#  if !defined(PETSC_SKIP_CXX_COMPLEX_FIX)
-#    include <petsccxxcomplexfix.h>
-#  endif /* ! PETSC_SKIP_CXX_COMPLEX_FIX */
-#elif defined(PETSC_HAVE_C99_COMPLEX) && !defined(PETSC_USE_REAL___FP16)
-#  if !defined(PETSC_SKIP_COMPLEX)
-#    define PETSC_HAVE_COMPLEX 1
-#    include <complex.h>
-#    if defined(PETSC_USE_REAL_SINGLE) || defined(PETSC_USE_REAL___FP16)
-       typedef float _Complex PetscComplex;
-#    elif defined(PETSC_USE_REAL_DOUBLE)
-       typedef double _Complex PetscComplex;
-#    elif defined(PETSC_USE_REAL___FLOAT128)
-       typedef __complex128 PetscComplex;
-#    endif /* PETSC_USE_REAL_* */
-#  endif /* !PETSC_SKIP_COMPLEX */
-#elif (defined(PETSC_USE_COMPLEX) && !defined(PETSC_SKIP_COMPLEX))
-#  error "PETSc was configured --with-scalar-type=complex, but a language-appropriate complex library is not available"
+#  else /* !PETSC_CLANGUAGE_CXX */
+#    if !defined(PETSC_USE_REAL___FP16)
+#      if !defined(__cplusplus) && defined(PETSC_HAVE_C99_COMPLEX) /* enable complex for library code */
+#        define PETSC_HAVE_COMPLEX 1
+#      elif defined(__cplusplus) && defined(PETSC_HAVE_C99_COMPLEX) && defined(PETSC_HAVE_CXX_COMPLEX)  /* User code only - conditional on libary code complex support */
+#        define PETSC_HAVE_COMPLEX 1
+#      endif
+#    endif
+#  endif /* PETSC_CLANGUAGE_CXX */
 #endif /* !PETSC_SKIP_COMPLEX */
+
+#if defined(PETSC_HAVE_COMPLEX)
+  #if defined(__cplusplus)  /* C++ complex support */
+    /* Locate a C++ complex template library */
+    #if defined(PETSC_DESIRE_KOKKOS_COMPLEX) /* Defined in petscvec_kokkos.hpp for *.kokkos.cxx files */
+      #define petsccomplexlib Kokkos
+      #include <Kokkos_Complex.hpp>
+    #elif defined(PETSC_HAVE_CUDA)
+      #define petsccomplexlib thrust
+      #include <thrust/complex.h>
+    #elif defined(PETSC_USE_REAL___FLOAT128)
+      #include <complex.h>
+    #else
+      #define petsccomplexlib std
+      #include <complex>
+    #endif
+
+    /* Define PetscComplex based on the precision */
+    #if defined(PETSC_USE_REAL_SINGLE)
+      typedef petsccomplexlib::complex<float> PetscComplex;
+    #elif defined(PETSC_USE_REAL_DOUBLE)
+      typedef petsccomplexlib::complex<double> PetscComplex;
+    #elif defined(PETSC_USE_REAL___FLOAT128)
+      typedef __complex128 PetscComplex;
+    #endif
+
+    /* Include a PETSc C++ complex 'fix'. Check PetscComplex manual page for details */
+    #if defined(PETSC_HAVE_CXX_COMPLEX_FIX) && !defined(PETSC_SKIP_CXX_COMPLEX_FIX)
+      #include <petsccxxcomplexfix.h>
+    #endif
+  #else /* c99 complex support */
+    #include <complex.h>
+    #if defined(PETSC_USE_REAL_SINGLE) || defined(PETSC_USE_REAL___FP16)
+      typedef float _Complex PetscComplex;
+    #elif defined(PETSC_USE_REAL_DOUBLE)
+      typedef double _Complex PetscComplex;
+    #elif defined(PETSC_USE_REAL___FLOAT128)
+      typedef __complex128 PetscComplex;
+    #endif /* PETSC_USE_REAL_* */
+  #endif /* !__cplusplus */
+#endif /* PETSC_HAVE_COMPLEX */
 
 /*MC
    PetscScalar - PETSc type that represents either a double precision real number, a double precision
@@ -257,7 +302,7 @@ M*/
 .seealso: PetscReal, PetscComplex, PetscInt, MPIU_REAL, MPIU_SCALAR, MPIU_COMPLEX, MPIU_INT, PetscRealPart(), PetscImaginaryPart()
 M*/
 
-#if (defined(PETSC_USE_COMPLEX) && !defined(PETSC_SKIP_COMPLEX))
+#if defined(PETSC_USE_COMPLEX) && defined(PETSC_HAVE_COMPLEX)
    typedef PetscComplex PetscScalar;
 #else /* PETSC_USE_COMPLEX */
    typedef PetscReal PetscScalar;
@@ -332,7 +377,7 @@ typedef double PetscLogDouble;
    It would be nice if we could always just use MPI Datatypes, why can we not?
 
    If you change any values in PetscDatatype make sure you update their usage in
-   share/petsc/matlab/PetscBagRead.m
+   share/petsc/matlab/PetscBagRead.m and share/petsc/matlab/@PetscOpenSocket/read/write.m
 
    TODO: Add PETSC_INT32 and remove use of improper PETSC_ENUM
 
@@ -427,6 +472,7 @@ typedef struct _n_PetscFunctionList *PetscFunctionList;
 
   Level: beginner
 
+$  FILE_MODE_UNDEFINED - initial invalid value
 $  FILE_MODE_READ - open a file at its beginning for reading
 $  FILE_MODE_WRITE - open a file at its beginning for writing (will create if the file does not exist)
 $  FILE_MODE_APPEND - open a file at end for writing
@@ -435,7 +481,7 @@ $  FILE_MODE_APPEND_UPDATE - open a file for updating, meaning for reading and w
 
 .seealso: PetscViewerFileSetMode()
 E*/
-typedef enum {FILE_MODE_READ, FILE_MODE_WRITE, FILE_MODE_APPEND, FILE_MODE_UPDATE, FILE_MODE_APPEND_UPDATE} PetscFileMode;
+typedef enum {FILE_MODE_UNDEFINED=-1, FILE_MODE_READ=0, FILE_MODE_WRITE, FILE_MODE_APPEND, FILE_MODE_UPDATE, FILE_MODE_APPEND_UPDATE} PetscFileMode;
 
 typedef void* PetscDLHandle;
 typedef enum {PETSC_DL_DECIDE=0,PETSC_DL_NOW=1,PETSC_DL_LOCAL=2} PetscDLMode;
@@ -577,7 +623,6 @@ M*/
 
 M*/
 
-
 /*S
    PetscSubcomm - A decomposition of an MPI communicator into subcommunicators
 
@@ -608,7 +653,6 @@ $     PETSC_SUBCOMM_INTERLACED - the first communicator contains rank 0,3, the s
    This is used in objects such as PCREDUNDANT to manage the subcommunicators on which the redundant computations
       are performed.
 
-
 .seealso: PetscSubcommCreate(), PetscSubcommSetNumber(), PetscSubcommSetType(), PetscSubcommView(), PetscSubcommSetFromOptions()
 
 S*/
@@ -637,20 +681,4 @@ S*/
 typedef struct _n_PetscSegBuffer *PetscSegBuffer;
 
 typedef struct _n_PetscOptionsHelpPrinted *PetscOptionsHelpPrinted;
-
-/*E
-  PetscMemType - Memory type of a pointer
-
-  Level: beginner
-
-  Developer Note:
-   Encoding of the bitmask in binary: xx0=HOST, xx1=DEVICE, x01 for CUDA, x11 for HIP.
-
-.seealso: VecGetArrayAndMemType(), PetscSFBcastAndOpWithMemTypeBegin(), PetscSFReduceWithMemTypeBegin()
-E*/
-typedef enum {PETSC_MEMTYPE_HOST=0, PETSC_MEMTYPE_DEVICE=1, PETSC_MEMTYPE_CUDA=1, PETSC_MEMTYPE_HIP=3} PetscMemType;
-
-#define PetscMemTypeHost(m)   (((m) & 0x1) == PETSC_MEMTYPE_HOST)
-#define PetscMemTypeDevice(m) (((m) & 0x1) == PETSC_MEMTYPE_DEVICE)
-
 #endif

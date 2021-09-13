@@ -2,7 +2,7 @@
 #include <../src/vec/pf/pfimpl.h>            /*I "petscpf.h" I*/
 
 /*
-        Ths PF generates a function on the fly and loads it into the running
+        This PF generates a function on the fly and loads it into the running
    program.
 */
 
@@ -82,7 +82,7 @@ PetscErrorCode  PFStringCreateFunction(PF pf,char *string,void **f)
   SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SUP_SYS,"Cannot run external programs on this machine");
 #endif
 
-  ierr = MPI_Barrier(comm);CHKERRQ(ierr);
+  ierr = MPI_Barrier(comm);CHKERRMPI(ierr);
 
   /* load the apply function from the dynamic library */
   ierr = PetscGetUserName(username,64);CHKERRQ(ierr);
@@ -126,8 +126,4 @@ PETSC_EXTERN PetscErrorCode PFCreate_String(PF pf,void *value)
   pf->ops->setfromoptions = PFSetFromOptions_String;
   PetscFunctionReturn(0);
 }
-
-
-
-
 

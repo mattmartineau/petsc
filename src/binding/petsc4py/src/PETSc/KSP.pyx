@@ -277,7 +277,7 @@ cdef class KSP(Object):
         CHKERR( KSPSetResidualHistory(self.ksp, data, size, flag) )
 
     def getConvergenceHistory(self):
-        cdef PetscReal *data = NULL
+        cdef const PetscReal *data = NULL
         cdef PetscInt   size = 0
         CHKERR( KSPGetResidualHistory(self.ksp, &data, &size) )
         return array_r(size, data)
@@ -302,9 +302,11 @@ cdef class KSP(Object):
     def getMonitor(self):
         return self.get_attr('__monitor__')
 
-    def cancelMonitor(self):
+    def monitorCancel(self):
         CHKERR( KSPMonitorCancel(self.ksp) )
         self.set_attr('__monitor__', None)
+
+    cancelMonitor = monitorCancel
 
     def monitor(self, its, rnorm):
         cdef PetscInt  ival = asInt(its)

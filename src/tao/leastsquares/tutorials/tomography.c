@@ -6,7 +6,7 @@
    Include "petsctao.h" so that we can use TAO solvers.  Note that this
    file automatically includes libraries such as:
      petsc.h       - base PETSc routines   petscvec.h - vectors
-     petscsys.h    - sysem routines        petscmat.h - matrices
+     petscsys.h    - system routines        petscmat.h - matrices
      petscis.h     - index sets            petscksp.h - Krylov subspace methods
      petscviewer.h - viewers               petscpc.h  - preconditioners
 
@@ -94,7 +94,7 @@ int main(int argc,char **argv)
 
   /* Set the residual function and Jacobian routines for least squares. */
   ierr = TaoSetResidualRoutine(tao,res,EvaluateResidual,(void*)&user);CHKERRQ(ierr);
-  /* Jacobian matrix fixed as user.A for Linear least sqaure problem. */
+  /* Jacobian matrix fixed as user.A for Linear least square problem. */
   ierr = TaoSetJacobianResidualRoutine(tao,user.A,user.A,EvaluateJacobian,(void*)&user);CHKERRQ(ierr);
 
   /* User set the regularizer objective, gradient, and hessian. Set it the same as using l2prox choice, for testing purpose.  */
@@ -220,8 +220,8 @@ PetscErrorCode InitializeUserData(AppCtx *user)
 
   /*
   Matrix Vector read and write refer to:
-  https://www.mcs.anl.gov/petsc/petsc-current/src/mat/tutorials/ex10.c
-  https://www.mcs.anl.gov/petsc/petsc-current/src/mat/tutorials/ex12.c
+  https://petsc.org/release/src/mat/tutorials/ex10.c
+  https://petsc.org/release/src/mat/tutorials/ex12.c
  */
   /* Load the A matrix, b vector, and xGT vector from a binary file. */
   ierr = PetscViewerBinaryOpen(PETSC_COMM_WORLD,dataFile,FILE_MODE_READ,&fd);CHKERRQ(ierr);
@@ -291,7 +291,7 @@ PetscErrorCode InitializeUserData(AppCtx *user)
 /*TEST
 
    build:
-      requires: !complex !single !__float128 !define(PETSC_USE_64BIT_INDICES)
+      requires: !complex !single !__float128 !defined(PETSC_USE_64BIT_INDICES)
 
    test:
       localrunfiles: tomographyData_A_b_xGT

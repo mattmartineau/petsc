@@ -75,8 +75,6 @@ int main(int argc,char **argv)
   return ierr;
 }
 
-
-
 /*TEST
 
    build:
@@ -104,5 +102,9 @@ int main(int argc,char **argv)
       suffix: 3b
       nsize: 3
       args: -mat_type baij -view_sparse
+
+   test:
+      suffix: dense
+      args: -mat_type dense
 
 TEST*/

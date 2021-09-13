@@ -63,7 +63,6 @@ typedef struct {
   Mat elem_mat;
 } GLLData;
 
-
 static PetscErrorCode BuildCSRGraph(DomainData dd, PetscInt **xadj, PetscInt **adjncy)
 {
   PetscErrorCode ierr;
@@ -73,6 +72,7 @@ static PetscErrorCode BuildCSRGraph(DomainData dd, PetscInt **xadj, PetscInt **a
   PetscBool      internal_node;
 
   /* first count dimension of adjncy */
+  PetscFunctionBeginUser;
   count_adj=0;
   for (k=0; k<dd.zm_l; k++) {
     internal_node = PETSC_TRUE;
@@ -811,7 +811,6 @@ static PetscErrorCode ComputeKSPFETIDP(DomainData dd, KSP ksp_bddc, KSP *ksp_fet
   PetscFunctionReturn(0);
 }
 
-
 static PetscErrorCode ComputeKSPBDDC(DomainData dd,Mat A,KSP *ksp)
 {
   PetscErrorCode ierr;
@@ -938,9 +937,9 @@ static PetscErrorCode InitializeDomainData(DomainData *dd)
 
   PetscFunctionBeginUser;
   dd->gcomm = PETSC_COMM_WORLD;
-  ierr      = MPI_Comm_size(dd->gcomm,&sizes);CHKERRQ(ierr);
-  ierr      = MPI_Comm_rank(dd->gcomm,&rank);CHKERRQ(ierr);
-  /* Get informations from command line */
+  ierr      = MPI_Comm_size(dd->gcomm,&sizes);CHKERRMPI(ierr);
+  ierr      = MPI_Comm_rank(dd->gcomm,&rank);CHKERRMPI(ierr);
+  /* Get information from command line */
   /* Processors/subdomains per dimension */
   /* Default is 1d problem */
   dd->npx = sizes;
@@ -1078,7 +1077,7 @@ int main(int argc,char **args)
   if (0.95 <= mineig && mineig <= 1.05) mineig = 1.0;
   ierr = PetscPrintf(dd.gcomm,"Eigenvalues preconditioned operator        : %1.1e %1.1e\n",(double)PetscFloorReal(100.*mineig)/100.,(double)PetscCeilReal(100.*maxeig)/100.);CHKERRQ(ierr);
   if (norm > 1.e-1 || reason < 0) {
-    ierr = PetscPrintf(dd.gcomm,"Error betweeen exact and computed solution : %1.2e\n",(double)norm);CHKERRQ(ierr);
+    ierr = PetscPrintf(dd.gcomm,"Error between exact and computed solution : %1.2e\n",(double)norm);CHKERRQ(ierr);
   }
   ierr = PetscPrintf(dd.gcomm,"--------------------------------------------------------------\n");CHKERRQ(ierr);
   if (testfetidp) {
@@ -1122,7 +1121,7 @@ int main(int argc,char **args)
     if (0.95 <= mineig && mineig <= 1.05) mineig = 1.0;
     ierr = PetscPrintf(dd.gcomm,"Eigenvalues preconditioned operator        : %1.1e %1.1e\n",(double)PetscFloorReal(100.*mineig)/100.,(double)PetscCeilReal(100.*maxeig)/100.);CHKERRQ(ierr);
     if (norm > 1.e-1 || reason < 0) {
-      ierr = PetscPrintf(dd.gcomm,"Error betweeen exact and computed solution : %1.2e\n",(double)norm);CHKERRQ(ierr);
+      ierr = PetscPrintf(dd.gcomm,"Error between exact and computed solution : %1.2e\n",(double)norm);CHKERRQ(ierr);
     }
     ierr = PetscPrintf(dd.gcomm,"--------------------------------------------------------------\n");CHKERRQ(ierr);
     ierr = VecDestroy(&fetidp_solution);CHKERRQ(ierr);
@@ -1200,6 +1199,5 @@ int main(int argc,char **args)
    test:
      suffix: bddc_fetidp_ml_eqlimit_2
      args: -physical_pc_bddc_coarse_eqs_limit 46
-
 
 TEST*/

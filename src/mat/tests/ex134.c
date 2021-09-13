@@ -16,7 +16,7 @@ PetscErrorCode Assemble(MPI_Comm comm,PetscInt bs,MatType mtype)
   Mat               A;
 #if defined(PETSC_HAVE_MUMPS) || defined(PETSC_HAVE_MKL_CPARDISO)
   Mat               F;
-  MatSolverType     stype;
+  MatSolverType     stype = MATSOLVERPETSC;
   PetscRandom       rdm;
   Vec               b,x,y;
   PetscInt          i,j;
@@ -102,7 +102,7 @@ int main(int argc,char *argv[])
 
   ierr = PetscInitialize(&argc,&argv,NULL,help);if (ierr) return ierr;
   comm = PETSC_COMM_WORLD;
-  ierr = MPI_Comm_size(comm,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(comm,&size);CHKERRMPI(ierr);
   if (size != 2) SETERRQ(comm,PETSC_ERR_USER,"This example must be run with exactly two processes");
   ierr = Assemble(comm,2,MATMPIBAIJ);CHKERRQ(ierr);
   ierr = Assemble(comm,2,MATMPISBAIJ);CHKERRQ(ierr);
@@ -111,7 +111,6 @@ int main(int argc,char *argv[])
   ierr = PetscFinalize();
   return ierr;
 }
-
 
 /*TEST
 

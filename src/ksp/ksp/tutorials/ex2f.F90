@@ -55,7 +55,6 @@
 !      PCType      ptype
 !      PetscReal tol
 
-
 !  Note: Any user-defined Fortran routines (such as MyKSPMonitor)
 !  MUST be declared as external.
 
@@ -225,9 +224,8 @@
 !     Also use the default KSP monitor routine showing how it may be used from Fortran
 !
         call PetscViewerAndFormatCreate(PETSC_VIEWER_STDOUT_WORLD,PETSC_VIEWER_DEFAULT,vf,ierr)
-        call KSPMonitorSet(ksp,KSPMonitorDefault,vf,PetscViewerAndFormatDestroy,ierr)
+        call KSPMonitorSet(ksp,KSPMonitorResidual,vf,PetscViewerAndFormatDestroy,ierr)
       endif
-
 
 !  Set runtime options, e.g.,
 !      -ksp_type <type> -pc_type <type> -ksp_monitor -ksp_rtol <rtol>

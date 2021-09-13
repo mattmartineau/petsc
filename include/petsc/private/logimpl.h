@@ -1,3 +1,6 @@
+#ifndef PETSC_LOGIMPL_H
+#define PETSC_LOGIMPL_H
+
 #include <petsc/private/petscimpl.h>
 #include <petsctime.h>
 
@@ -76,6 +79,8 @@ PETSC_EXTERN PetscErrorCode PetscEventPerfLogGetVisible(PetscEventPerfLog, Petsc
 /* Activaton functions */
 PETSC_EXTERN PetscErrorCode PetscEventPerfLogActivate(PetscEventPerfLog, PetscLogEvent);
 PETSC_EXTERN PetscErrorCode PetscEventPerfLogDeactivate(PetscEventPerfLog, PetscLogEvent);
+PETSC_EXTERN PetscErrorCode PetscEventPerfLogDeactivatePush(PetscEventPerfLog,PetscLogEvent);
+PETSC_EXTERN PetscErrorCode PetscEventPerfLogDeactivatePop(PetscEventPerfLog,PetscLogEvent);
 PETSC_EXTERN PetscErrorCode PetscEventPerfLogActivateClass(PetscEventPerfLog, PetscEventRegLog, PetscClassId);
 PETSC_EXTERN PetscErrorCode PetscEventPerfLogDeactivateClass(PetscEventPerfLog, PetscEventRegLog, PetscClassId);
 
@@ -125,4 +130,6 @@ PETSC_EXTERN PetscErrorCode PetscEventRegLogGetEvent(PetscEventRegLog, const cha
 
 PETSC_INTERN PetscErrorCode PetscLogView_Nested(PetscViewer);
 PETSC_INTERN PetscErrorCode PetscLogNestedEnd(void);
+PETSC_INTERN PetscErrorCode PetscLogView_Flamegraph(PetscViewer);
 #endif /* PETSC_USE_LOG */
+#endif /* PETSC_LOGIMPL_H */

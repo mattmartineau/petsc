@@ -28,7 +28,6 @@
     Fortran Note:
     This routine is not supported in Fortran.
 
-
 .seealso: PetscFClose(), PetscSynchronizedFGets(), PetscSynchronizedPrintf(), PetscSynchronizedFlush(),
           PetscFPrintf()
 @*/
@@ -40,7 +39,7 @@ PetscErrorCode  PetscFOpen(MPI_Comm comm,const char name[],const char mode[],FIL
   char           fname[PETSC_MAX_PATH_LEN],tname[PETSC_MAX_PATH_LEN];
 
   PetscFunctionBegin;
-  ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(comm,&rank);CHKERRMPI(ierr);
   if (!rank) {
     PetscBool isstdout,isstderr;
     ierr = PetscStrcmp(name,"stdout",&isstdout);CHKERRQ(ierr);
@@ -79,7 +78,6 @@ PetscErrorCode  PetscFOpen(MPI_Comm comm,const char name[],const char mode[],FIL
     Fortran Note:
     This routine is not supported in Fortran.
 
-
 .seealso: PetscFOpen()
 @*/
 PetscErrorCode  PetscFClose(MPI_Comm comm,FILE *fd)
@@ -89,7 +87,7 @@ PetscErrorCode  PetscFClose(MPI_Comm comm,FILE *fd)
   int            err;
 
   PetscFunctionBegin;
-  ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(comm,&rank);CHKERRMPI(ierr);
   if (!rank && fd != PETSC_STDOUT && fd != PETSC_STDERR) {
     err = fclose(fd);
     if (err) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SYS,"fclose() failed on file");
@@ -123,7 +121,7 @@ PetscErrorCode PetscPClose(MPI_Comm comm,FILE *fd)
   PetscMPIInt    rank;
 
   PetscFunctionBegin;
-  ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(comm,&rank);CHKERRMPI(ierr);
   if (!rank) {
     char buf[1024];
     while (fgets(buf,1024,fd)) ; /* wait till it prints everything */
@@ -131,7 +129,6 @@ PetscErrorCode PetscPClose(MPI_Comm comm,FILE *fd)
   }
   PetscFunctionReturn(0);
 }
-
 
 /*@C
       PetscPOpen - Runs a program on processor zero and sends either its input or output to
@@ -158,7 +155,7 @@ PetscErrorCode PetscPClose(MPI_Comm comm,FILE *fd)
        will use the machine running node zero of the communicator
 
        The program string may contain ${DISPLAY}, ${HOMEDIRECTORY} or ${WORKINGDIRECTORY}; these
-    will be replaced with relevent values.
+    will be replaced with relevant values.
 
 .seealso: PetscFOpen(), PetscFClose(), PetscPClose(), PetscPOpenSetMachine()
 
@@ -199,7 +196,7 @@ PetscErrorCode  PetscPOpen(MPI_Comm comm,const char machine[],const char program
 
   ierr = PetscStrreplace(comm,command,commandt,1024);CHKERRQ(ierr);
 
-  ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(comm,&rank);CHKERRMPI(ierr);
   if (!rank) {
     ierr = PetscInfo1(NULL,"Running command :%s\n",commandt);CHKERRQ(ierr);
     if (!(fd = popen(commandt,mode))) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_LIB,"Cannot run command %s",commandt);
@@ -214,15 +211,14 @@ PetscErrorCode  PetscPOpen(MPI_Comm comm,const char machine[],const char program
      Logically Collective, but only process 0 runs the command
 
    Input Parameter:
-.   machine - machine to run command on or NULL to remove previous entry
+.   machine - machine to run command on or NULL for the current machine
 
    Options Database:
-.   -popen_machine <machine>
+.   -popen_machine <machine> - run the process on this machine
 
    Level: intermediate
 
 .seealso: PetscFOpen(), PetscFClose(), PetscPClose(), PetscPOpen()
-
 @*/
 PetscErrorCode  PetscPOpenSetMachine(const char machine[])
 {

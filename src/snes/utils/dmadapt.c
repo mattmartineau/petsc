@@ -127,7 +127,7 @@ PetscErrorCode DMAdaptorSetFromOptions(DMAdaptor adaptor)
   ierr = PetscOptionsReal("-adaptor_refinement_factor", "Set r such that N_adapt = r^dim N_orig", "DMAdaptor", adaptor->refinementFactor, &adaptor->refinementFactor, NULL);CHKERRQ(ierr);
   ierr = PetscOptionsReal("-adaptor_metric_h_min", "Set the minimum eigenvalue of Hessian (sqr max edge length)", "DMAdaptor", adaptor->h_min, &adaptor->h_min, NULL);CHKERRQ(ierr);
   ierr = PetscOptionsReal("-adaptor_metric_h_max", "Set the maximum eigenvalue of Hessian (sqr min edge length)", "DMAdaptor", adaptor->h_max, &adaptor->h_max, NULL);CHKERRQ(ierr);
-  ierr = PetscOptionsEnd();
+  ierr = PetscOptionsEnd();CHKERRQ(ierr);
   ierr = VecTaggerSetFromOptions(adaptor->refineTag);CHKERRQ(ierr);
   ierr = VecTaggerSetFromOptions(adaptor->coarsenTag);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -634,7 +634,7 @@ static PetscErrorCode DMAdaptorComputeErrorIndicator_Private(DMAdaptor adaptor, 
       ierr = PetscArrayzero(interpolant,Nc);CHKERRQ(ierr);
       ierr = PetscArrayzero(interpolantGrad, cdim*Nc);CHKERRQ(ierr);
       for (q = 0; q < Nq; ++q) {
-        ierr = PetscFEInterpolateFieldAndGradient_Static((PetscFE) obj, x, &fegeom, q, interpolant, interpolantGrad);CHKERRQ(ierr);
+        ierr = PetscFEInterpolateFieldAndGradient_Static((PetscFE) obj, 1, x, &fegeom, q, interpolant, interpolantGrad);CHKERRQ(ierr);
         for (fc = 0; fc < Nc; ++fc) {
           const PetscReal wt = quadWeights[q*qNc+qc+fc];
 

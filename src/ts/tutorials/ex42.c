@@ -147,6 +147,7 @@ PetscErrorCode DomainErrorFunction(TS ts, PetscReal t, Vec Y, PetscBool *accept)
   const PetscScalar *x;
   PetscInt          nb_cells, i;
 
+  PetscFunctionBegin;
   ierr = TSGetApplicationContext(ts, &user);CHKERRQ(ierr);
   nb_cells = user->nb_cells;
   ierr = VecGetArrayRead(Y, &x);CHKERRQ(ierr);
@@ -209,7 +210,7 @@ int main(int argc, char **argv)
   PetscMPIInt    size;
 
   ierr = PetscInitialize(&argc, &argv, NULL, help);if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD, &size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD, &size);CHKERRMPI(ierr);
   if (size != 1) SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_SUP, "This is a uniprocessor example only");
 
   /*

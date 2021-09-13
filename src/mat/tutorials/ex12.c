@@ -9,8 +9,6 @@ static char help[] = "Reads a PETSc matrix and vector from a file; expands the m
    Processors: 1
 T*/
 
-
-
 /*
   Include "petscmat.h" so that we can use matrices.
   automatically includes:
@@ -69,7 +67,6 @@ PetscErrorCode PadMatrix(Mat A,Vec v,PetscScalar c,Mat *B)
   PetscFunctionReturn(0);
 }
 
-
 int main(int argc,char **args)
 {
   Mat            A,B;
@@ -106,12 +103,10 @@ int main(int argc,char **args)
   return ierr;
 }
 
-
-
 /*TEST
 
    test:
       args: -f0 ${wPETSC_DIR}/share/petsc/datafiles/matrices/ns-real-int32-float64
-      requires: double !complex !define(PETSC_USE_64BIT_INDICES)
+      requires: double !complex !defined(PETSC_USE_64BIT_INDICES)
 
 TEST*/

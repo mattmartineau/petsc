@@ -7,7 +7,7 @@ PetscErrorCode DMSetFromOptions_Patch(PetscOptionItems *PetscOptionsObject,DM dm
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
-  PetscValidHeaderSpecific(dm, DM_CLASSID, 1);
+  PetscValidHeaderSpecific(dm, DM_CLASSID, 2);
   ierr = PetscOptionsHead(PetscOptionsObject,"DMPatch Options");CHKERRQ(ierr);
   /* Handle associated vectors */
   /* Handle viewing */
@@ -82,7 +82,13 @@ PETSC_EXTERN PetscErrorCode DMCreate_Patch(DM dm)
   Output Parameter:
 . mesh  - The DMPatch object
 
+  Notes:
+
+  This code is incomplete and not used by other parts of PETSc.
+
   Level: beginner
+
+.seealso: DMPatchZoom()
 
 @*/
 PetscErrorCode DMPatchCreate(MPI_Comm comm, DM *mesh)

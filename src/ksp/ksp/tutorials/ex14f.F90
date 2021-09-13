@@ -1,9 +1,9 @@
 !
 !
 !  Solves a nonlinear system in parallel with a user-defined
-!  Newton method that uses KSP to solve the linearized Newton sytems.  This solver
+!  Newton method that uses KSP to solve the linearized Newton systems.  This solver
 !  is a very simplistic inexact Newton method.  The intent of this code is to
-!  demonstrate the repeated solution of linear sytems with the same nonzero pattern.
+!  demonstrate the repeated solution of linear systems with the same nonzero pattern.
 !
 !  This is NOT the recommended approach for solving nonlinear problems with PETSc!
 !  We urge users to employ the SNES component for solving nonlinear problems whenever
@@ -26,7 +26,6 @@
 !   Concepts: DMDA^using distributed arrays
 !   Processors: n
 !T*/
-
 
 !  ------------------------------------------------------------------------
 !
@@ -137,7 +136,6 @@
        call VecDuplicate(X,F,ierr)
        call VecDuplicate(X,Y,ierr)
 
-
 !  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 !     Create matrix data structure for Jacobian
 !  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -201,7 +199,7 @@
 !  This solver is a very simplistic inexact Newton method, with no
 !  no damping strategies or bells and whistles. The intent of this code
 !  is merely to demonstrate the repeated solution with KSP of linear
-!  sytems with the same nonzero structure.
+!  systems with the same nonzero structure.
 !
 !  This is NOT the recommended approach for solving nonlinear problems
 !  with PETSc!  We urge users to employ the SNES component for solving
@@ -540,7 +538,6 @@
       call MatAssemblyEnd(jac,MAT_FINAL_ASSEMBLY,ierr)
       return
       end
-
 
 ! -------------------------------------------------------------------
 !

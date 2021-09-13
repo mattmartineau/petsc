@@ -4,6 +4,8 @@ TS Object: 1 MPI processes
     Abscissa of A       =  0.000000  0.871733  0.731580  1.000000 
     Abscissa of A+Gamma =  0.435867  0.871733  0.731580  1.000000 
   maximum time=1.
+  total number of I function evaluations=256
+  total number of RHS function evaluations=256
   total number of nonlinear solver iterations=64
   total number of linear solver iterations=64
   total number of linear solve failures=0
@@ -23,7 +25,7 @@ TS Object: 1 MPI processes
     maximum iterations=50, maximum function evaluations=10000
     tolerances: relative=1e-08, absolute=1e-50, solution=1e-08
     total number of linear solver iterations=1
-    total number of function evaluations=4
+    total number of function evaluations=2
     norm schedule ALWAYS
     Jacobian is rebuilt every 2 SNES iterations
     Jacobian is built using finite differences one column at a time

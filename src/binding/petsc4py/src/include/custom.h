@@ -182,7 +182,7 @@ VecStrideSum(Vec v, PetscInt start, PetscScalar *a)
   for (i=start; i<n; i+=bs) sum += x[i];
   ierr = VecRestoreArrayRead(v,&x);CHKERRQ(ierr);
   ierr = PetscObjectGetComm((PetscObject)v,&comm);CHKERRQ(ierr);
-  ierr = MPI_Allreduce(&sum,a,1,MPIU_SCALAR,MPIU_SUM,comm);CHKERRQ(ierr);
+  ierr = MPI_Allreduce(&sum,a,1,MPIU_SCALAR,MPIU_SUM,comm);CHKERRMPI(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -436,7 +436,7 @@ SNESSetUseFDColoring(SNES snes,PetscBool flag)
   if (!flg && !flag) PetscFunctionReturn(0);
   if (flg  && !flag) {
     SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,
-            "cannot change colored finite diferences once it is set");
+            "cannot change colored finite differences once it is set");
     PetscFunctionReturn(PETSC_ERR_ARG_WRONGSTATE);
   }
 

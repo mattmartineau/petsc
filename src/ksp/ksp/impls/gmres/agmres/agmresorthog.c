@@ -12,7 +12,6 @@
  *
  */
 
-
 /*
  * Take the processes that own the vectors and Organize them on a virtual ring.
  */
@@ -27,10 +26,10 @@ PetscErrorCode KSPAGMRESRoddecInitNeighboor(KSP ksp)
 
   PetscFunctionBegin;
   ierr = PetscObjectGetComm((PetscObject)agmres->vecs[0], &comm);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(comm, &rank);CHKERRQ(ierr);
-  ierr = MPI_Comm_size(comm, &size);CHKERRQ(ierr);
-  ierr = MPIU_Allreduce(&rank, &First, 1, MPI_INT, MPI_MIN, comm);CHKERRQ(ierr);
-  ierr = MPIU_Allreduce(&rank, &Last, 1, MPI_INT, MPI_MAX, comm);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(comm, &rank);CHKERRMPI(ierr);
+  ierr = MPI_Comm_size(comm, &size);CHKERRMPI(ierr);
+  ierr = MPIU_Allreduce(&rank, &First, 1, MPI_INT, MPI_MIN, comm);CHKERRMPI(ierr);
+  ierr = MPIU_Allreduce(&rank, &Last, 1, MPI_INT, MPI_MAX, comm);CHKERRMPI(ierr);
 
   if ((rank != Last) && (!rank)) {
     agmres->Ileft  = rank - 1;
@@ -133,7 +132,6 @@ PetscErrorCode KSPAGMRESRoddec(KSP ksp, PetscInt nvec)
   MPI_Status     status;
   PetscBLASInt   N = MAXKSPSIZE + 1;
 
-
   PetscFunctionBegin;
   ierr = PetscObjectGetComm((PetscObject)ksp,&comm);CHKERRQ(ierr);
   ierr = PetscLogEventBegin(KSP_AGMRESRoddec,ksp,0,0,0);CHKERRQ(ierr);
@@ -154,7 +152,7 @@ PetscErrorCode KSPAGMRESRoddec(KSP ksp, PetscInt nvec)
   for (j = 0; j < nvec; j++) {
     len = nloc - j;
     Ajj = Qloc[j*nloc+j];
-    rho = -PetscSign(Ajj) * BLASnrm2_(&len, &(Qloc[j*nloc+j]), &pas);
+    PetscStackCallBLAS("BLASnrm2",rho = -PetscSign(Ajj) * BLASnrm2_(&len, &(Qloc[j*nloc+j]), &pas));
     if (rho == 0.0) tloc[j] = 0.0;
     else {
       tloc[j] = (Ajj - rho) / rho;
@@ -175,9 +173,9 @@ PetscErrorCode KSPAGMRESRoddec(KSP ksp, PetscInt nvec)
     len = nvec - d;
     if (rank == First) {
       PetscStackCallBLAS("BLAScopy",BLAScopy_(&len, &(Qloc[d*nloc+d]), &bnloc, &(wbufptr[d]), &pas));
-      ierr = MPI_Send(&(wbufptr[d]), len, MPIU_SCALAR, rank + 1, agmres->tag, comm);CHKERRQ(ierr);
+      ierr = MPI_Send(&(wbufptr[d]), len, MPIU_SCALAR, rank + 1, agmres->tag, comm);CHKERRMPI(ierr);
     } else {
-      ierr = MPI_Recv(&(wbufptr[d]), len, MPIU_SCALAR, rank - 1, agmres->tag, comm, &status);CHKERRQ(ierr);
+      ierr = MPI_Recv(&(wbufptr[d]), len, MPIU_SCALAR, rank - 1, agmres->tag, comm, &status);CHKERRMPI(ierr);
       /* Elimination of Rloc(1,d)*/
       c    = wbufptr[d];
       s    = Qloc[d*nloc];
@@ -190,7 +188,7 @@ PetscErrorCode KSPAGMRESRoddec(KSP ksp, PetscInt nvec)
       }
       Qloc[d*nloc] = rho;
       if (rank != Last) {
-        ierr = MPI_Send(& (wbufptr[d]), len, MPIU_SCALAR, rank + 1, agmres->tag, comm);CHKERRQ(ierr);
+        ierr = MPI_Send(& (wbufptr[d]), len, MPIU_SCALAR, rank + 1, agmres->tag, comm);CHKERRMPI(ierr);
       }
       /* zero-out the d-th diagonal of Rloc ...*/
       for (j = d + 1; j < nvec; j++) {
@@ -224,11 +222,10 @@ PetscErrorCode KSPAGMRESRoddec(KSP ksp, PetscInt nvec)
   /* BroadCast Rloc to all other processes
    * NWD : should not be needed
    */
-  ierr = MPI_Bcast(agmres->Rloc,N*N,MPIU_SCALAR,Last,comm);CHKERRQ(ierr);
+  ierr = MPI_Bcast(agmres->Rloc,N*N,MPIU_SCALAR,Last,comm);CHKERRMPI(ierr);
   ierr = PetscLogEventEnd(KSP_AGMRESRoddec,ksp,0,0,0);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
-
 
 /*
  *  Computes Out <-- Q * In where Q is the orthogonal matrix from AGMRESRoddec
@@ -273,7 +270,7 @@ PetscErrorCode KSPAGMRESRodvec(KSP ksp, PetscInt nvec, PetscScalar *In, Vec Out)
   else {
     for (d = nvec - 1; d >= 0; d--) {
       if (rank == First) {
-        ierr = MPI_Recv(&(zloc[d]), 1, MPIU_SCALAR, Iright, agmres->tag, comm, &status);CHKERRQ(ierr);
+        ierr = MPI_Recv(&(zloc[d]), 1, MPIU_SCALAR, Iright, agmres->tag, comm, &status);CHKERRMPI(ierr);
       } else {
         for (j = nvec - 1; j >= d + 1; j--) {
           i         = j - d;
@@ -289,14 +286,14 @@ PetscErrorCode KSPAGMRESRodvec(KSP ksp, PetscInt nvec, PetscScalar *In, Vec Out)
           zq      = zloc[0];
           y[d]    =      c * zp + s * zq;
           zloc[0] =   -s * zp + c * zq;
-          ierr    = MPI_Send(&(y[d]), 1, MPIU_SCALAR, Ileft, agmres->tag, comm);CHKERRQ(ierr);
+          ierr    = MPI_Send(&(y[d]), 1, MPIU_SCALAR, Ileft, agmres->tag, comm);CHKERRMPI(ierr);
         } else {
-          ierr    = MPI_Recv(&yd, 1, MPIU_SCALAR, Iright, agmres->tag, comm, &status);CHKERRQ(ierr);
+          ierr    = MPI_Recv(&yd, 1, MPIU_SCALAR, Iright, agmres->tag, comm, &status);CHKERRMPI(ierr);
           zp      = yd;
           zq      = zloc[0];
           yd      =      c * zp + s * zq;
           zloc[0] =   -s * zp + c * zq;
-          ierr    = MPI_Send(&yd, 1, MPIU_SCALAR, Ileft, agmres->tag, comm);CHKERRQ(ierr);
+          ierr    = MPI_Send(&yd, 1, MPIU_SCALAR, Ileft, agmres->tag, comm);CHKERRMPI(ierr);
         }
       }
     }

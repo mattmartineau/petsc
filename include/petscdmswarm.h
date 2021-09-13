@@ -101,6 +101,7 @@ PETSC_EXTERN PetscErrorCode DMSwarmSetPointsUniformCoordinates(DM,PetscReal*,Pet
 PETSC_EXTERN PetscErrorCode DMSwarmSetPointCoordinates(DM,PetscInt,PetscReal*,PetscBool,InsertMode);
 PETSC_EXTERN PetscErrorCode DMSwarmInsertPointsUsingCellDM(DM,DMSwarmPICLayoutType,PetscInt);
 PETSC_EXTERN PetscErrorCode DMSwarmSetPointCoordinatesCellwise(DM,PetscInt,PetscReal*);
+PETSC_EXTERN PetscErrorCode DMSwarmSetPointCoordinatesRandom(DM,PetscInt);
 PETSC_EXTERN PetscErrorCode DMSwarmViewFieldsXDMF(DM,const char*,PetscInt,const char**);
 PETSC_EXTERN PetscErrorCode DMSwarmViewXDMF(DM,const char*);
 
@@ -113,5 +114,8 @@ PETSC_EXTERN PetscErrorCode DMSwarmSortGetSizes(DM,PetscInt*,PetscInt*);
 
 PETSC_EXTERN PetscErrorCode DMSwarmProjectFields(DM,PetscInt,const char**,Vec**,PetscBool);
 PETSC_EXTERN PetscErrorCode DMSwarmCreateMassMatrixSquare(DM,DM,Mat*);
+
+PETSC_EXTERN PetscErrorCode DMSwarmGetCellSwarm(DM sw, PetscInt cellID, DM cellswarm);
+PETSC_EXTERN PetscErrorCode DMSwarmRestoreCellSwarm(DM sw, PetscInt cellID, DM cellswarm);
 
 #endif

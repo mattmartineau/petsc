@@ -36,8 +36,8 @@ int main(int argc,char **args)
 #endif
 
   ierr = PetscInitialize(&argc,&args,(char*)0,help);if (ierr) return ierr;
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
   ierr = PetscOptionsGetInt(NULL,NULL,"-m",&m,NULL);CHKERRQ(ierr);
   ierr = PetscOptionsGetInt(NULL,NULL,"-n",&n,NULL);CHKERRQ(ierr);
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -154,7 +154,7 @@ int main(int argc,char **args)
   /*
     Example of how to use external package MUMPS
     Note: runtime options
-          '-ksp_type preonly -pc_type lu -pc_factor_mat_solver_type mumps -mat_mumps_icntl_7 2 -mat_mumps_icntl_1 0.0'
+          '-ksp_type preonly -pc_type lu -pc_factor_mat_solver_type mumps -mat_mumps_icntl_7 3 -mat_mumps_icntl_1 0.0'
           are equivalent to these procedural calls
   */
 #if defined(PETSC_HAVE_MUMPS)
@@ -233,7 +233,6 @@ int main(int argc,char **args)
   }
 #endif
 
-
   /*
     Example of how to use external package STRUMPACK
     Note: runtime options
@@ -264,7 +263,7 @@ int main(int argc,char **args)
       ierr = PCSetType(pc,PCILU);CHKERRQ(ierr);
     }
 #if !defined(PETSC_HAVE_STRUMPACK)
-    SETERRQ(PETSC_COMM_WORLD,PETSC_,"This test requires STRUMPACK");
+    SETERRQ(PETSC_COMM_WORLD,PETSC_ERR_SUP,"This test requires STRUMPACK");
 #endif
     ierr = PCFactorSetMatSolverType(pc,MATSOLVERSTRUMPACK);CHKERRQ(ierr);
     ierr = PCFactorSetUpMatSolverType(pc);CHKERRQ(ierr); /* call MatGetFactor() to create F */
@@ -344,8 +343,8 @@ int main(int argc,char **args)
       ierr = MatMumpsGetInfog(F,34,&infog34);CHKERRQ(ierr);
       ierr = MatMumpsGetRinfog(F,12,&rinfo12);CHKERRQ(ierr);
       ierr = MatMumpsGetRinfog(F,13,&rinfo13);CHKERRQ(ierr);
-      ierr = PetscPrintf(PETSC_COMM_SELF,"  Mumps row pivot threshold = %g\n",cntl);
-      ierr = PetscPrintf(PETSC_COMM_SELF,"  Mumps determinant = (%g, %g) * 2^%D \n",(double)rinfo12,(double)rinfo13,infog34);
+      ierr = PetscPrintf(PETSC_COMM_SELF,"  Mumps row pivot threshold = %g\n",cntl);CHKERRQ(ierr);
+      ierr = PetscPrintf(PETSC_COMM_SELF,"  Mumps determinant = (%g, %g) * 2^%D \n",(double)rinfo12,(double)rinfo13,infog34);CHKERRQ(ierr);
     }
   }
 #endif
@@ -391,7 +390,6 @@ int main(int argc,char **args)
   return ierr;
 }
 
-
 /*TEST
 
    test:
@@ -422,14 +420,14 @@ int main(int argc,char **args)
    test:
       suffix: mumps_omp_2
       nsize: 4
-      requires: mumps hwloc openmp pthread define(PETSC_HAVE_MPI_PROCESS_SHARED_MEMORY)
+      requires: mumps hwloc openmp pthread defined(PETSC_HAVE_MPI_PROCESS_SHARED_MEMORY)
       args: -use_mumps_lu -mat_mumps_use_omp_threads 2
       output_file: output/ex52_1.out
 
    test:
       suffix: mumps_omp_3
       nsize: 4
-      requires: mumps hwloc openmp pthread define(PETSC_HAVE_MPI_PROCESS_SHARED_MEMORY)
+      requires: mumps hwloc openmp pthread defined(PETSC_HAVE_MPI_PROCESS_SHARED_MEMORY)
       args: -use_mumps_ch -mat_mumps_use_omp_threads 3
       # Ignore the warning since we are intentionally testing the imbalanced case
       filter: grep -v "Warning: number of OpenMP threads"
@@ -438,7 +436,7 @@ int main(int argc,char **args)
    test:
       suffix: mumps_omp_4
       nsize: 4
-      requires: mumps hwloc openmp pthread define(PETSC_HAVE_MPI_PROCESS_SHARED_MEMORY)
+      requires: mumps hwloc openmp pthread defined(PETSC_HAVE_MPI_PROCESS_SHARED_MEMORY)
       # let petsc guess a proper number for threads
       args: -use_mumps_ch -mat_type sbaij -mat_mumps_use_omp_threads
       output_file: output/ex52_1.out

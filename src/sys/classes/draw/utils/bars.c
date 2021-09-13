@@ -175,7 +175,7 @@ PetscErrorCode  PetscDrawBarDraw(PetscDrawBar bar)
   PetscValidHeaderSpecific(bar,PETSC_DRAWBAR_CLASSID,1);
   ierr = PetscDrawIsNull(bar->win,&isnull);CHKERRQ(ierr);
   if (isnull) PetscFunctionReturn(0);
-  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)bar),&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)bar),&rank);CHKERRMPI(ierr);
 
   if (bar->numBins < 1) PetscFunctionReturn(0);
 
@@ -402,7 +402,6 @@ PetscErrorCode  PetscDrawBarGetDraw(PetscDrawBar bar,PetscDraw *draw)
 .  -bar_sort - sort the entries before drawing the bar graph
 
     Level: intermediate
-
 
 .seealso:  PetscDrawBarDestroy(), PetscDrawBarCreate(), PetscDrawBarSort()
 @*/

@@ -31,12 +31,12 @@
 #define snessetoptionsprefix_            SNESSETOPTIONSPREFIX
 #define snesmonitordefault_              SNESMONITORDEFAULT
 #define snesmonitorsolution_             SNESMONITORSOLUTION
-#define snesmonitorlgresidualnorm_       SNESMONITORLGRESIDUALNORM
 #define snesmonitorsolutionupdate_       SNESMONITORSOLUTIONUPDATE
 #define snesmonitorset_                  SNESMONITORSET
 #define snesnewtontrsetprecheck_         SNESNEWTONTRSETPRECHECK
 #define snesnewtontrsetpostcheck_        SNESNEWTONTRSETPOSTCHECK
 #define snesviewfromoptions_             SNESVIEWFROMOPTIONS
+#define snesgetconvergedreasonstring_    SNESGETCONVERGEDREASONSTRING
 #elif !defined(PETSC_HAVE_FORTRAN_UNDERSCORE)
 #define snesconvergedreasonview_         snesconvergedreasonview
 #define snessetpicard_                   snessetpicard
@@ -63,7 +63,6 @@
 #define snessettype_                     snessettype
 #define snesappendoptionsprefix_         snesappendoptionsprefix
 #define snessetoptionsprefix_            snessetoptionsprefix
-#define snesmonitorlgresidualnorm_       snesmonitorlgresidualnorm
 #define snesmonitordefault_              snesmonitordefault
 #define snesmonitorsolution_             snesmonitorsolution
 #define snesmonitorsolutionupdate_       snesmonitorsolutionupdate
@@ -71,6 +70,7 @@
 #define snesnewtontrsetprecheck_         snesnewtontrsetprecheck
 #define snesnewtontrsetpostcheck_        snesnewtontrsetpostcheck
 #define snesviewfromoptions_             snesviewfromoptions
+#define snesgetconvergedreasonstring_    snesgetconvergedreasonstring
 #endif
 
 static struct {
@@ -108,7 +108,6 @@ PETSC_EXTERN void snesnewtontrsetprecheck_(SNES *snes, void (*func)(SNES,Vec,Vec
 #endif
   SNESNewtonTRSetPreCheck(*snes,ourtrprecheckfunction,NULL);
 }
-
 
 static PetscErrorCode ourtrpostcheckfunction(SNES snes,Vec x,Vec y,Vec w,PetscBool *changed_y,PetscBool *changed_w,void *ctx)
 {
@@ -282,7 +281,6 @@ PETSC_EXTERN void snessetfunction_(SNES *snes,Vec *r,void (*func)(SNES*,Vec*,Vec
   *ierr = SNESSetFunction(*snes,*r,oursnesfunction,NULL);
 }
 
-
 PETSC_EXTERN void snessetngs_(SNES *snes,void (*func)(SNES*,Vec*,Vec*,void*,PetscErrorCode*),void *ctx,PetscErrorCode *ierr)
 {
   *ierr = PetscObjectSetFortranCallback((PetscObject)*snes,PETSC_FORTRAN_CALLBACK_CLASS,&_cb.ngs,(PetscVoidFunction)func,ctx);if (*ierr) return;
@@ -389,11 +387,6 @@ PETSC_EXTERN void snessetoptionsprefix_(SNES *snes,char* prefix,PetscErrorCode *
 
 /*----------------------------------------------------------------------*/
 
-PETSC_EXTERN void snesmonitorlgresidualnorm_(SNES *snes,PetscInt *its,PetscReal *fgnorm,PetscObject *dummy,PetscErrorCode *ierr)
-{
-  *ierr = SNESMonitorLGResidualNorm(*snes,*its,*fgnorm,dummy);
-}
-
 PETSC_EXTERN void snesmonitordefault_(SNES *snes,PetscInt *its,PetscReal *fgnorm,PetscViewerAndFormat **dummy,PetscErrorCode *ierr)
 {
   *ierr = SNESMonitorDefault(*snes,*its,*fgnorm,*dummy);
@@ -409,7 +402,6 @@ PETSC_EXTERN void snesmonitorsolutionupdate_(SNES *snes,PetscInt *its,PetscReal 
   *ierr = SNESMonitorSolutionUpdate(*snes,*its,*fgnorm,*dummy);
 }
 
-
 PETSC_EXTERN void snesmonitorset_(SNES *snes,void (*func)(SNES*,PetscInt*,PetscReal*,void*,PetscErrorCode*),void *mctx,void (*mondestroy)(void*,PetscErrorCode*),PetscErrorCode *ierr)
 {
   CHKFORTRANNULLFUNCTION(mondestroy);
@@ -419,8 +411,6 @@ PETSC_EXTERN void snesmonitorset_(SNES *snes,void (*func)(SNES*,PetscInt*,PetscR
     *ierr = SNESMonitorSet(*snes,(PetscErrorCode (*)(SNES,PetscInt,PetscReal,void*))SNESMonitorSolution,*(PetscViewerAndFormat**)mctx,(PetscErrorCode (*)(void **))PetscViewerAndFormatDestroy);
   } else if ((PetscVoidFunction)func == (PetscVoidFunction)snesmonitorsolutionupdate_) {
     *ierr = SNESMonitorSet(*snes,(PetscErrorCode (*)(SNES,PetscInt,PetscReal,void*))SNESMonitorSolutionUpdate,*(PetscViewerAndFormat**)mctx,(PetscErrorCode (*)(void **))PetscViewerAndFormatDestroy);
-  } else if ((PetscVoidFunction)func == (PetscVoidFunction)snesmonitorlgresidualnorm_) {
-    *ierr = SNESMonitorSet(*snes,(PetscErrorCode (*)(SNES,PetscInt,PetscReal,void*))SNESMonitorLGResidualNorm,0,0);
   } else {
     *ierr = PetscObjectSetFortranCallback((PetscObject)*snes,PETSC_FORTRAN_CALLBACK_CLASS,&_cb.monitor,(PetscVoidFunction)func,mctx);if (*ierr) return;
     *ierr = PetscObjectSetFortranCallback((PetscObject)*snes,PETSC_FORTRAN_CALLBACK_CLASS,&_cb.mondestroy,(PetscVoidFunction)mondestroy,mctx);if (*ierr) return;
@@ -433,6 +423,7 @@ PETSC_EXTERN void snesviewfromoptions_(SNES *ao,PetscObject obj,char* type,Petsc
   char *t;
 
   FIXCHAR(type,len,t);
+  CHKFORTRANNULLOBJECT(obj);
   *ierr = SNESViewFromOptions(*ao,obj,t);if (*ierr) return;
   FREECHAR(type,t);
 }
@@ -442,4 +433,12 @@ PETSC_EXTERN void snesconvergedreasonview_(SNES *snes,PetscViewer *viewer, Petsc
   PetscViewer v;
   PetscPatchDefaultViewers_Fortran(viewer,v);
   *ierr = SNESConvergedReasonView(*snes,v);
+}
+
+PETSC_EXTERN void snesgetconvergedreasonstring_(SNES *snes, char* strreason, PetscErrorCode *ierr, PETSC_FORTRAN_CHARLEN_T len)
+{
+  const char *tstrreason;
+  *ierr = SNESGetConvergedReasonString(*snes,&tstrreason);
+  *ierr = PetscStrncpy(strreason,tstrreason,len);if (*ierr) return;
+  FIXRETURNCHAR(PETSC_TRUE,strreason,len);
 }

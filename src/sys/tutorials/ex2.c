@@ -10,8 +10,6 @@ static char help[] = "Synchronized printing.\n\n";
    Processors: n
 T*/
 
-
-
 #include <petscsys.h>
 int main(int argc,char **argv)
 {
@@ -33,8 +31,8 @@ int main(int argc,char **argv)
      The following MPI calls return the number of processes
      being used and the rank of this process in the group.
    */
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
 
   /*
      Here we would like to print only one message that represents
@@ -59,7 +57,7 @@ int main(int argc,char **argv)
   /*
     Here a barrier is used to separate the two states.
   */
-  ierr = MPI_Barrier(PETSC_COMM_WORLD);CHKERRQ(ierr);
+  ierr = MPI_Barrier(PETSC_COMM_WORLD);CHKERRMPI(ierr);
 
   /*
     Here we simply use PetscPrintf() with the communicator PETSC_COMM_SELF
@@ -78,7 +76,6 @@ int main(int argc,char **argv)
   ierr = PetscFinalize();
   return ierr;
 }
-
 
 /*TEST
 

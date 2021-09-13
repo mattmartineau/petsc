@@ -46,7 +46,7 @@ struct _TSOps {
   PetscErrorCode (*linearstability)(TS,PetscReal,PetscReal,PetscReal*,PetscReal*);
   PetscErrorCode (*load)(TS,PetscViewer);
   PetscErrorCode (*rollback)(TS);
-  PetscErrorCode (*getstages)(TS,PetscInt*,Vec**);
+  PetscErrorCode (*getstages)(TS,PetscInt*,Vec*[]);
   PetscErrorCode (*adjointstep)(TS);
   PetscErrorCode (*adjointsetup)(TS);
   PetscErrorCode (*adjointreset)(TS);
@@ -55,7 +55,7 @@ struct _TSOps {
   PetscErrorCode (*forwardreset)(TS);
   PetscErrorCode (*forwardstep)(TS);
   PetscErrorCode (*forwardintegral)(TS);
-  PetscErrorCode (*forwardgetstages)(TS,PetscInt*,Mat**);
+  PetscErrorCode (*forwardgetstages)(TS,PetscInt*,Mat*[]);
   PetscErrorCode (*getsolutioncomponents)(TS,PetscInt*,Vec*);
   PetscErrorCode (*getauxsolution)(TS,Vec*);
   PetscErrorCode (*gettimeerror)(TS,PetscInt,Vec*);
@@ -156,12 +156,13 @@ struct _p_TS {
   /* ---------------- User (or PETSc) Provided stuff ---------------------*/
   PetscErrorCode (*monitor[MAXTSMONITORS])(TS,PetscInt,PetscReal,Vec,void*);
   PetscErrorCode (*monitordestroy[MAXTSMONITORS])(void**);
-  void *monitorcontext[MAXTSMONITORS];
-  PetscInt  numbermonitors;
+  void            *monitorcontext[MAXTSMONITORS];
+  PetscInt         numbermonitors;
   PetscErrorCode (*adjointmonitor[MAXTSMONITORS])(TS,PetscInt,PetscReal,Vec,PetscInt,Vec*,Vec*,void*);
   PetscErrorCode (*adjointmonitordestroy[MAXTSMONITORS])(void**);
-  void *adjointmonitorcontext[MAXTSMONITORS];
-  PetscInt  numberadjointmonitors;
+  void            *adjointmonitorcontext[MAXTSMONITORS];
+  PetscInt         numberadjointmonitors;
+  PetscInt         monitorFrequency; /* Number of timesteps between monitor output */
 
   PetscErrorCode (*prestep)(TS);
   PetscErrorCode (*prestage)(TS,PetscReal);
@@ -249,6 +250,7 @@ struct _p_TS {
     PetscReal shift;            /* The derivative of the lhs wrt to Xdot */
   } ijacobian;
 
+  MatStructure  axpy_pattern;  /* information about the nonzero pattern of the RHS Jacobian in reference to the implicit Jacobian */
   /* --------------------Nonlinear Iteration------------------------------*/
   SNES     snes;
   PetscBool usessnes;   /* Flag set by each TSType to indicate if the type actually uses a SNES;
@@ -257,6 +259,9 @@ struct _p_TS {
   PetscInt snes_its;               /* total number of nonlinear solver iterations */
   PetscInt num_snes_failures;
   PetscInt max_snes_failures;
+
+  /* --- Logging --- */
+  PetscInt ifuncs,rhsfuncs,ijacs,rhsjacs;
 
   /* --- Data that is unique to each particular solver --- */
   PetscInt setupcalled;             /* true if setup has been called */
@@ -277,6 +282,7 @@ struct _p_TS {
   PetscReal ptime_prev;             /* time at the start of the previous step */
   PetscReal ptime_prev_rollback;    /* time at the start of the 2nd previous step to recover from rollback */
   PetscReal solvetime;              /* time at the conclusion of TSSolve() */
+  PetscBool stifflyaccurate;        /* flag to indicate that the method is stiffly accurate */
 
   TSConvergedReason reason;
   PetscBool errorifstepfailed;
@@ -412,6 +418,8 @@ struct _n_TSEvent {
   PetscInt       *side;            /* Used for detecting repetition of end-point, -1 => left, +1 => right */
   PetscReal       timestep_prev;   /* previous time step */
   PetscReal       timestep_posteventinterval;  /* time step immediately after the event interval */
+  PetscReal       timestep_postevent;  /* time step immediately after the event */
+  PetscReal       timestep_min;    /* Minimum time step */
   PetscBool      *zerocrossing;    /* Flag to signal zero crossing detection */
   PetscErrorCode  (*eventhandler)(TS,PetscReal,Vec,PetscScalar*,void*); /* User event handler function */
   PetscErrorCode  (*postevent)(TS,PetscInt,PetscInt[],PetscReal,Vec,PetscBool,void*); /* User post event function */
@@ -430,7 +438,7 @@ struct _n_TSEvent {
     PetscInt  ctr;        /* recorder counter */
     PetscReal *time;      /* Event times */
     PetscInt  *stepnum;   /* Step numbers */
-    PetscInt  *nevents;   /* Number of events occuring at the event times */
+    PetscInt  *nevents;   /* Number of events occurring at the event times */
     PetscInt  **eventidx; /* Local indices of the events in the event list */
   } recorder;
   PetscInt  recsize; /* Size of recorder stack */
@@ -505,6 +513,7 @@ PETSC_INTERN PetscErrorCode TSTrajectorySetUp_Basic(TSTrajectory,TS);
 PETSC_EXTERN PetscLogEvent TSTrajectory_Set;
 PETSC_EXTERN PetscLogEvent TSTrajectory_Get;
 PETSC_EXTERN PetscLogEvent TSTrajectory_GetVecs;
+PETSC_EXTERN PetscLogEvent TSTrajectory_SetUp;
 PETSC_EXTERN PetscLogEvent TSTrajectory_DiskWrite;
 PETSC_EXTERN PetscLogEvent TSTrajectory_DiskRead;
 

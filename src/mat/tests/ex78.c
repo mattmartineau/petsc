@@ -9,7 +9,7 @@ Input parameters are:\n\
 
 /*
 Example: ./ex78 -Ain Ain -rhs rhs -solu solu -noshift -mat_view
- with the datafiles in the followig format:
+ with the datafiles in the following format:
 Ain (I and J start at 0):
 ------------------------
 3 3 6
@@ -33,7 +33,6 @@ solu
 0 1.0
 */
 
-
 #include <petscmat.h>
 
 int main(int argc,char **args)
@@ -52,7 +51,7 @@ int main(int argc,char **args)
   PetscMPIInt    size;
 
   ierr = PetscInitialize(&argc,&args,(char*)0,help);if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
   if (size != 1) SETERRQ(PETSC_COMM_WORLD,PETSC_ERR_SUP,"This is a uniprocessor example only!");
 
   /* Read in matrix, rhs and exact solution from ascii files */
@@ -157,7 +156,7 @@ int main(int argc,char **args)
 /*TEST
 
    build:
-      requires:  !define(PETSC_USE_64BIT_INDICES) double !complex
+      requires:  !defined(PETSC_USE_64BIT_INDICES) double !complex
 
    test:
       requires: datafilespath

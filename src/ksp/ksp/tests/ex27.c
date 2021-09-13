@@ -27,7 +27,7 @@ int main(int argc,char **args)
   PC             pc;
 
   ierr = PetscInitialize(&argc,&args,(char*)0,help);if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
   if (size != 1) SETERRQ(PETSC_COMM_WORLD,PETSC_ERR_SUP,"This is a uniprocessor example only!");
 
   /* Read matrix and right-hand-side vector */
@@ -101,7 +101,7 @@ int main(int argc,char **args)
 
   /* Now, set X=inv(A) as a preconditioner */
   ierr = PCSetType(pc,PCSHELL);CHKERRQ(ierr);
-  ierr = PCShellSetContext(pc,(void*)X);CHKERRQ(ierr);
+  ierr = PCShellSetContext(pc,X);CHKERRQ(ierr);
   ierr = PCShellSetApply(pc,PCShellApply_Matinv);CHKERRQ(ierr);
   ierr = KSPSetFromOptions(ksp);CHKERRQ(ierr);
 
@@ -131,7 +131,7 @@ PetscErrorCode PCShellApply_Matinv(PC pc,Vec xin,Vec xout)
   Mat            X;
 
   PetscFunctionBeginUser;
-  ierr = PCShellGetContext(pc,(void**)&X);CHKERRQ(ierr);
+  ierr = PCShellGetContext(pc,&X);CHKERRQ(ierr);
   ierr = MatMult(X,xin,xout);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -140,7 +140,7 @@ PetscErrorCode PCShellApply_Matinv(PC pc,Vec xin,Vec xout)
 
     test:
       args: -f ${DATAFILESPATH}/matrices/small
-      requires: datafilespath !complex double !define(PETSC_USE_64BIT_INDICES)
+      requires: datafilespath !complex double !defined(PETSC_USE_64BIT_INDICES)
       output_file: output/ex27.out
 
 TEST*/

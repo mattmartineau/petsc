@@ -7,11 +7,10 @@ Choose one of the two at runtime by -sa_method {track,global}. \n";
 
 /*
   Concepts: TS^adjoint for time dependent parameters
-  Concepts: Customized adjoint monitor based sensitivity tracking
-  Concepts: All at once approach to sensitivity tracking
+  Concepts: TS^Customized adjoint monitor based sensitivity tracking
+  Concepts: TS^All at once approach to sensitivity tracking
   Processors: 1
 */
-
 
 /*
    Simple example to demonstrate TSAdjoint capabilities for time dependent params
@@ -249,7 +248,6 @@ PetscErrorCode AdjointMonitor(TS ts,PetscInt steps,PetscReal time,Vec u,PetscInt
   }
 }
 
-
 int main(int argc,char **argv)
 {
   TS             ts;
@@ -264,7 +262,7 @@ int main(int argc,char **argv)
      Initialize program
      - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
   ierr = PetscInitialize(&argc,&argv,NULL,help);if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
   if (size != 1) SETERRQ(PETSC_COMM_WORLD,PETSC_ERR_WRONG_MPI_SIZE,"This is a uniprocessor example only!");
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -450,7 +448,6 @@ int main(int argc,char **argv)
   ierr = PetscFinalize();
   return(ierr);
 }
-
 
 /*TEST
 

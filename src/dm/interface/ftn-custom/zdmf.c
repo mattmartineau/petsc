@@ -3,6 +3,7 @@
 #include <petscviewer.h>
 
 #if defined(PETSC_HAVE_FORTRAN_CAPS)
+#define dmcreateinterpolation_       DMCREATEINTERPOLATION
 #define dmview_                      DMVIEW
 #define dmsetoptionsprefix_          DMSETOPTIONSPREFIX
 #define dmsettype_                   DMSETTYPE
@@ -25,7 +26,10 @@
 #define dmsetstratumis_              DMSETSTRATUMIS
 #define dmremovelabel_               DMREMOVELABEL
 #define dmviewfromoptions_           DMVIEWFROMOPTIONS
+#define dmcreatesuperdm_             DMCREATESUPERDM
+#define dmdestroy_                   DMDESTROY
 #elif !defined(PETSC_HAVE_FORTRAN_UNDERSCORE)
+#define dmcreateinterpolation_       dmcreateinterpolation
 #define dmview_                      dmview
 #define dmsetoptionsprefix_          dmsetoptionsprefix
 #define dmsettype_                   dmsettype
@@ -48,6 +52,8 @@
 #define dmsetstratumis_              dmsetstratumis
 #define dmremovelabel_               dmremovelabel
 #define dmviewfromoptions_           dmviewfromoptions
+#define dmcreatesuperdm_             dmreatesuperdm
+#define dmdestroy_                   dmdestroy
 #endif
 
 PETSC_EXTERN void dmgetmattype_(DM *mm,char* name,PetscErrorCode *ierr,PETSC_FORTRAN_CHARLEN_T len)
@@ -117,7 +123,6 @@ PETSC_EXTERN void dmsetmattype_(DM *dm,char* prefix, PetscErrorCode *ierr,PETSC_
   *ierr = DMSetMatType(*dm,t);if (*ierr) return;
   FREECHAR(prefix,t);
 }
-
 
 PETSC_EXTERN void dmsetvectype_(DM *dm,char* prefix, PetscErrorCode *ierr,PETSC_FORTRAN_CHARLEN_T len)
 {
@@ -244,4 +249,22 @@ PETSC_EXTERN void dmviewfromoptions_(DM *dm,PetscObject obj,char* type,PetscErro
   CHKFORTRANNULLOBJECT(obj);
   *ierr = DMViewFromOptions(*dm,obj,t);if (*ierr) return;
   FREECHAR(type,t);
+}
+
+PETSC_EXTERN void dmcreateinterpolation_(DM *dmc,DM *dmf,Mat *mat,Vec *vec, int *ierr)
+{
+  CHKFORTRANNULLOBJECT(vec);
+  *ierr = DMCreateInterpolation(*dmc,*dmf,mat,vec);
+}
+
+PETSC_EXTERN void dmcreatesuperdm_(DM dms[], PetscInt *len, IS ***is, DM *superdm, int *ierr)
+{
+  *ierr = DMCreateSuperDM(dms, *len, *is, superdm);
+}
+
+PETSC_EXTERN void dmdestroy_(DM *x,int *ierr)
+{
+  PETSC_FORTRAN_OBJECT_F_DESTROYED_TO_C_NULL(x);
+  *ierr = DMDestroy(x); if (*ierr) return;
+  PETSC_FORTRAN_OBJECT_C_NULL_TO_F_DESTROYED(x);
 }

@@ -19,7 +19,6 @@
 !  Processors: n
 !T*/
 
-
 !
 ! ----------------------------------------------------------------------
 !
@@ -63,7 +62,6 @@
          call VecCreateSeq(PETSC_COMM_SELF,m,f,ierr)
          CHKERRA(ierr)
 
-
 !     The TAO code begins here
 
 !     Create TAO solver
@@ -81,7 +79,6 @@
          call FormStartingPoint(x)
          call TaoSetInitialVector(tao, x, ierr)
          CHKERRA(ierr)
-
 
 !     Check for TAO command line options
          call TaoSetFromOptions(tao,ierr)
@@ -110,7 +107,6 @@
       call PetscFinalize(ierr)
       end
 
-
 ! --------------------------------------------------------------------
 !  FormFunction - Evaluates the function f(X) and gradient G(X)
 !
@@ -131,7 +127,7 @@
 
       PetscInt         i,checkedin
       PetscInt         finished_tasks
-      integer          next_task
+      PetscMPIInt      next_task
       PetscMPIInt      status(MPI_STATUS_SIZE),tag,source
       PetscInt         dummy
 
@@ -151,7 +147,6 @@
       call VecGetArray(f,f_v,f_i,ierr)
       CHKERRQ(ierr)
 
-
 !     Compute F(X)
       if (size .eq. 1) then
          ! Single processor
@@ -159,13 +154,13 @@
             call RunSimulation(x_v(x_i),i,f_v(i+f_i),ierr)
          enddo
       else
-         ! Multiprocessor master
-         next_task = 0
+         ! Multiprocessor main
+         next_task = zero
          finished_tasks = 0
          checkedin = 0
 
          do while (finished_tasks .lt. m .or. checkedin .lt. size-1)
-            call MPI_Recv(fval,1,MPIU_SCALAR,MPI_ANY_SOURCE,               &
+            call MPI_Recv(fval,one,MPIU_SCALAR,MPI_ANY_SOURCE,               &
      &           MPI_ANY_TAG,PETSC_COMM_WORLD,status,ierr)
             tag = status(MPI_TAG)
             source = status(MPI_SOURCE)
@@ -179,7 +174,7 @@
                ! Send task to worker
                call MPI_Send(x_v(x_i),nn,MPIU_SCALAR,source,next_task,             &
      &              PETSC_COMM_WORLD,ierr)
-               next_task = next_task + 1
+               next_task = next_task + one
             else
                ! Send idle message to worker
                call MPI_Send(x_v(x_i),nn,MPIU_SCALAR,source,IDLE_TAG,              &
@@ -213,7 +208,6 @@
       CHKERRQ(ierr)
       return
       end
-
 
       subroutine InitializeData()
 #include "chwirut2f.h"
@@ -438,8 +432,6 @@
       return
       end
 
-
-
       subroutine TaskWorker(ierr)
 #include "chwirut2f.h"
 
@@ -451,16 +443,16 @@
 
       tag = IDLE_TAG
       f   = 0.0
-      ! Send check-in message to master
-      call MPI_Send(f,1,MPIU_SCALAR,0,IDLE_TAG,PETSC_COMM_WORLD,ierr)
+      ! Send check-in message to rank-0
+      call MPI_Send(f,one,MPIU_SCALAR,zero,IDLE_TAG,PETSC_COMM_WORLD,ierr)
       CHKERRQ(ierr)
       do while (tag .ne. DIE_TAG)
-         call MPI_Recv(x,nn,MPIU_SCALAR,0,MPI_ANY_TAG,PETSC_COMM_WORLD,     &
+         call MPI_Recv(x,nn,MPIU_SCALAR,zero,MPI_ANY_TAG,PETSC_COMM_WORLD,     &
      &        status,ierr)
          CHKERRQ(ierr)
          tag = status(MPI_TAG)
          if (tag .eq. IDLE_TAG) then
-            call MPI_Send(f,1,MPIU_SCALAR,0,IDLE_TAG,PETSC_COMM_WORLD,     &
+            call MPI_Send(f,one,MPIU_SCALAR,zero,IDLE_TAG,PETSC_COMM_WORLD,     &
      &           ierr)
             CHKERRQ(ierr)
          else if (tag .ne. DIE_TAG) then
@@ -469,16 +461,14 @@
             call RunSimulation(x,index,f(1),ierr)
             CHKERRQ(ierr)
 
-            ! Return residual to master
-            call MPI_Send(f,1,MPIU_SCALAR,0,tag,PETSC_COMM_WORLD,ierr)
+            ! Return residual to rank-0
+            call MPI_Send(f,one,MPIU_SCALAR,zero,tag,PETSC_COMM_WORLD,ierr)
             CHKERRQ(ierr)
          end if
       enddo
       ierr = 0
       return
       end
-
-
 
       subroutine RunSimulation(x,i,f,ierr)
 #include "chwirut2f.h"
@@ -503,7 +493,7 @@
 
       checkedin=0
       do while (checkedin .lt. size-1)
-         call MPI_Recv(f,1,MPIU_SCALAR,MPI_ANY_SOURCE,MPI_ANY_TAG,         &
+         call MPI_Recv(f,one,MPIU_SCALAR,MPI_ANY_SOURCE,MPI_ANY_TAG,         &
      &        PETSC_COMM_WORLD,status,ierr)
          CHKERRQ(ierr)
          checkedin=checkedin+1
@@ -515,7 +505,7 @@
      &        ierr)
          CHKERRQ(ierr)
       enddo
-      ierr=0
+      ierr = 0
       return
       end
 

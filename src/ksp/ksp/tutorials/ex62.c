@@ -18,7 +18,6 @@ Without -user_set_subdomains, the general PCGASM options are meaningful:\n\
    and attempts to generate both subdomains straddling processors and multiple
    domains per processor.
 
-
    This matrix in this linear system arises from the discretized Laplacian,
    and thus is not very interesting in terms of experimenting with variants
    of the GASM preconditioner.
@@ -28,8 +27,6 @@ Without -user_set_subdomains, the general PCGASM options are meaningful:\n\
    Concepts: KSP^Additive Schwarz Method (GASM) with user-defined subdomains
    Processors: n
 T*/
-
-
 
 /*
   Include "petscksp.h" so that we can use KSP solvers.  Note that this file
@@ -61,7 +58,7 @@ int main(int argc,char **args)
   PetscReal      one,e;
 
   ierr = PetscInitialize(&argc,&args,(char*)0,help);if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
   ierr = PetscOptionsBegin(PETSC_COMM_WORLD,NULL,"ex62","PCGASM");CHKERRQ(ierr);
   m = 15;
   ierr = PetscOptionsInt("-M", "Number of mesh points in the x-direction","PCGASMCreateSubdomains2D",m,&m,NULL);CHKERRQ(ierr);
@@ -317,7 +314,6 @@ PetscErrorCode AssembleMatrix(Mat A,PetscInt m,PetscInt n)
 
   PetscFunctionReturn(0);
 }
-
 
 /*TEST
 

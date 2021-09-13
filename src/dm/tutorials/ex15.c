@@ -5,7 +5,6 @@ static char help[] = "Tests VecView() functionality with DMDA objects when using
 #include <petscdm.h>
 #include <petscdmda.h>
 
-
 #define DMDA_I 5
 #define DMDA_J 4
 #define DMDA_K 6
@@ -106,7 +105,7 @@ PetscErrorCode HeaderlessBinaryReadCheck(DM dm,const char name[])
   PetscBool      dataverified = PETSC_TRUE;
 
   PetscFunctionBeginUser;
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
   ierr = DMDAGetInfo(dm,NULL,&M,&N,NULL,NULL,NULL,NULL,&dof,NULL,NULL,NULL,NULL,NULL);CHKERRQ(ierr);
   len = DMDA_I*DMDA_J*DMDA_K*dof;
   if (!rank) {
@@ -248,7 +247,6 @@ int main(int argc,char **args)
   return ierr;
 }
 
-
 /*TEST
 
    test:
@@ -260,7 +258,7 @@ int main(int argc,char **args)
    test:
       suffix: 3
       nsize: 12
-      requires: define(PETSC_HAVE_MPIIO)
+      requires: defined(PETSC_HAVE_MPIIO)
       args: -usempiio
 
 TEST*/

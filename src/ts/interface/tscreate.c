@@ -44,7 +44,7 @@ PetscErrorCode  TSCreate(MPI_Comm comm, TS *ts)
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
-  PetscValidPointer(ts,1);
+  PetscValidPointer(ts,2);
   *ts = NULL;
   ierr = TSInitializePackage();CHKERRQ(ierr);
 
@@ -80,6 +80,7 @@ PetscErrorCode  TSCreate(MPI_Comm comm, TS *ts)
 
   t->num_rhs_splits     = 0;
 
+  t->axpy_pattern       = UNKNOWN_NONZERO_PATTERN;
   *ts = t;
   PetscFunctionReturn(0);
 }

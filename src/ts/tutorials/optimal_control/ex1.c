@@ -184,7 +184,6 @@ static PetscErrorCode IntegrandHessianProductPP(TS ts,PetscReal t,Vec U,Vec *Vl,
   PetscFunctionReturn(0);
 }
 
-
 static PetscErrorCode CostIntegrand(TS ts,PetscReal t,Vec U,Vec R,void *ctx)
 {
   Aircraft          actx = (Aircraft)ctx;
@@ -251,7 +250,7 @@ int main(int argc,char **argv)
 
   /* Initialize program */
   ierr = PetscInitialize(&argc,&argv,NULL,NULL);if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
   if (size != 1) SETERRQ(PETSC_COMM_WORLD,PETSC_ERR_WRONG_MPI_SIZE,"This is a uniprocessor example only!");
 
   /* Parameter settings */
@@ -655,5 +654,4 @@ PetscErrorCode ComputeObjHessianWithSOA(Vec Dir,PetscScalar arr[],Aircraft actx)
       suffix: 3
       args:  -ts_adapt_type none -ts_type rk -ts_rk_type 3 -viewer_binary_skip_info -tao_monitor -tao_view -tao_type bntr -tao_bnk_pc_type none -exacthessian -matrixfree
 TEST*/
-
 

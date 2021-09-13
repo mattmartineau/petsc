@@ -115,7 +115,6 @@ PETSC_EXTERN void petscoptionshasname_(PetscOptions *options,char* pre,char* nam
   FREECHAR(name,c2);
 }
 
-
 PETSC_EXTERN void petscoptionsgetint_(PetscOptions *opt,char* pre,char* name,
                     PetscInt *ivalue,PetscBool  *flg,PetscErrorCode *ierr,PETSC_FORTRAN_CHARLEN_T len1,PETSC_FORTRAN_CHARLEN_T len2)
 {
@@ -257,6 +256,7 @@ PETSC_EXTERN void petscobjectviewfromoptions_(PetscObject *obj,PetscObject *bobj
   char *o;
 
   FIXCHAR(option, loption, o);
+  CHKFORTRANNULLOBJECT(obj);
   *ierr = PetscObjectViewFromOptions(*obj, *bobj, o);if (*ierr) return;
   FREECHAR(option, o);
 }

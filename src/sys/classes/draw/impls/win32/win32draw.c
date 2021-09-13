@@ -121,7 +121,7 @@ static PetscErrorCode PetscDrawGetMouseButton_Win32(PetscDraw draw, PetscDrawBut
       break;
     } else current = current->wnext;
   }
-  /* If no actions have occured, wait for one */
+  /* If no actions have occurred, wait for one */
   node = current->MouseListHead;
   if (!node) {
     ReleaseMutex(g_hWindowListMutex);
@@ -620,7 +620,6 @@ void MessageLoopThread_Win32(PetscDraw draw)
 
   RegisterClassEx(&wclass);
 
-
   hWnd = CreateWindowEx(0,
                         classname,
                         NULL,
@@ -652,7 +651,6 @@ void MessageLoopThread_Win32(PetscDraw draw)
   }
   PetscFunctionReturnVoid();
 }
-
 
 static struct _PetscDrawOps DvOps = { PetscDrawSetDoubleBuffer_Win32,
                                       PetscDrawFlush_Win32,
@@ -758,7 +756,6 @@ PETSC_EXTERN PetscErrorCode  PetscDrawCreate_Win32(PetscDraw draw)
   ReleaseMutex(g_hWindowListMutex);
   PetscFunctionReturn(0);
 }
-
 
 /* FUNCTION: PetscWndProc(HWND, unsigned, WORD, LONG)
    PURPOSE:  Processes messages for the main window.

@@ -1,7 +1,7 @@
 #include <petsc/private/matimpl.h>          /*I "petscmat.h" I*/
 
 /*@C
-   MatPythonSetType - Initalize a Mat object implemented in Python.
+   MatPythonSetType - Initialize a Mat object implemented in Python.
 
    Collective on Mat
 
@@ -26,7 +26,6 @@ PetscErrorCode  MatPythonSetType(Mat mat,const char pyname[])
   ierr = PetscTryMethod(mat,"MatPythonSetType_C",(Mat, const char[]),(mat,pyname));CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
-
 
 /*@C
    MatPythonCreate - Create a Mat object implemented in Python.

@@ -18,7 +18,7 @@ int main(int argc,char **args)
   char           factortype[64];
 
   ierr = PetscInitialize(&argc,&args,(char*)0,help);if (ierr) return ierr;
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD, &rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD, &rank);CHKERRMPI(ierr);
 
   /* Create and assemble matrices, all have same data structure */
   for (k=0; k<num_numfac; k++) {
@@ -86,7 +86,6 @@ int main(int argc,char **args)
     break;
   default:
     SETERRQ1(PETSC_COMM_WORLD,PETSC_ERR_SUP,"Not for factor type %s\n",factortype);
-    break;
   }
 
   /* Compute numeric factors using same F, then solve */
@@ -102,7 +101,6 @@ int main(int argc,char **args)
       break;
     default:
       SETERRQ1(PETSC_COMM_WORLD,PETSC_ERR_SUP,"Not for factor type %s\n",factortype);
-      break;
     }
 
     /* Solve A[k] * x = b */

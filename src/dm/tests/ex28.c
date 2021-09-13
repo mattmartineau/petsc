@@ -33,7 +33,7 @@ int main(int argc,char **args)
   PetscErrorCode ierr;
 
   ierr = PetscInitialize(&argc,&args,(char*)0,help);if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD, &size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD, &size);CHKERRMPI(ierr);
   if (size != 1) SETERRQ(PETSC_COMM_WORLD,PETSC_ERR_SUP, "This is a uniprocessor example only!");
   ierr     = PetscOptionsBegin(PETSC_COMM_WORLD, NULL, "USFFT Options", "ex27");CHKERRQ(ierr);
   ierr     = PetscOptionsEList("-function", "Function type", "ex27", funcNames, NUM_FUNCS, funcNames[function], &func, NULL);CHKERRQ(ierr);
@@ -56,7 +56,7 @@ int main(int argc,char **args)
   ierr = DMSetUp(da1);CHKERRQ(ierr);
 
   /* Coordinates */
-  ierr = DMGetCoordinateDM(da,&coordsda);
+  ierr = DMGetCoordinateDM(da,&coordsda);CHKERRQ(ierr);
   ierr = DMGetGlobalVector(coordsda,&coords);CHKERRQ(ierr);
   ierr = PetscObjectSetName((PetscObject) coords,"Grid coordinates");CHKERRQ(ierr);
   for (i = 0, N = 1; i < 3; i++) {
@@ -101,14 +101,12 @@ int main(int argc,char **args)
     ierr = PetscObjectSetName((PetscObject) zzsplit[ii], "FFTW reconstructed split vector");CHKERRQ(ierr);
   }
 
-
   ierr = PetscPrintf(PETSC_COMM_SELF, "%3-D: USFFT on vector of ");CHKERRQ(ierr);
   for (i = 0, N = 1; i < 3; i++) {
     ierr = PetscPrintf(PETSC_COMM_SELF, "dim[%d] = %d ",i,dim[i]);CHKERRQ(ierr);
     N   *= dim[i];
   }
   ierr = PetscPrintf(PETSC_COMM_SELF, "; total size %d \n",N);CHKERRQ(ierr);
-
 
   if (function == RANDOM) {
     ierr = PetscRandomCreate(PETSC_COMM_SELF, &rdm);CHKERRQ(ierr);
@@ -206,7 +204,6 @@ int main(int argc,char **args)
   ierr = VecNorm(z,NORM_1,&enorm);CHKERRQ(ierr);
   ierr = PetscPrintf(PETSC_COMM_SELF, "|z|_2 = %g\n",norm);CHKERRQ(ierr);
   ierr = PetscPrintf(PETSC_COMM_SELF, "|z-zz| = %g\n",enorm);CHKERRQ(ierr);
-
 
   /* free spaces */
   ierr = DMRestoreGlobalVector(da,&x);CHKERRQ(ierr);

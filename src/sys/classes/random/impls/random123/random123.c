@@ -1,4 +1,4 @@
-#include <../src/sys/classes/random/randomimpl.h>
+#include <petsc/private/randomimpl.h>
 #include <Random123/threefry.h>
 
 /* The structure of the Random123 methods are similar enough that templates could be used to make the other CBRNGs in
@@ -108,13 +108,13 @@ PetscErrorCode PetscRandomDestroy_Random123(PetscRandom r)
 }
 
 static struct _PetscRandomOps PetscRandomOps_Values = {
-  /* 0 */
   PetscRandomSeed_Random123,
   PetscRandomGetValue_Random123,
   PetscRandomGetValueReal_Random123,
+  NULL,
+  NULL,
   PetscRandomDestroy_Random123,
-  /* 5 */
-  0
+  NULL
 };
 
 /*MC

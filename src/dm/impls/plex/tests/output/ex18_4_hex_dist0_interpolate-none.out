@@ -59,6 +59,7 @@ Process 1:
   (   6) dim  3 offset  15 0.5 1. 0.
   (   7) dim  3 offset  18 0.5 0. 1.
   (   8) dim  3 offset  21 0.5 1. 1.
+Labels:
 Label 'marker':
 [0]: 2 (1)
 [0]: 3 (1)
@@ -89,7 +90,6 @@ Label 'celltype':
 [1]: 8 (0)
 PetscSF Object: point SF 2 MPI processes
   type: basic
-    sort=rank-order
   [0] Number of roots=9, leaves=4, remote ranks=1
   [0] 2 <- (1,1)
   [0] 3 <- (1,2)
@@ -103,3 +103,4 @@ PetscSF Object: point SF 2 MPI processes
   [0]    6 <- 3
   [0]    7 <- 4
   [1] Roots referenced by my leaves, by rank
+  MultiSF sort=rank-order

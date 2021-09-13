@@ -1,11 +1,11 @@
-#!/bin/sh
+#!/bin/bash
 #
 # This script builds the PETSc tar file distribution
 #
 # Usage: builddist petscrepo [branch] [name]
 # example usages:
 #   builddist /sandbox/petsc/petsc.clone balay/foo [petsc-balay-foo.tar.bz]
-#   builddist /sandbox/petsc/petsc.clone master [petsc-master.tar.bz]
+#   builddist /sandbox/petsc/petsc.clone main [petsc-main.tar.bz]
 #   builddist /sandbox/petsc/petsc.clone release [petsc-3.4.1.tar.bz]
 #   builddist /sandbox/petsc/petsc.clone release release-snapshot [petsc-release-snapshot.tar.bz]
 #
@@ -34,7 +34,7 @@ elif [ $# = 2 ]; then
   branch=$2
 elif [ $# = 1 ]; then
   petscrepo=$1
-  branch='master'
+  branch='main'
 else
   echo 'Error: petscrepo not specified. Usge: builddist petscrepo'
   exit
@@ -103,15 +103,27 @@ if [ ${version}foo = foo ]; then
     exit
   fi
 fi
-echo "Building ~/petsc$version.tar.gz and ~/petsc-lite$version.tar.gz"
+echo "Building ~/petsc$version.tar.gz and ~/petsc-with-docs$version.tar.gz"
 
-# create fortran stubdocs and cleanup
+# build docs (and fortranstubs)
+VENV=$PETSC_DIR/arch-classic-docs/venv-petsc-docs
+python3 -m venv $VENV
+source $VENV/bin/activate
+cd $PETSC_DIR/doc
+python3 -m pip install -r requirements.txt
+sphinx-build -T -E -b html -D language=en -j auto . ../docs
+make latexpdf && cp _build/latex/manual.pdf ../docs/
+
+# petsc4py docs and tarball
 cd $PETSC_DIR
-# we should have an option of running configure - without compilers/mpi/blas etc..
-python3 ./config/configure.py --with-mpi=0 --download-c2html=1 --download-sowing=1
-make allfortranstubs
-make sphinx-docs-check-python
-make alldoc LOC=${PETSC_DIR} DOCSETDATE_PRUNE_LIST="" GONULL=""
+export PETSC_ARCH=arch-pydoc
+python2 ./config/configure.py --with-mpi=0 --with-cxx=0 --with-fc=0
+make all
+cd $PETSC_DIR/src/binding/petsc4py
+  make sdist PYTHON=python2 PYTHON2=python2 SHELL=/bin/bash
+  cp dist/*.gz ~/
+  make srcclean
+cd $PETSC_DIR
 #
 make ACTION=clean tree_basic
 
@@ -152,7 +164,7 @@ cat include/petscversion.h.bak | \
 /bin/rm -f include/petscversion.h.bak
 
 # just to be sure
-/bin/rm -rf configure.log* RDict.* RESYNC PENDING
+/bin/rm -rf make.log* configure.log* RDict.* RESYNC PENDING
 # eliminate .html files in src/contrib
 /usr/bin/find src/contrib -type f -name "*.html" -exec /bin/rm -f {} \;
 # eliminate .pyc files if any
@@ -171,10 +183,11 @@ find petsc$version -type d -name "*" -exec chmod a+x {} \;
 
 # Now create the tar files
 cd $tmpdir
-/bin/tar -czf ~/petsc$version.tar.gz petsc$version
+/bin/tar -czf ~/petsc-with-docs$version.tar.gz petsc$version
 
 # create lite version
 /bin/rm -rf $tmpdir/petsc$version/docs $tmpdir/petsc$version/zope $tmpdir/petsc$version/config/BuildSystem/docs $tmpdir/petsc$version/config/examples/old
+/bin/rm -rf $tmpdir/petsc$version/src/binding/petsc4py/docs
 find $tmpdir/petsc$version -type f -name "*.html" -exec rm {} \;
 # recreate EMACS-TAGS [after deletion]
 cd $tmpdir/petsc$version; ${PETSC_DIR}/lib/petsc/bin/maint/generateetags.py
@@ -182,7 +195,7 @@ cd $tmpdir/petsc$version; ${PETSC_DIR}/lib/petsc/bin/maint/generateetags.py
 cd $tmpdir/petsc$version && python setup.py egg_info && /bin/cp petsc.egg-info/PKG-INFO . && /bin/rm -rf petsc.egg-info config/pypi
 
 cd $tmpdir
-/bin/tar -czf ~/petsc-lite$version.tar.gz petsc$version
+/bin/tar -czf ~/petsc$version.tar.gz petsc$version
 
 #cleanup
 /bin/rm -rf $tmpdir

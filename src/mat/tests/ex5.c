@@ -145,9 +145,7 @@ int main(int argc,char **args)
   return ierr;
 }
 
-
 /*TEST
-
 
    test:
       suffix: 11_A
@@ -194,7 +192,6 @@ int main(int argc,char **args)
       output_file: output/ex5_21.out
       requires: cuda
 
-
    test:
       nsize: 3
       suffix: 2_aijcusparse_2
@@ -211,7 +208,7 @@ int main(int argc,char **args)
       args: -mat_type mpiaijcusparse -vec_type cuda
       args: -sf_type {{basic neighbor}}
       output_file: output/ex5_23.out
-      requires: cuda define(PETSC_HAVE_MPI_GPU_AWARE)
+      requires: cuda defined(PETSC_HAVE_MPI_GPU_AWARE)
 
    test:
       suffix: 31
@@ -249,6 +246,14 @@ int main(int argc,char **args)
       filter: grep -v type
       output_file: output/ex5_33.out
       requires: cuda
+
+   test:
+      suffix: 3_kokkos
+      nsize: 3
+      args: -mat_type mpiaijkokkos -vec_type kokkos -test_diagonalscale
+      filter: grep -v type
+      output_file: output/ex5_33.out
+      requires: kokkos_kernels
 
    test:
       suffix: aijcusparse_1

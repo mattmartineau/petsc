@@ -153,7 +153,7 @@ static PetscErrorCode TaoSolve_CG(Tao tao)
     /*  Check for restart condition */
     ierr = VecDot(tao->gradient, cgP->G_old, &ginner);CHKERRQ(ierr);
     if (PetscAbsScalar(ginner) >= cgP->eta * gnorm2) {
-      /*  Gradients far from orthognal; use steepest descent direction */
+      /*  Gradients far from orthogonal; use steepest descent direction */
       beta = 0.0;
     } else {
       /*  Gradients close to orthogonal; use conjugate gradient formula */
@@ -255,7 +255,7 @@ static PetscErrorCode TaoView_CG(Tao tao, PetscViewer viewer)
     ierr = PetscViewerASCIIPushTab(viewer);CHKERRQ(ierr);
     ierr = PetscViewerASCIIPrintf(viewer, "CG Type: %s\n", CG_Table[cgP->cg_type]);CHKERRQ(ierr);
     ierr = PetscViewerASCIIPrintf(viewer, "Gradient steps: %D\n", cgP->ngradsteps);CHKERRQ(ierr);
-    ierr= PetscViewerASCIIPrintf(viewer, "Reset steps: %D\n", cgP->nresetsteps);CHKERRQ(ierr);
+    ierr = PetscViewerASCIIPrintf(viewer, "Reset steps: %D\n", cgP->nresetsteps);CHKERRQ(ierr);
     ierr = PetscViewerASCIIPopTab(viewer);CHKERRQ(ierr);
   }
   PetscFunctionReturn(0);
@@ -280,7 +280,6 @@ nonlinear conjugate gradient solver for nonlinear optimization.
          "dy" - Dai-Yuan
   Level: beginner
 M*/
-
 
 PETSC_EXTERN PetscErrorCode TaoCreate_CG(Tao tao)
 {

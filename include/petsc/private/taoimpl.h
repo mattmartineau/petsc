@@ -116,7 +116,6 @@ struct _p_Tao {
     PetscReal cnorm0;
     PetscReal fc;
 
-
     PetscInt  max_it;
     PetscInt  max_funcs;
     PetscInt  max_constraints;
@@ -137,7 +136,6 @@ struct _p_Tao {
 
     PetscInt  ksp_its; /* KSP iterations for this solver iteration */
     PetscInt  ksp_tot_its; /* Total (cumulative) KSP iterations */
-
 
     TaoLineSearch linesearch;
     PetscBool lsflag; /* goes up when line search fails */
@@ -170,7 +168,11 @@ struct _p_Tao {
     PetscBool viewjacobian;
     PetscBool bounded;
     PetscBool constrained;
+    PetscBool eq_constrained;
+    PetscBool ineq_constrained;
+    PetscBool ineq_doublesided;
     PetscBool header_printed;
+    PetscBool recycle;
 
     TaoSubsetType subset_type;
     PetscInt      hist_max;/* Number of iteration histories to keep */

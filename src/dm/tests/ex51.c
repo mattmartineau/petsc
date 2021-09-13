@@ -1,7 +1,6 @@
 
 static char help[] = "Tests DMDAGlobalToNaturalAllCreate() using contour plotting for 2d DMDAs.\n\n";
 
-
 #include <petscdm.h>
 #include <petscdmda.h>
 #include <petscdraw.h>
@@ -40,7 +39,7 @@ int main(int argc,char **argv)
   ierr = DMCreateGlobalVector(da,&global);CHKERRQ(ierr);
   ierr = VecCreateSeq(PETSC_COMM_SELF,M*N,&localall);CHKERRQ(ierr);
 
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
   ierr = VecGetOwnershipRange(global,&start,&end);CHKERRQ(ierr);
   for (i=start; i<end; i++) {
     value = 5.0*rank;
@@ -82,8 +81,6 @@ int main(int argc,char **argv)
   ierr = PetscFinalize();
   return ierr;
 }
-
-
 
 /*TEST
 

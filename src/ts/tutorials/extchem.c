@@ -19,7 +19,7 @@ static const char help[] = "Integrate chemistry using TChem.\n";
 
     See also h2_10sp.inp for another example
 
-    Determine sensitivity of final tempature on each variables initial conditions
+    Determine sensitivity of final temperature on each variables initial conditions
     -ts_dt 1.e-5 -ts_type cn -ts_adjoint_solve -ts_adjoint_view_solution draw
 
     The solution for component i = 0 is the temperature.
@@ -32,11 +32,9 @@ static const char help[] = "Integrate chemistry using TChem.\n";
 
     FormMoleFraction(User,massf,molef) converts the mass fraction solution of each species to the mole fraction of each species.
 
-
     These are other data sets for other possible runs
        https://www-pls.llnl.gov/data/docs/science_and_technology/chemistry/combustion/n_heptane_v3.1_therm.dat
        https://www-pls.llnl.gov/data/docs/science_and_technology/chemistry/combustion/nc7_ver3.1_mech.txt
-
 
 */
 typedef struct _User *User;
@@ -50,7 +48,6 @@ struct _User {
   PetscInt  *rows;
   char      **snames;
 };
-
 
 static PetscErrorCode PrintSpecies(User,Vec);
 static PetscErrorCode MassFractionToMoleFraction(User,Vec,Vec*);
@@ -95,7 +92,7 @@ int main(int argc,char **argv)
   user.Tini = 1000;             /* Kelvin */
   ierr = PetscOptionsReal("-Tini","Initial temperature [K]","",user.Tini,&user.Tini,NULL);CHKERRQ(ierr);
   ierr = PetscOptionsBool("-monitor_mass","Monitor the total mass at each timestep","",flg,&flg,NULL);CHKERRQ(ierr);
-  ierr = PetscOptionsBool("-monitor_temp","Monitor the tempature each timestep","",tflg,&tflg,NULL);CHKERRQ(ierr);
+  ierr = PetscOptionsBool("-monitor_temp","Monitor the temperature each timestep","",tflg,&tflg,NULL);CHKERRQ(ierr);
   ierr = PetscOptionsEnd();CHKERRQ(ierr);
 
   /* tchem requires periodic table in current directory */
@@ -177,7 +174,6 @@ int main(int argc,char **argv)
     ierr = TSTrajectorySetVariableNames(tj,(const char * const *)user.snames);CHKERRQ(ierr);
     ierr = TSTrajectorySetTransform(tj,(PetscErrorCode (*)(void*,Vec,Vec*))MassFractionToMoleFraction,NULL,&user);CHKERRQ(ierr);
   }
-
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Pass information to graphical monitoring routine
@@ -394,7 +390,7 @@ PetscErrorCode MonitorTempature(TS ts,PetscInt step,PetscReal time,Vec x,void* c
 
   PetscFunctionBegin;
   ierr = VecGetArrayRead(x,&T);CHKERRQ(ierr);
-  ierr = PetscPrintf(PETSC_COMM_WORLD,"Timestep %D time %g tempature %g\n",step,(double)time,(double)T[0]*user->Tini);CHKERRQ(ierr);
+  ierr = PetscPrintf(PETSC_COMM_WORLD,"Timestep %D time %g temperature %g\n",step,(double)time,(double)T[0]*user->Tini);CHKERRQ(ierr);
   ierr = VecRestoreArrayRead(x,&T);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }

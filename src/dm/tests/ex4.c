@@ -64,7 +64,6 @@ int main(int argc,char **argv)
     ly[n-1] = N - 2*(n-1);
   }
 
-
   /* Create distributed array and get vectors */
   ierr = DMDACreate2d(PETSC_COMM_WORLD,bx,by,st,M,N,m,n,w,s,lx,ly,&da);CHKERRQ(ierr);
   ierr = DMSetFromOptions(da);CHKERRQ(ierr);
@@ -83,7 +82,7 @@ int main(int argc,char **argv)
   ierr = DMGlobalToLocalEnd(da,global,INSERT_VALUES,local);CHKERRQ(ierr);
 
   /* Scale local vectors according to processor rank; pass to global vector */
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
   value = rank;
   ierr = VecScale(local,value);CHKERRQ(ierr);
   ierr = DMLocalToGlobalBegin(da,local,INSERT_VALUES,global);CHKERRQ(ierr);
@@ -113,7 +112,7 @@ int main(int argc,char **argv)
     ierr = PetscViewerASCIIPopSynchronized(PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
   }
 
-  /* Tests mappings betweeen application/PETSc orderings */
+  /* Tests mappings between application/PETSc orderings */
   if (testorder) {
     ISLocalToGlobalMapping ltogm;
 
@@ -169,7 +168,6 @@ int main(int argc,char **argv)
   ierr = PetscFinalize();
   return ierr;
 }
-
 
 /*TEST
 

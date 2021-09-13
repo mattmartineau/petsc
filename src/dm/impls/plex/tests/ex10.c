@@ -4,9 +4,6 @@ static char help[] = "Test for mesh reordering\n\n";
 
 typedef struct {
   PetscInt  dim;               /* The topological mesh dimension */
-  PetscBool cellSimplex;       /* Flag for simplices */
-  PetscBool interpolate;       /* Flag for mesh interpolation */
-  PetscBool refinementUniform; /* Uniformly refine the mesh */
   PetscReal refinementLimit;   /* Maximum volume of a refined cell */
   PetscInt  numFields;         /* The number of section fields */
   PetscInt *numComponents;     /* The number of field components */
@@ -21,22 +18,12 @@ PetscErrorCode ProcessOptions(AppCtx *options)
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
-  options->dim               = 2;
-  options->cellSimplex       = PETSC_TRUE;
-  options->interpolate       = PETSC_FALSE;
-  options->refinementUniform = PETSC_FALSE;
-  options->refinementLimit   = 0.0;
-  options->numFields         = 1;
-  options->numComponents     = NULL;
-  options->numDof            = NULL;
-  options->numGroups         = 0;
+  options->numFields     = 1;
+  options->numComponents = NULL;
+  options->numDof        = NULL;
+  options->numGroups     = 0;
 
   ierr = PetscOptionsBegin(PETSC_COMM_SELF, "", "Meshing Problem Options", "DMPLEX");CHKERRQ(ierr);
-  ierr = PetscOptionsRangeInt("-dim", "The topological mesh dimension", "ex10.c", options->dim, &options->dim, NULL,1,3);CHKERRQ(ierr);
-  ierr = PetscOptionsBool("-cell_simplex", "Flag for simplices", "ex10.c", options->cellSimplex, &options->cellSimplex, NULL);CHKERRQ(ierr);
-  ierr = PetscOptionsBool("-interpolate", "Flag for mesh interpolation", "ex10.c", options->interpolate, &options->interpolate, NULL);CHKERRQ(ierr);
-  ierr = PetscOptionsBool("-refinement_uniform", "Uniformly refine the mesh", "ex10.c", options->refinementUniform, &options->refinementUniform, NULL);CHKERRQ(ierr);
-  ierr = PetscOptionsReal("-refinement_limit", "The maximum volume of a refined cell", "ex10.c", options->refinementLimit, &options->refinementLimit, NULL);CHKERRQ(ierr);
   ierr = PetscOptionsBoundedInt("-num_fields", "The number of section fields", "ex10.c", options->numFields, &options->numFields, NULL,1);CHKERRQ(ierr);
   if (options->numFields) {
     len  = options->numFields;
@@ -44,10 +31,6 @@ PetscErrorCode ProcessOptions(AppCtx *options)
     ierr = PetscOptionsIntArray("-num_components", "The number of components per field", "ex10.c", options->numComponents, &len, &flg);CHKERRQ(ierr);
     if (flg && (len != options->numFields)) SETERRQ2(PETSC_COMM_SELF, PETSC_ERR_ARG_WRONG, "Length of components array is %D should be %D", len, options->numFields);
   }
-  len  = (options->dim+1) * PetscMax(1, options->numFields);
-  ierr = PetscMalloc1(len, &options->numDof);CHKERRQ(ierr);
-  ierr = PetscOptionsIntArray("-num_dof", "The dof signature for the section", "ex10.c", options->numDof, &len, &flg);CHKERRQ(ierr);
-  if (flg && (len != (options->dim+1) * PetscMax(1, options->numFields))) SETERRQ2(PETSC_COMM_SELF, PETSC_ERR_ARG_WRONG, "Length of dof array is %D should be %D", len, (options->dim+1) * PetscMax(1, options->numFields));
   ierr = PetscOptionsBoundedInt("-num_groups", "Group permutation by this many label values", "ex10.c", options->numGroups, &options->numGroups, NULL,0);CHKERRQ(ierr);
   ierr = PetscOptionsEnd();CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -74,7 +57,7 @@ PetscErrorCode CreateTestMesh(MPI_Comm comm, DM *dm, AppCtx *options)
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
-  ierr = DMPlexCreateFromCellListPetsc(comm, 2, 16, 15, 3, options->interpolate, cells, 2, coords, dm);CHKERRQ(ierr);
+  ierr = DMPlexCreateFromCellListPetsc(comm, 2, 16, 15, 3, PETSC_FALSE, cells, 2, coords, dm);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -90,12 +73,17 @@ PetscErrorCode TestReordering(DM dm, AppCtx *user)
   PetscFunctionBegin;
   ierr = DMPlexGetOrdering(dm, order, NULL, &perm);CHKERRQ(ierr);
   ierr = DMPlexPermute(dm, perm, &pdm);CHKERRQ(ierr);
+  ierr = PetscObjectSetOptionsPrefix((PetscObject) pdm, "perm_");CHKERRQ(ierr);
   ierr = DMSetFromOptions(pdm);CHKERRQ(ierr);
   ierr = ISDestroy(&perm);CHKERRQ(ierr);
+  ierr = DMViewFromOptions(dm,  NULL, "-orig_dm_view");CHKERRQ(ierr);
+  ierr = DMViewFromOptions(pdm, NULL, "-dm_view");CHKERRQ(ierr);
   ierr = DMCreateMatrix(dm, &A);CHKERRQ(ierr);
   ierr = DMCreateMatrix(pdm, &pA);CHKERRQ(ierr);
   ierr = MatComputeBandwidth(A, 0.0, &bw);CHKERRQ(ierr);
   ierr = MatComputeBandwidth(pA, 0.0, &pbw);CHKERRQ(ierr);
+  ierr = MatViewFromOptions(A,  NULL, "-orig_mat_view");CHKERRQ(ierr);
+  ierr = MatViewFromOptions(pA, NULL, "-perm_mat_view");CHKERRQ(ierr);
   ierr = MatDestroy(&A);CHKERRQ(ierr);
   ierr = MatDestroy(&pA);CHKERRQ(ierr);
   ierr = DMDestroy(&pdm);CHKERRQ(ierr);
@@ -137,7 +125,10 @@ PetscErrorCode TestReorderingByGroup(DM dm, AppCtx *user)
   ierr = DMPlexGetOrdering(dm, order, label, &perm);CHKERRQ(ierr);
   ierr = DMLabelDestroy(&label);CHKERRQ(ierr);
   ierr = DMPlexPermute(dm, perm, &pdm);CHKERRQ(ierr);
+  ierr = PetscObjectSetOptionsPrefix((PetscObject) pdm, "perm_");CHKERRQ(ierr);
   ierr = DMSetFromOptions(pdm);CHKERRQ(ierr);
+  ierr = DMViewFromOptions(dm,  NULL, "-orig_dm_view");CHKERRQ(ierr);
+  ierr = DMViewFromOptions(pdm, NULL, "-perm_dm_view");CHKERRQ(ierr);
   ierr = ISDestroy(&perm);CHKERRQ(ierr);
   ierr = DMCreateMatrix(dm, &A);CHKERRQ(ierr);
   ierr = DMCreateMatrix(pdm, &pA);CHKERRQ(ierr);
@@ -154,13 +145,31 @@ int main(int argc, char **argv)
   DM             dm;
   PetscSection   s;
   AppCtx         user;
+  PetscInt       dim;
   PetscErrorCode ierr;
 
   ierr = PetscInitialize(&argc, &argv, NULL, help);if (ierr) return ierr;
   ierr = ProcessOptions(&user);CHKERRQ(ierr);
   if (user.numGroups < 1) {
-    ierr = DMPlexCreateDoublet(PETSC_COMM_WORLD, user.dim, user.cellSimplex, user.interpolate, user.refinementUniform, user.refinementLimit, &dm);CHKERRQ(ierr);
-    ierr = DMSetFromOptions(dm);CHKERRQ(ierr);
+    ierr = DMCreate(PETSC_COMM_WORLD, &dm);CHKERRQ(ierr);
+    ierr = DMSetType(dm, DMPLEX);CHKERRQ(ierr);
+  } else {
+    ierr = CreateTestMesh(PETSC_COMM_WORLD, &dm, &user);CHKERRQ(ierr);
+  }
+  ierr = DMSetFromOptions(dm);CHKERRQ(ierr);
+  ierr = DMViewFromOptions(dm, NULL, "-dm_view");CHKERRQ(ierr);
+  ierr = DMGetDimension(dm, &dim);CHKERRQ(ierr);
+  {
+    PetscInt  len = (dim+1) * PetscMax(1, user.numFields);
+    PetscBool flg;
+
+    ierr = PetscMalloc1(len, &user.numDof);CHKERRQ(ierr);
+    ierr = PetscOptionsBegin(PETSC_COMM_SELF, "", "Meshing Problem Options", "DMPLEX");CHKERRQ(ierr);
+    ierr = PetscOptionsIntArray("-num_dof", "The dof signature for the section", "ex10.c", user.numDof, &len, &flg);CHKERRQ(ierr);
+    if (flg && (len != (dim+1) * PetscMax(1, user.numFields))) SETERRQ2(PETSC_COMM_SELF, PETSC_ERR_ARG_WRONG, "Length of dof array is %D should be %D", len, (dim+1) * PetscMax(1, user.numFields));
+    ierr = PetscOptionsEnd();CHKERRQ(ierr);
+  }
+  if (user.numGroups < 1) {
     ierr = DMSetNumFields(dm, user.numFields);CHKERRQ(ierr);
     ierr = DMCreateDS(dm);CHKERRQ(ierr);
     ierr = DMPlexCreateSection(dm, NULL, user.numComponents, user.numDof, 0, NULL, NULL, NULL, NULL, &s);CHKERRQ(ierr);
@@ -168,8 +177,6 @@ int main(int argc, char **argv)
     ierr = PetscSectionDestroy(&s);CHKERRQ(ierr);
     ierr = TestReordering(dm, &user);CHKERRQ(ierr);
   } else {
-    ierr = CreateTestMesh(PETSC_COMM_WORLD, &dm, &user);CHKERRQ(ierr);
-    ierr = DMSetFromOptions(dm);CHKERRQ(ierr);
     ierr = DMSetNumFields(dm, user.numFields);CHKERRQ(ierr);
     ierr = DMCreateDS(dm);CHKERRQ(ierr);
     ierr = DMPlexCreateSection(dm, NULL, user.numComponents, user.numDof, 0, NULL, NULL, NULL, NULL, &s);CHKERRQ(ierr);
@@ -188,31 +195,33 @@ int main(int argc, char **argv)
   # Two cell tests 0-3
   test:
     suffix: 0
-    args: -dim 2 -interpolate 1 -cell_simplex 1 -num_dof 1,0,0 -mat_view
+    requires: triangle
+    args: -dm_plex_simplex 1 -num_dof 1,0,0 -mat_view -dm_coord_space 0
   test:
     suffix: 1
-    args: -dim 2 -interpolate 1 -cell_simplex 0 -num_dof 1,0,0 -mat_view
+    args: -dm_plex_simplex 0 -num_dof 1,0,0 -mat_view -dm_coord_space 0
   test:
     suffix: 2
-    args: -dim 3 -interpolate 1 -cell_simplex 1 -num_dof 1,0,0,0 -mat_view
+    requires: ctetgen
+    args: -dm_plex_dim 3 -dm_plex_simplex 1 -num_dof 1,0,0,0 -mat_view -dm_coord_space 0
   test:
     suffix: 3
-    args: -dim 3 -interpolate 1 -cell_simplex 0 -num_dof 1,0,0,0 -mat_view
+    args: -dm_plex_dim 3 -dm_plex_simplex 0 -num_dof 1,0,0,0 -mat_view -dm_coord_space 0
   # Refined tests 4-7
   test:
     suffix: 4
     requires: triangle
-    args: -dim 2 -interpolate 1 -cell_simplex 1 -refinement_limit 0.00625 -num_dof 1,0,0
+    args: -dm_plex_simplex 1 -dm_refine_volume_limit_pre 0.00625 -num_dof 1,0,0
   test:
     suffix: 5
-    args: -dim 2 -interpolate 1 -cell_simplex 0 -refinement_uniform       -num_dof 1,0,0
+    args: -dm_plex_simplex 0 -dm_refine 1 -num_dof 1,0,0
   test:
     suffix: 6
     requires: ctetgen
-    args: -dim 3 -interpolate 1 -cell_simplex 1 -refinement_limit 0.00625 -num_dof 1,0,0,0
+    args: -dm_plex_dim 3 -dm_plex_simplex 1 -dm_refine_volume_limit_pre 0.00625 -num_dof 1,0,0,0
   test:
     suffix: 7
-    args: -dim 3 -interpolate 1 -cell_simplex 0 -refinement_uniform       -num_dof 1,0,0,0
+    args: -dm_plex_dim 3 -dm_plex_simplex 0 -dm_refine 1 -num_dof 1,0,0,0
   # Parallel tests
   # Grouping tests
   test:

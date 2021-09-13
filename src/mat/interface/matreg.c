@@ -44,7 +44,7 @@ PetscErrorCode  MatSetType(Mat mat, MatType matype)
     ierr = PetscStrcmp(matype,names->rname,&found);CHKERRQ(ierr);
     if (found) {
       PetscMPIInt size;
-      ierr = MPI_Comm_size(PetscObjectComm((PetscObject)mat),&size);CHKERRQ(ierr);
+      ierr = MPI_Comm_size(PetscObjectComm((PetscObject)mat),&size);CHKERRMPI(ierr);
       if (size == 1) matype = names->sname;
       else matype = names->mname;
       break;
@@ -192,7 +192,6 @@ $     -mat_type my_mat
    Level: advanced
 
 .seealso: MatRegisterAll()
-
 
   Level: advanced
 @*/

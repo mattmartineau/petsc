@@ -7,8 +7,6 @@ static char help[] = "Demonstrates PetscFileRetrieve().\n\n";
    Processors: n
 T*/
 
-
-
 #include <petscsys.h>
 int main(int argc,char **argv)
 {
@@ -36,10 +34,9 @@ int main(int argc,char **argv)
   return ierr;
 }
 
-
 /*TEST
 
    test:
-     requires: define(PETSC_HAVE_POPEN)
+     requires: defined(PETSC_HAVE_POPEN)
 
 TEST*/

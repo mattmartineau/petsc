@@ -28,7 +28,7 @@ PetscErrorCode ProcessOptions(MPI_Comm comm, AppCtx *options)
   options->dim   = 2;
   patchSize      = 0;
   commSize       = 0;
-  gridSize       = 0;
+  gridSize       = 1;
 
   ierr = PetscOptionsBegin(comm, "", "Patch Test Options", "DMPATCH");CHKERRQ(ierr);
   ierr = PetscOptionsBoundedInt("-debug", "The debugging level", "ex1.c", options->debug, &options->debug, NULL,0);CHKERRQ(ierr);
@@ -36,7 +36,7 @@ PetscErrorCode ProcessOptions(MPI_Comm comm, AppCtx *options)
   ierr = PetscOptionsBoundedInt("-patch_size", "The patch size in each dimension", "ex1.c", patchSize, &patchSize, NULL,0);CHKERRQ(ierr);
   ierr = PetscOptionsBoundedInt("-comm_size", "The comm size in each dimension", "ex1.c", commSize, &commSize, NULL,0);CHKERRQ(ierr);
   ierr = PetscOptionsBoundedInt("-grid_size", "The grid size in each dimension", "ex1.c", gridSize, &gridSize, NULL,1);CHKERRQ(ierr);
-  ierr = PetscOptionsEnd();
+  ierr = PetscOptionsEnd();CHKERRQ(ierr);
 
   options->patchSize.i = options->patchSize.j = options->patchSize.k = 1;
   options->commSize.i  = options->commSize.j  = options->commSize.k = 1;
@@ -45,7 +45,7 @@ PetscErrorCode ProcessOptions(MPI_Comm comm, AppCtx *options)
   if (options->dim > 1) {options->patchSize.j = patchSize; options->commSize.j = commSize; options->gridSize.j = gridSize;}
   if (options->dim > 2) {options->patchSize.k = patchSize; options->commSize.k = commSize; options->gridSize.k = gridSize;}
   PetscFunctionReturn(0);
-};
+}
 
 int main(int argc, char **argv)
 {
@@ -65,3 +65,9 @@ int main(int argc, char **argv)
   ierr = PetscFinalize();
   return ierr;
 }
+
+/*TEST
+
+   test:
+
+TEST*/

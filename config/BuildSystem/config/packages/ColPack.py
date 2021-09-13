@@ -8,7 +8,7 @@ class Configure(config.package.CMakePackage):
     self.includes      = ['ColPack/ColPackHeaders.h']
     self.liblist       = [['libColPack.a']]
     self.functionsCxx  = [1,'void current_time();','current_time()']
-    self.requirescxx11 = 1
+    self.minCxxVersion = 'c++11'
     self.cxx           = 1
     self.precisions    = ['double']
     self.complex       = 0
@@ -30,5 +30,4 @@ class Configure(config.package.CMakePackage):
       args.append('-DENABLE_OPENMP=ON')
     else:
       args.append('-DENABLE_OPENMP=OFF')
-    args.append('-DCMAKE_INSTALL_LIBDIR:STRING="lib"')
     return args

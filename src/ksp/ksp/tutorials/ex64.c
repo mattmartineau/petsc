@@ -20,7 +20,6 @@ static char help[] = "Illustrates use of the preconditioner GASM.\n \
    and attempts to generate both subdomains straddling processors and multiple
    domains per processor.
 
-
    This matrix in this linear system arises from the discretized Laplacian,
    and thus is not very interesting in terms of experimenting with variants
    of the GASM preconditioner.
@@ -41,7 +40,6 @@ T*/
 */
 #include <petscksp.h>
 #include <petscmat.h>
-
 
 int main(int argc,char **args)
 {
@@ -66,7 +64,7 @@ int main(int argc,char **args)
 
   ierr = PetscInitialize(&argc,&args,(char*)0,help);if (ierr) return ierr;
   comm = PETSC_COMM_WORLD;
-  ierr = MPI_Comm_size(comm,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(comm,&size);CHKERRMPI(ierr);
   ierr = PetscOptionsBegin(PETSC_COMM_WORLD,NULL,"ex62","PC");CHKERRQ(ierr);
   m = 15;
   ierr = PetscOptionsInt("-M", "Number of mesh points in the x-direction","PCGASMCreateSubdomains2D",m,&m,NULL);CHKERRQ(ierr);
@@ -179,7 +177,6 @@ int main(int argc,char **args)
   ierr = PetscFinalize();
   return ierr;
 }
-
 
 /*TEST
 

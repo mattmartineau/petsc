@@ -17,8 +17,8 @@ int main(int argc, char *argv[])
   ierr   = PetscInitialize(&argc,&argv,0,help);if (ierr) return ierr;
   comm   = PETSC_COMM_WORLD;
   viewer = PETSC_VIEWER_STDOUT_WORLD;
-  ierr   = MPI_Comm_size(comm,&size);CHKERRQ(ierr);
-  ierr   = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
+  ierr   = MPI_Comm_size(comm,&size);CHKERRMPI(ierr);
+  ierr   = MPI_Comm_rank(comm,&rank);CHKERRMPI(ierr);
 
   ierr = VecCreate(comm,&X);CHKERRQ(ierr);
   ierr = VecSetSizes(X,10,PETSC_DETERMINE);CHKERRQ(ierr);
@@ -78,7 +78,6 @@ int main(int argc, char *argv[])
   return ierr;
 }
 
-
 /*TEST
 
    testset:
@@ -101,5 +100,9 @@ int main(int argc, char *argv[])
         requires: kokkos_kernels
         suffix: kokkos
         args: -vec_type kokkos
+      test:
+        requires: hip
+        suffix: hip
+        args: -vec_type hip
 
 TEST*/

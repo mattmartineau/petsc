@@ -39,8 +39,8 @@ int main(int argc,char **args)
   ierr = PetscViewerDestroy(&fd);CHKERRQ(ierr);
 
   ierr = PetscObjectGetComm((PetscObject)A,&comm);CHKERRQ(ierr);
-  ierr = MPI_Comm_size(comm,&size);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(comm,&size);CHKERRMPI(ierr);
+  ierr = MPI_Comm_rank(comm,&rank);CHKERRMPI(ierr);
 
   /* Create rhs vector b */
   ierr = MatGetLocalSize(A,&m,NULL);CHKERRQ(ierr);
@@ -90,7 +90,7 @@ int main(int argc,char **args)
     }
 
     ierr = PetscCommDuplicate(PETSC_COMM_WORLD,&dcomm,NULL);CHKERRQ(ierr);
-    ierr = MPI_Comm_split(dcomm,color,subrank,&subcomm);CHKERRQ(ierr);
+    ierr = MPI_Comm_split(dcomm,color,subrank,&subcomm);CHKERRMPI(ierr);
 
     ierr = MatCreate(subcomm,&subA);CHKERRQ(ierr);
     ierr = MatSetSizes(subA,PETSC_DECIDE,PETSC_DECIDE,10,10);CHKERRQ(ierr);
@@ -171,7 +171,7 @@ int main(int argc,char **args)
   ierr = KSPDestroy(&subksp);CHKERRQ(ierr);
   ierr = PetscSubcommDestroy(&psubcomm);CHKERRQ(ierr);
   if (size > 1) {
-    ierr = MPI_Comm_free(&subcomm);CHKERRQ(ierr);
+    ierr = MPI_Comm_free(&subcomm);CHKERRMPI(ierr);
   }
   ierr = MatDestroy(&A);CHKERRQ(ierr); ierr = VecDestroy(&b);CHKERRQ(ierr);
   ierr = VecDestroy(&u);CHKERRQ(ierr); ierr = VecDestroy(&x);CHKERRQ(ierr);
@@ -184,20 +184,20 @@ int main(int argc,char **args)
 
     test:
       args: -f ${DATAFILESPATH}/matrices/small -nsubcomm 1
-      requires: datafilespath !complex double !define(PETSC_USE_64BIT_INDICES)
+      requires: datafilespath !complex double !defined(PETSC_USE_64BIT_INDICES)
       output_file: output/ex37.out
 
     test:
       suffix: 2
       args: -f ${DATAFILESPATH}/matrices/small -nsubcomm 2
-      requires: datafilespath !complex double !define(PETSC_USE_64BIT_INDICES)
+      requires: datafilespath !complex double !defined(PETSC_USE_64BIT_INDICES)
       nsize: 4
       output_file: output/ex37.out
 
     test:
       suffix: mumps
       args: -f ${DATAFILESPATH}/matrices/small -nsubcomm 2 -pc_factor_mat_solver_type mumps -pc_type lu
-      requires: datafilespath  mumps !complex double !define(PETSC_USE_64BIT_INDICES)
+      requires: datafilespath  mumps !complex double !defined(PETSC_USE_64BIT_INDICES)
       nsize: 4
       output_file: output/ex37.out
 
@@ -205,21 +205,21 @@ int main(int argc,char **args)
       suffix: 3
       nsize: 4
       args: -f ${DATAFILESPATH}/matrices/small -nsubcomm 2 -subcomm_type 0
-      requires: datafilespath  !complex double !define(PETSC_USE_64BIT_INDICES)
+      requires: datafilespath  !complex double !defined(PETSC_USE_64BIT_INDICES)
       output_file: output/ex37.out
 
     test:
       suffix: 4
       nsize: 4
       args: -f ${DATAFILESPATH}/matrices/small -nsubcomm 2 -subcomm_type 1
-      requires: datafilespath !complex double !define(PETSC_USE_64BIT_INDICES)
+      requires: datafilespath !complex double !defined(PETSC_USE_64BIT_INDICES)
       output_file: output/ex37.out
 
     test:
       suffix: 5
       nsize: 4
       args: -f ${DATAFILESPATH}/matrices/small -nsubcomm 2 -subcomm_type 2
-      requires: datafilespath !complex double !define(PETSC_USE_64BIT_INDICES)
+      requires: datafilespath !complex double !defined(PETSC_USE_64BIT_INDICES)
       output_file: output/ex37.out
 
 TEST*/

@@ -47,7 +47,7 @@ static PetscErrorCode DMDAGetNumElementsGhosted(DM da, PetscInt *nex, PetscInt *
   if (ney) *ney = -1;
   if (nez) *nez = -1;
   ierr = DMDAGetCorners(da,&sx,&sy,&sz,&ien,&jen,&ken);CHKERRQ(ierr);
-  ierr = DMGetApplicationContext(da,(void**)&dactx);CHKERRQ(ierr);
+  ierr = DMGetApplicationContext(da,&dactx);CHKERRQ(ierr);
   if (dactx->ll) {
     PetscInt dim;
 
@@ -105,7 +105,7 @@ static PetscErrorCode DMDASampleGLVisFields_Private(PetscObject oX, PetscInt nf,
   PetscFunctionBegin;
   ierr = VecGetDM(ctx->xlocal,&da);CHKERRQ(ierr);
   if (!da) SETERRQ(PetscObjectComm(oX),PETSC_ERR_ARG_WRONG,"Vector not generated from a DMDA");
-  ierr = DMGetApplicationContext(da,(void**)&dactx);CHKERRQ(ierr);
+  ierr = DMGetApplicationContext(da,&dactx);CHKERRQ(ierr);
   ierr = VecGetBlockSize(ctx->xlocal,&bs);CHKERRQ(ierr);
   ierr = DMGlobalToLocalBegin(da,(Vec)oX,INSERT_VALUES,ctx->xlocal);CHKERRQ(ierr);
   ierr = DMGlobalToLocalEnd(da,(Vec)oX,INSERT_VALUES,ctx->xlocal);CHKERRQ(ierr);
@@ -194,7 +194,6 @@ PETSC_INTERN PetscErrorCode DMSetUpGLVisViewer_DMDA(PetscObject oda, PetscViewer
       break;
     default:
       SETERRQ1(PetscObjectComm((PetscObject)da),PETSC_ERR_SUP,"Unsupported dimension %D",dim);
-      break;
     }
     ierr = DMSetApplicationContext(daview,dactx);CHKERRQ(ierr);
     ierr = DMSetApplicationContextDestroy(daview,DMDAGhostedDestroyGLVisViewerCtx_Private);CHKERRQ(ierr);
@@ -267,7 +266,7 @@ PETSC_INTERN PetscErrorCode DMSetUpGLVisViewer_DMDA(PetscObject oda, PetscViewer
     PetscBool                 bsset;
 
     ierr = DMDAGetInfo(daview,&dim,NULL,NULL,NULL,NULL,NULL,NULL,&dof,NULL,NULL,NULL,NULL,NULL);CHKERRQ(ierr);
-    ierr = DMGetApplicationContext(daview,(void**)&dactx);CHKERRQ(ierr);
+    ierr = DMGetApplicationContext(daview,&dactx);CHKERRQ(ierr);
     ierr = DMCreateLocalVector(daview,&xlocal);CHKERRQ(ierr);
     ierr = DMDAGetFieldNames(da,(const char * const **)&dafieldname);CHKERRQ(ierr);
     ierr = DMDAGetNumVerticesGhosted(daview,&M,&N,&P);CHKERRQ(ierr);
@@ -352,7 +351,7 @@ static PetscErrorCode DMDAView_GLVis_ASCII(DM dm, PetscViewer viewer)
   PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,2);
   ierr = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&isascii);CHKERRQ(ierr);
   if (!isascii) SETERRQ(PetscObjectComm((PetscObject)viewer),PETSC_ERR_SUP,"Viewer must be of type VIEWERASCII");
-  ierr = MPI_Comm_size(PetscObjectComm((PetscObject)viewer),&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PetscObjectComm((PetscObject)viewer),&size);CHKERRMPI(ierr);
   if (size > 1) SETERRQ(PetscObjectComm((PetscObject)viewer),PETSC_ERR_SUP,"Use single sequential viewers for parallel visualization");
   ierr = DMGetDimension(dm,&dim);CHKERRQ(ierr);
 
@@ -372,7 +371,7 @@ static PetscErrorCode DMDAView_GLVis_ASCII(DM dm, PetscViewer viewer)
   if (!da) SETERRQ(PetscObjectComm((PetscObject)dm),PETSC_ERR_PLIB,"Missing GLVis ghosted DMDA");
   ierr = DMGetCoordinateDim(da,&sdim);CHKERRQ(ierr);
 
-  ierr = PetscViewerASCIIPrintf(viewer,"MFEM mesh v1.1\n");CHKERRQ(ierr);
+  ierr = PetscViewerASCIIPrintf(viewer,"MFEM mesh v1.0\n");CHKERRQ(ierr);
   ierr = PetscViewerASCIIPrintf(viewer,"\ndimension\n");CHKERRQ(ierr);
   ierr = PetscViewerASCIIPrintf(viewer,"%D\n",dim);CHKERRQ(ierr);
 
@@ -437,7 +436,6 @@ static PetscErrorCode DMDAView_GLVis_ASCII(DM dm, PetscViewer viewer)
     break;
   default:
     SETERRQ1(PetscObjectComm((PetscObject)da),PETSC_ERR_SUP,"Unsupported dimension %D",dim);
-    break;
   }
   ierr = PetscViewerASCIIPrintf(viewer,"\nboundary\n");CHKERRQ(ierr);
   ierr = PetscViewerASCIIPrintf(viewer,"%D\n",0);CHKERRQ(ierr);
@@ -476,7 +474,7 @@ static PetscErrorCode DMDAView_GLVis_ASCII(DM dm, PetscViewer viewer)
     } else {
       DMDAGhostedGLVisViewerCtx *dactx;
 
-      ierr = DMGetApplicationContext(da,(void**)&dactx);CHKERRQ(ierr);
+      ierr = DMGetApplicationContext(da,&dactx);CHKERRQ(ierr);
       ierr = PetscViewerASCIIPrintf(viewer,"%D\n",sdim);CHKERRQ(ierr);
       cdof = sdim;
       ierr = DMDAGetCorners(da,&sx,&sy,&sz,NULL,NULL,NULL);CHKERRQ(ierr);

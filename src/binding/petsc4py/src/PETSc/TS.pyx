@@ -157,6 +157,10 @@ cdef class TS(Object):
         ts_type = str2bytes(ts_type, &cval)
         CHKERR( TSARKIMEXSetType(self.ts, cval) )
 
+    def setARKIMEXFullyImplicit(self, flag):
+        cdef PetscBool bval = asBool(flag)
+        CHKERR( TSARKIMEXSetFullyImplicit(self.ts, bval) )
+
     def getType(self):
         cdef PetscTSType cval = NULL
         CHKERR( TSGetType(self.ts, &cval) )
@@ -623,9 +627,11 @@ cdef class TS(Object):
     def getMonitor(self):
         return self.get_attr('__monitor__')
 
-    def cancelMonitor(self):
+    def monitorCancel(self):
         self.set_attr('__monitor__', None)
         CHKERR( TSMonitorCancel(self.ts) )
+
+    cancelMonitor = monitorCancel
 
     def monitor(self, step, time, Vec u=None):
         cdef PetscInt  ival = asInt(step)
@@ -635,6 +641,50 @@ cdef class TS(Object):
         if uvec == NULL:
             CHKERR( TSGetSolution(self.ts, &uvec) )
         CHKERR( TSMonitor(self.ts, ival, rval, uvec) )
+
+    # --- event handling ---
+
+    def setEventHandler(self, direction, terminate, eventhandler, postevent=None, args=None, kargs=None):
+        cdef PetscInt  ndirs = 0
+        cdef PetscInt *idirs = NULL
+        direction = iarray_i(direction, &ndirs, &idirs)
+
+        cdef PetscInt   nterm = 0
+        cdef PetscBool *iterm = NULL
+        terminate = iarray_b(terminate, &nterm, &iterm)
+        assert nterm == ndirs
+
+        cdef PetscInt nevents = ndirs
+        if eventhandler is not None:
+            if args  is None: args  = ()
+            if kargs is None: kargs = {}
+            self.set_attr('__eventhandler__', (eventhandler, args, kargs))
+            if postevent is not None:
+                self.set_attr('__postevent__', (postevent, args, kargs))
+                CHKERR( TSSetEventHandler(self.ts, nevents, idirs, iterm, TS_EventHandler, TS_PostEvent, <void*>NULL) )
+            else:
+                self.set_attr('__postevent__', None)
+                CHKERR( TSSetEventHandler(self.ts, nevents, idirs, iterm, TS_EventHandler, NULL, <void*>NULL) )
+        else:
+            CHKERR( TSSetEventHandler(self.ts, nevents, idirs, iterm, NULL, NULL, <void*>NULL) )
+
+    def setEventTolerances(self, tol=None, vtol=None):
+        cdef PetscInt  nevents = 0
+        cdef PetscReal tolr = PETSC_DEFAULT
+        cdef PetscInt  ntolr = 0
+        cdef PetscReal *vtolr = NULL
+        if tol is not None:
+            tolr = asReal(tol)
+        if vtol is not None:
+            CHKERR( TSGetNumEvents(self.ts, &nevents) )
+            vtol = iarray_r(vtol, &ntolr,  &vtolr)
+            assert ntolr == nevents
+        CHKERR( TSSetEventTolerances(self.ts, tolr, vtolr) )
+
+    def getNumEvents(self):
+        cdef PetscInt nevents = 0
+        CHKERR( TSGetNumEvents(self.ts, &nevents) )
+        return toInt(nevents)
 
     # --- solving ---
 
@@ -687,6 +737,21 @@ cdef class TS(Object):
     def interpolate(self, t, Vec u):
         cdef PetscReal rval = asReal(t)
         CHKERR( TSInterpolate(self.ts, rval, u.vec) )
+
+    def setStepLimits(self, hmin, hmax):
+        cdef PetscTSAdapt tsadapt = NULL
+        cdef PetscReal hminr = toReal(hmin)
+        cdef PetscReal hmaxr = toReal(hmax)
+        TSGetAdapt(self.ts, &tsadapt)
+        CHKERR( TSAdaptSetStepLimits(tsadapt, hminr, hmaxr) )
+
+    def getStepLimits(self):
+        cdef PetscTSAdapt tsadapt = NULL
+        cdef PetscReal hminr = 0.
+        cdef PetscReal hmaxr = 0.
+        TSGetAdapt(self.ts, &tsadapt)
+        CHKERR( TSAdaptGetStepLimits(tsadapt, &hminr, &hmaxr) )
+        return (asReal(hminr), asReal(hmaxr))
 
     # --- Adjoint methods ---
 

@@ -206,7 +206,7 @@ int main(int argc,char **argv)
      Initialize program
      - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
   ierr = PetscInitialize(&argc,&argv,(char*)0,help);if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
   if (size > 1) SETERRQ(PETSC_COMM_WORLD,PETSC_ERR_SUP,"Only for sequential runs");
   app.mode = 1;
   app.lambda1 = 2.75;
@@ -342,11 +342,10 @@ PetscErrorCode FWDRun(TS ts, Vec U0, void *ctx0)
   PetscFunctionReturn(0);
 }
 
-
 /*TEST
 
    build:
-      requires: !define(PETSC_USE_CXXCOMPLEX)
+      requires: !defined(PETSC_USE_CXXCOMPLEX)
 
    test:
       args: -ts_event_tol 1e-9

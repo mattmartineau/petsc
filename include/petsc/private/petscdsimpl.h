@@ -3,6 +3,7 @@
 
 #include <petscds.h>
 #include <petsc/private/petscimpl.h>
+#include <petsc/private/hashmap.h>
 
 PETSC_EXTERN PetscBool      PetscDSRegisterAllCalled;
 PETSC_EXTERN PetscErrorCode PetscDSRegisterAll(void);
@@ -10,18 +11,80 @@ PETSC_EXTERN PetscErrorCode PetscDSRegisterAll(void);
 typedef struct _n_DSBoundary *DSBoundary;
 
 struct _n_DSBoundary {
-  const char *name;
-  const char *labelname;
-  DMBoundaryConditionType type;
-  PetscInt    field;
-  PetscInt    numcomps;
-  PetscInt   *comps;
-  void      (*func)(void);
-  void      (*func_t)(void);
-  PetscInt    numids;
-  PetscInt   *ids;
-  void       *ctx;
-  DSBoundary  next;
+  const char             *name;          /* A unique identifier for the condition */
+  DMLabel                 label;         /* The DMLabel indicating the mesh region over which the condition holds */
+  const char             *lname;         /* The label name if the label is missing from the DM */
+  PetscInt                Nv;            /* The number of label values defining the region */
+  PetscInt               *values;        /* The labels values defining the region */
+  PetscWeakForm           wf;            /* Holds the pointwise functions defining the form (only for NATURAL conditions) */
+  DMBoundaryConditionType type;          /* The type of condition, usually either ESSENTIAL or NATURAL */
+  PetscInt                field;         /* The field constrained by the condition */
+  PetscInt                Nc;            /* The number of constrained field components */
+  PetscInt               *comps;         /* The constrained field components */
+  void                  (*func)(void);   /* Function that provides the boundary values (only for ESSENTIAL conditions) */
+  void                  (*func_t)(void); /* Function that provides the time derivative of the boundary values (only for ESSENTIAL conditions) */
+  void                   *ctx;           /* The user context for func and func_t */
+  DSBoundary              next;
+};
+
+typedef struct {
+  PetscInt start;    /* Starting entry of the chunk in an array (in bytes) */
+  PetscInt size;     /* Current number of entries of the chunk */
+  PetscInt reserved; /* Number of reserved entries in the chunk */
+} PetscChunk;
+
+typedef struct {
+  size_t  size;      /* Current number of entries used in array */
+  size_t  alloc;     /* Number of bytes allocated for array */
+  size_t  unitbytes; /* Number of bytes per entry */
+  char   *array;
+} PetscChunkBuffer;
+
+#define PetscFormKeyHash(key) \
+  PetscHashCombine(PetscHashCombine(PetscHashCombine(PetscHashPointer((key).label),PetscHashInt((key).value)),PetscHashInt((key).field)),PetscHashInt((key).part))
+
+#define PetscFormKeyEqual(k1,k2) \
+  (((k1).label == (k2).label) ? \
+   ((k1).value == (k2).value) ? \
+   ((k1).field == (k2).field) ? \
+   ((k1).part  == (k2).part) : 0 : 0 : 0)
+
+static PetscChunk _PetscInvalidChunk = {-1, -1, -1};
+
+PETSC_HASH_MAP(HMapForm, PetscFormKey, PetscChunk, PetscFormKeyHash, PetscFormKeyEqual, _PetscInvalidChunk)
+
+/*
+  We sort lexicographically on the structure.
+  Returns
+  -1: left < right
+   0: left = right
+   1: left > right
+*/
+PETSC_STATIC_INLINE int Compare_PetscFormKey_Private(const void *left, const void *right, PETSC_UNUSED void *ctx)
+{
+  PetscFormKey l = *(const PetscFormKey *) left;
+  PetscFormKey r = *(const PetscFormKey *) right;
+  return (l.label < r.label) ? -1 : ((l.label > r.label) ? 1 :
+           ((l.value < r.value) ? -1 : (l.value > r.value) ? 1 :
+             ((l.field < r.field) ? -1 : (l.field > r.field) ? 1 :
+               ((l.part < r.part) ? -1 : (l.part > r.part)))));
+}
+
+typedef struct _PetscWeakFormOps *PetscWeakFormOps;
+struct _PetscWeakFormOps {
+  PetscErrorCode (*setfromoptions)(PetscWeakForm);
+  PetscErrorCode (*setup)(PetscWeakForm);
+  PetscErrorCode (*view)(PetscWeakForm,PetscViewer);
+  PetscErrorCode (*destroy)(PetscWeakForm);
+};
+
+struct _p_PetscWeakForm {
+  PETSCHEADER(struct _PetscWeakFormOps);
+  void             *data;  /* Implementation object */
+
+  PetscInt          Nf;    /* The number of fields in the system */
+  PetscChunkBuffer *funcs; /* Buffer holding all function pointers */
+  PetscHMapForm    *form;  /* Stores function pointers for forms */
 };
 
 typedef struct _PetscDSOps *PetscDSOps;
@@ -45,15 +108,8 @@ struct _p_PetscDS {
   DSBoundary            boundary;      /* Linked list of boundary conditions */
   PetscBool             useJacPre;     /* Flag for using the Jacobian preconditioner */
   PetscBool            *implicit;      /* Flag for implicit or explicit solve for each field */
-  PetscPointFunc       *obj;           /* Scalar integral (like an objective function) */
-  PetscPointFunc       *f;             /* Weak form integrands for F, f_0, f_1 */
-  PetscPointJac        *g;             /* Weak form integrands for J = dF/du, g_0, g_1, g_2, g_3 */
-  PetscPointJac        *gp;            /* Weak form integrands for preconditioner for J, g_0, g_1, g_2, g_3 */
-  PetscPointJac        *gt;            /* Weak form integrands for dF/du_t, g_0, g_1, g_2, g_3 */
-  PetscBdPointFunc     *fBd;           /* Weak form boundary integrands F_bd, f_0, f_1 */
-  PetscBdPointJac      *gBd;           /* Weak form boundary integrands J_bd = dF_bd/du, g_0, g_1, g_2, g_3 */
-  PetscBdPointJac      *gpBd;          /* Weak form integrands for preconditioner for J_bd, g_0, g_1, g_2, g_3 */
-  PetscRiemannFunc     *r;             /* Riemann solvers */
+  PetscInt             *jetDegree;     /* The highest derivative for each field equation, or the k-jet that each discretization needs to tabulate */
+  PetscWeakForm         wf;            /* The PetscWeakForm holding all pointwise functions */
   PetscPointFunc       *update;        /* Direct update of field coefficients */
   PetscSimplePointFunc *exactSol;      /* Exact solutions for each field */
   void                **exactCtx;      /* Contexts for the exact solution functions */

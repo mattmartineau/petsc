@@ -6,7 +6,7 @@ class Configure(config.package.CMakePackage):
     config.package.CMakePackage.__init__(self, framework)
     self.version       = '3.3.7'
     self.gitcommit     = self.version
-    self.download      = ['git://https://gitlab.com/libeigen/eigen','https://gitlab.com/libeigen/eigen/-/archive/'+self.gitcommit+'/eigen-'+self.gitcommit+'.tar.gz']
+    self.download      = ['git://https://gitlab.com/libeigen/eigen.git','https://gitlab.com/libeigen/eigen/-/archive/'+self.gitcommit+'/eigen-'+self.gitcommit+'.tar.gz']
     self.functions     = []
     self.includes      = ['Eigen/Core']
     self.liblist       = []
@@ -23,9 +23,6 @@ class Configure(config.package.CMakePackage):
     return
 
   def formCMakeConfigureArgs(self):
-    if not self.cmake.found:
-      raise RuntimeError('CMake > 2.5 is needed to build Eigen')
-
     args = config.package.CMakePackage.formCMakeConfigureArgs(self)
     args.append('-DENABLE_OPENMP=OFF')
     return args

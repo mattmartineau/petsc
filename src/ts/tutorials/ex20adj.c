@@ -204,7 +204,7 @@ int main(int argc,char **argv)
      Initialize program
      - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
   ierr = PetscInitialize(&argc,&argv,NULL,help);if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
   if (size != 1) SETERRQ(PETSC_COMM_WORLD,PETSC_ERR_WRONG_MPI_SIZE,"This is a uniprocessor example only!");
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -376,13 +376,13 @@ int main(int argc,char **argv)
 
     test:
       suffix: 8
-      requires: revolve
+      requires: revolve !cams
       args: -ts_type cn -ts_dt 0.001 -mu 100000 -ts_max_steps 15 -ts_trajectory_type memory -ts_trajectory_max_cps_ram 5 -ts_trajectory_solution_only -ts_trajectory_monitor
       output_file: output/ex20adj_3.out
 
     test:
       suffix: 9
-      requires: revolve
+      requires: revolve !cams
       args: -ts_type cn -ts_dt 0.001 -mu 100000 -ts_max_steps 15 -ts_trajectory_type memory -ts_trajectory_max_cps_ram 5 -ts_trajectory_solution_only 0 -ts_trajectory_monitor
       output_file: output/ex20adj_4.out
 
@@ -462,4 +462,17 @@ int main(int argc,char **argv)
       suffix: 22
       args: -ts_type beuler -ts_dt 0.001 -mu 100000 -ts_max_steps 15 -ts_trajectory_type memory -ts_trajectory_solution_only
       output_file: output/ex20adj_2.out
+
+    test:
+      suffix: 23
+      requires: cams
+      args: -ts_type cn -ts_dt 0.001 -mu 100000 -ts_max_steps 15 -ts_trajectory_type memory -ts_trajectory_max_units_ram 5 -ts_trajectory_solution_only -ts_trajectory_monitor -ts_trajectory_memory_type cams
+      output_file: output/ex20adj_5.out
+
+    test:
+      suffix: 24
+      requires: cams
+      args: -ts_type cn -ts_dt 0.001 -mu 100000 -ts_max_steps 15 -ts_trajectory_type memory -ts_trajectory_max_units_ram 5 -ts_trajectory_solution_only 0 -ts_trajectory_monitor -ts_trajectory_memory_type cams
+      output_file: output/ex20adj_6.out
+
 TEST*/

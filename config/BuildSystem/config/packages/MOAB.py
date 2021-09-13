@@ -13,6 +13,7 @@ class Configure(config.package.GNUPackage):
     self.includes          = ['moab/Core.hpp']
     self.liblist           = [['libiMesh.a', 'libMOAB.a'],['libMOAB.a']]
     self.cxx               = 1
+    self.maxCxxVersion     = 'c++14'
     self.precisions        = ['single','double']
     self.hastests          = 1
     self.useddirectly      = 0
@@ -78,7 +79,7 @@ class Configure(config.package.GNUPackage):
       args.append('--with-eigen3="'+self.eigen.directory+'"')
     if self.metis.found:
       args.append('--with-metis="'+self.metis.directory+'"')
-      # Hacky workarround for freebsd - where -lexecinfo is required by metis.
+      # Hacky workaround for freebsd - where -lexecinfo is required by metis.
       # Ideally moab configure provides a way to disable autodetect of external packages
       # via CFLAGS/LIBS options similar to hdf5.py
       args.append('LIBS="'+self.libraries.toStringNoDupes(self.metis.lib)+'"')

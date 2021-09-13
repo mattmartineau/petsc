@@ -64,12 +64,12 @@ int main(int argc,char **argv)
   ierr = PetscOptionsGetScalar(NULL,NULL,"-scale",&scale,NULL);CHKERRQ(ierr);
   if (!Asymm) symm = PETSC_FALSE;
 
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
   /* MatMultTranspose for nonsymmetric matrices not implemented */
   testtrans = (PetscBool)(size == 1 || symm);
   testnorm = (PetscBool)(size == 1 || symm);
 
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
   ierr = PetscLayoutCreate(PETSC_COMM_WORLD,&map);CHKERRQ(ierr);
   if (testlayout) {
     if (rank%2) n = PetscMax(2*n-5*rank,0);
@@ -105,17 +105,17 @@ int main(int argc,char **argv)
       PetscSF      sf;
       MPI_Datatype dtype;
 
-      ierr = MPI_Type_contiguous(dim,MPIU_REAL,&dtype);CHKERRQ(ierr);
-      ierr = MPI_Type_commit(&dtype);CHKERRQ(ierr);
+      ierr = MPI_Type_contiguous(dim,MPIU_REAL,&dtype);CHKERRMPI(ierr);
+      ierr = MPI_Type_commit(&dtype);CHKERRMPI(ierr);
 
       ierr = PetscSFCreate(PETSC_COMM_WORLD,&sf);CHKERRQ(ierr);
       ierr = MatGetLayouts(A,&map,NULL);CHKERRQ(ierr);
       ierr = PetscSFSetGraphWithPattern(sf,map,PETSCSF_PATTERN_ALLGATHER);CHKERRQ(ierr);
       ierr = PetscMalloc1(dim*N,&gcoords);CHKERRQ(ierr);
-      ierr = PetscSFBcastBegin(sf,dtype,coords,gcoords);CHKERRQ(ierr);
-      ierr = PetscSFBcastEnd(sf,dtype,coords,gcoords);CHKERRQ(ierr);
+      ierr = PetscSFBcastBegin(sf,dtype,coords,gcoords,MPI_REPLACE);CHKERRQ(ierr);
+      ierr = PetscSFBcastEnd(sf,dtype,coords,gcoords,MPI_REPLACE);CHKERRQ(ierr);
       ierr = PetscSFDestroy(&sf);CHKERRQ(ierr);
-      ierr = MPI_Type_free(&dtype);CHKERRQ(ierr);
+      ierr = MPI_Type_free(&dtype);CHKERRMPI(ierr);
     } else gcoords = (PetscReal*)coords;
 
     ierr = MatGetOwnershipRange(A,&ist,&ien);CHKERRQ(ierr);
@@ -383,13 +383,13 @@ int main(int argc,char **argv)
      args: -n 33 -kernel 1 -dim 1 -lda 13 -ldc 11 -symm 0 -checkexpl -bgpu 1
 
    test:
-     requires: hara define(PETSC_HAVE_MPI_INIT_THREAD)
+     requires: hara defined(PETSC_HAVE_MPI_INIT_THREAD)
      nsize: 2
      suffix: 1_par
      args: -n 32 -kernel 1 -dim 1 -ldc 12 -testlayout {{0 1}} -bgpu 0 -cgpu 0
 
    test:
-     requires: hara cuda define(PETSC_HAVE_MPI_INIT_THREAD)
+     requires: hara cuda defined(PETSC_HAVE_MPI_INIT_THREAD)
      nsize: 2
      suffix: 1_par_cuda
      args: -n 32 -kernel 1 -dim 1 -ldc 12 -testlayout {{0 1}} -bgpu {{0 1}} -cgpu {{0 1}}

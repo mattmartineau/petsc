@@ -2,7 +2,6 @@
     Context for bound-constrained nonlinear conjugate gradient method
  */
 
-
 #ifndef __TAO_BNCG_H
 #define __TAO_BNCG_H
 
@@ -33,12 +32,11 @@ typedef struct {
   PetscReal eps_23;                  /*  Two-thirds power of machine precision */
 
   PetscInt cg_type;                  /*  Formula to use */
-  PetscInt  min_restart_num;         /* Restarts every x*n iterations, where n is the dimension */
+  PetscInt min_restart_num;         /* Restarts every x*n iterations, where n is the dimension */
   PetscInt ls_fails, resets, descent_error, skipped_updates, pure_gd_steps;
   PetscInt iter_quad, min_quad;      /* Dynamic restart variables in Dai-Kou, SIAM J. Optim. Vol 23, pp. 296-320, Algorithm 4.1 */
-  PetscInt  as_type;
+  PetscInt as_type;
 
-  PetscBool recycle;
   PetscBool inv_sig;
   PetscReal tol_quad;                /* tolerance for Dai-Kou dynamic restart */
   PetscBool dynamic_restart;         /* Keeps track of whether or not to do a dynamic (KD) restart */
@@ -55,7 +53,6 @@ typedef struct {
 
 PETSC_INTERN PetscErrorCode TaoBNCGEstimateActiveSet(Tao, PetscInt);
 PETSC_INTERN PetscErrorCode TaoBNCGBoundStep(Tao, PetscInt, Vec);
-PETSC_EXTERN PetscErrorCode TaoBNCGSetRecycleFlag(Tao, PetscBool);
 PETSC_INTERN PetscErrorCode TaoBNCGComputeScalarScaling(PetscReal, PetscReal, PetscReal, PetscReal*, PetscReal);
 PETSC_INTERN PetscErrorCode TaoBNCGConductIteration(Tao, PetscReal);
 PETSC_INTERN PetscErrorCode TaoBNCGStepDirectionUpdate(Tao, PetscReal, PetscReal, PetscReal, PetscReal, PetscReal, PetscBool);

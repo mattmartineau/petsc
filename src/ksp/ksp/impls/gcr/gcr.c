@@ -137,7 +137,6 @@ static PetscErrorCode KSPView_GCR(KSP ksp, PetscViewer viewer)
   PetscFunctionReturn(0);
 }
 
-
 static PetscErrorCode KSPSetUp_GCR(KSP ksp)
 {
   KSP_GCR        *ctx = (KSP_GCR*)ksp->data;
@@ -226,7 +225,7 @@ static PetscErrorCode  KSPGCRSetModifyPC_GCR(KSP ksp,KSPGCRModifyPCFunction func
  Input Parameters:
  +  ksp      - iterative context obtained from KSPCreate()
  .  function - user defined function to modify the preconditioner
- .  ctx      - user provided contex for the modify preconditioner function
+ .  ctx      - user provided context for the modify preconditioner function
  -  destroy  - the function to use to destroy the user provided application context.
 
  Calling Sequence of function:
@@ -389,7 +388,6 @@ static PetscErrorCode  KSPBuildResidual_GCR(KSP ksp, Vec t, Vec v, Vec *V)
     References:
 .          1. - S. C. Eisenstat, H. C. Elman, and H. C. Schultz. Variational iterative methods for
            nonsymmetric systems of linear equations. SIAM J. Numer. Anal., 20, 1983
-
 
 .seealso:  KSPCreate(), KSPSetType(), KSPType (for list of available types), KSP,
            KSPGCRSetRestart(), KSPGCRSetModifyPC(), KSPGMRES, KSPFGMRES

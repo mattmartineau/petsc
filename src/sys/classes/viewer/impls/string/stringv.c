@@ -3,7 +3,7 @@
 
 typedef struct  {
   char      *string;         /* string where info is stored */
-  char      *head;           /* pointer to begining of unused portion */
+  char      *head;           /* pointer to beginning of unused portion */
   size_t    curlen,maxlen;
   PetscBool ownstring;       /* string viewer is responsable for freeing the string */
 } PetscViewer_String;
@@ -124,7 +124,6 @@ PetscErrorCode PetscViewerRestoreSubViewer_String(PetscViewer viewer,MPI_Comm co
 
 /*MC
    PETSCVIEWERSTRING - A viewer that writes to a string
-
 
 .seealso:  PetscViewerStringOpen(), PetscViewerStringSPrintf(), PetscViewerSocketOpen(), PetscViewerDrawOpen(), PETSCVIEWERSOCKET,
            PetscViewerCreate(), PetscViewerASCIIOpen(), PetscViewerBinaryOpen(), PETSCVIEWERBINARY, PETSCVIEWERDRAW,
@@ -258,8 +257,4 @@ PetscErrorCode  PetscViewerStringSetOwnString(PetscViewer viewer)
   vstr->ownstring = PETSC_TRUE;
   PetscFunctionReturn(0);
 }
-
-
-
-
 

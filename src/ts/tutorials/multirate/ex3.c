@@ -94,7 +94,7 @@ int main(int argc,char **argv)
      Initialize program
      - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
   ierr = PetscInitialize(&argc,&argv,(char*)0,help);if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
   if (size > 1) SETERRQ(PETSC_COMM_WORLD,PETSC_ERR_SUP,"Only for sequential runs");
 
    /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -113,8 +113,8 @@ int main(int argc,char **argv)
   ierr = VecCreate(PETSC_COMM_WORLD,&U);CHKERRQ(ierr);
   ierr = VecSetSizes(U,n,PETSC_DETERMINE);CHKERRQ(ierr);
   ierr = VecSetFromOptions(U);CHKERRQ(ierr);
-  ierr = VecDuplicate(U,&Utrue);
-  ierr = VecCopy(U,Utrue);
+  ierr = VecDuplicate(U,&Utrue);CHKERRQ(ierr);
+  ierr = VecCopy(U,Utrue);CHKERRQ(ierr);
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     Set initial condition
@@ -169,7 +169,7 @@ int main(int argc,char **argv)
   ierr = TSGetTime(ts,&tt);CHKERRQ(ierr);
   ierr = sol_true(tt,Utrue);CHKERRQ(ierr);
   ierr = VecAXPY(Utrue,-1.0,U);CHKERRQ(ierr);
-  ierr = VecNorm(Utrue,NORM_2,&error);
+  ierr = VecNorm(Utrue,NORM_2,&error);CHKERRQ(ierr);
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Print norm2 error

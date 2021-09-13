@@ -1,6 +1,5 @@
 #if !defined(PETSCCXXCOMPLEXFIX_H)
 #define PETSCCXXCOMPLEXFIX_H
-#if defined(__cplusplus) && defined(PETSC_HAVE_COMPLEX) && defined(PETSC_HAVE_CXX_COMPLEX)
 
 /*
     The pragma below silence all compiler warnings comming from code in this header file.
@@ -36,12 +35,9 @@
      This include file defines a few additional operator overload methods for the C++ complex classes to handle
      these cases naturally within PETSc code.
 
-     This file is included automatically by PETSc include files. In the small number of cases where these additional methods
-     may conflict with other code one may add
-
-     #define PETSC_SKIP_CXX_COMPLEX_FIX
-
-     before including any PETSc include files to prevent these methods from being provided.
+     This file is included in petscsystypes.h when feasible. In the small number of cases where these additional methods
+     may conflict with other code one may add '#define PETSC_SKIP_CXX_COMPLEX_FIX 1' before including any PETSc include
+     files to prevent these methods from being provided.
 */
 
 #if defined(__GNUC__) && (__GNUC__ >= 4)
@@ -73,5 +69,4 @@ PETSC_CXX_COMPLEX_FIX(double)
 PETSC_CXX_COMPLEX_FIX(PetscInt)
 #endif /* PETSC_USE_REAL_* */
 
-#endif /* __cplusplus && PETSC_HAVE_COMPLEX && PETSC_HAVE_CXX_COMPLEX */
 #endif

@@ -12,7 +12,6 @@
 .  stol -  convergence tolerance in terms of the norm of the change in the solution between steps,  || delta x || < stol*|| x ||
 -  maxit - maximum number of iterations
 
-
    Options Database Keys:
 +    -snes_ngs_atol <abstol> - Sets abstol
 .    -snes_ngs_rtol <rtol> - Sets rtol
@@ -316,7 +315,7 @@ PetscErrorCode SNESSolve_NGS(SNES snes)
                         is available or a Jacobian sparse matrix is provided (from which to get the coloring).
 .    -snes_ngs_secant_h <h> - Differencing parameter for secant approximation
 .    -snes_ngs_secant_mat_coloring - Use the graph coloring of the Jacobian for the secant GS even if a DM is available.
--    -snes_norm_schedule <none, always, initialonly, finalonly, initalfinalonly> - how often the residual norms are computed
+-    -snes_norm_schedule <none, always, initialonly, finalonly, initialfinalonly> - how often the residual norms are computed
 
   Notes:
   the Gauss-Seidel smoother is inherited through composition.  If a solver has been created with SNESGetNPC(), it will have

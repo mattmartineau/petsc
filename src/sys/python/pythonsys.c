@@ -38,7 +38,7 @@ static PetscErrorCode PetscPythonFindLibraryName(const char pythonexe[],const ch
   ierr = PetscStrlcat(command,attempt,sizeof(command));CHKERRQ(ierr);
 #if defined(PETSC_HAVE_POPEN)
   ierr = PetscPOpen(PETSC_COMM_SELF,NULL,command,"r",&fp);CHKERRQ(ierr);
-  if (!fgets(pythonlib,pl,fp)) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Python: bad output from executable: %s",pythonexe);
+  if (!fgets(pythonlib,pl,fp)) SETERRQ2(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Python: bad output from executable: %s\nRunning: %s",pythonexe,command);
   ierr = PetscPClose(PETSC_COMM_SELF,fp);CHKERRQ(ierr);
 #else
   SETERRQ(PETSC_COMM_SELF,PETSC_ERR_LIB,"Python: Aborted due to missing popen()");
@@ -50,13 +50,13 @@ static PetscErrorCode PetscPythonFindLibraryName(const char pythonexe[],const ch
   PetscFunctionReturn(0);
 }
 
-
 static PetscErrorCode PetscPythonFindLibrary(const char pythonexe[],char pythonlib[],size_t pl)
 {
-  const char     cmdline1[] = "-c 'import os;from distutils import sysconfig; print(os.path.join(sysconfig.get_config_var(\"LIBDIR\"),sysconfig.get_config_var(\"LDLIBRARY\")))'";
-  const char     cmdline2[] = "-c 'import os;from distutils import sysconfig; import sys;print(os.path.join(sysconfig.get_config_var(\"LIBDIR\"),\"libpython\"+sys.version[:3]+\".dylib\"))'";
-  const char     cmdline3[] = "-c 'import os;from distutils import sysconfig; print(os.path.join(sysconfig.get_config_var(\"LIBPL\"),sysconfig.get_config_var(\"LDLIBRARY\")))'";
-  const char     cmdline4[] = "-c 'from distutils import sysconfig; print(sysconfig.get_config_var(\"LIBPYTHON\"))'";
+  const char     cmdline1[] = "-c 'import os, sysconfig; print(os.path.join(sysconfig.get_config_var(\"LIBDIR\"),sysconfig.get_config_var(\"LDLIBRARY\")))'";
+  const char     cmdline2[] = "-c 'import os, sysconfig; import sys;print(os.path.join(sysconfig.get_config_var(\"LIBDIR\"),\"libpython\"+sys.version[:3]+\".dylib\"))'";
+  const char     cmdline3[] = "-c 'import os, sysconfig; print(os.path.join(sysconfig.get_config_var(\"LIBPL\"),sysconfig.get_config_var(\"LDLIBRARY\")))'";
+  const char     cmdline4[] = "-c 'import sysconfig; print(sysconfig.get_config_var(\"LIBPYTHON\"))'";
+  const char     cmdline5[] = "-c 'import os, sysconfig; import sys;print(os.path.join(sysconfig.get_config_var(\"LIBDIR\"),\"libpython\"+sys.version[:3]+\".so\"))'";
 
   PetscBool      found = PETSC_FALSE;
   PetscErrorCode ierr;
@@ -76,6 +76,9 @@ static PetscErrorCode PetscPythonFindLibrary(const char pythonexe[],char pythonl
   }
   if (!found) {
     ierr = PetscPythonFindLibraryName(pythonexe,cmdline4,pythonlib,pl,&found);CHKERRQ(ierr);
+  }
+  if (!found) {
+    ierr = PetscPythonFindLibraryName(pythonexe,cmdline5,pythonlib,pl,&found);CHKERRQ(ierr);
   }
   ierr = PetscInfo2(NULL,"Python library  %s found %d\n",pythonlib,found);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -107,7 +110,6 @@ static void      (*PyErr_Fetch)(PyObject**,PyObject**,PyObject**);
 static void      (*PyErr_NormalizeException)(PyObject**,PyObject**, PyObject**);
 static void      (*PyErr_Display)(PyObject*,PyObject*,PyObject*);
 static void      (*PyErr_Restore)(PyObject*,PyObject*,PyObject*);
-
 
 #define PetscDLPyLibOpen(libname) \
   PetscDLLibraryAppend(PETSC_COMM_SELF,&PetscDLLibrariesLoaded,libname)
@@ -143,11 +145,11 @@ static PetscErrorCode PetscPythonLoadLibrary(const char pythonlib[])
   ierr = PetscDLPyLibSym("PyErr_Display",            &PyErr_Display);CHKERRQ(ierr);
   ierr = PetscDLPyLibSym("PyErr_Restore",            &PyErr_Restore);CHKERRQ(ierr);
   /* XXX TODO: check that ALL symbols were there !!! */
-  if (!Py_None)          SETERRQ1(PETSC_COMM_SELF,1,"Python: failed to load symbols from Python dynamic library %s",pythonlib);
-  if (!Py_GetVersion)    SETERRQ1(PETSC_COMM_SELF,1,"Python: failed to load symbols from Python dynamic library %s",pythonlib);
-  if (!Py_IsInitialized) SETERRQ1(PETSC_COMM_SELF,1,"Python: failed to load symbols from Python dynamic library %s",pythonlib);
-  if (!Py_InitializeEx)  SETERRQ1(PETSC_COMM_SELF,1,"Python: failed to load symbols from Python dynamic library %s",pythonlib);
-  if (!Py_Finalize)      SETERRQ1(PETSC_COMM_SELF,1,"Python: failed to load symbols from Python dynamic library %s",pythonlib);
+  if (!Py_None)          SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_LIB,"Python: failed to load symbols from Python dynamic library %s",pythonlib);
+  if (!Py_GetVersion)    SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_LIB,"Python: failed to load symbols from Python dynamic library %s",pythonlib);
+  if (!Py_IsInitialized) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_LIB,"Python: failed to load symbols from Python dynamic library %s",pythonlib);
+  if (!Py_InitializeEx)  SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_LIB,"Python: failed to load symbols from Python dynamic library %s",pythonlib);
+  if (!Py_Finalize)      SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_LIB,"Python: failed to load symbols from Python dynamic library %s",pythonlib);
   ierr = PetscInfo1(NULL,"Python: all required symbols loaded from Python dynamic library %s\n",pythonlib);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -297,7 +299,7 @@ PetscErrorCode PetscPythonMonitorSet(PetscObject obj, const char url[])
   PetscValidCharPointer(url,2);
   if (!PetscPythonMonitorSet_C) {
     ierr = PetscPythonInitialize(NULL,NULL);CHKERRQ(ierr);
-    if (!PetscPythonMonitorSet_C) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_LIB,"Couldn't initialize Python support for monitors");
+    if (!PetscPythonMonitorSet_C) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Couldn't initialize Python support for monitors");
   }
   ierr = PetscPythonMonitorSet_C(obj,url);CHKERRQ(ierr);
   PetscFunctionReturn(0);

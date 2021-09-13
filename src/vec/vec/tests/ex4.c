@@ -1,5 +1,5 @@
 
-static char help[] = "Scatters from a parallel vector into seqential vectors.\n\n";
+static char help[] = "Scatters from a parallel vector into sequential vectors.\n\n";
 
 #include <petscvec.h>
 
@@ -15,7 +15,7 @@ int main(int argc,char **argv)
 
   ierr = PetscInitialize(&argc,&argv,(char*)0,help);if (ierr) return ierr;
   ierr = PetscOptionsGetInt(NULL,NULL,"-n",&n,NULL);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
 
   /* create two vectors */
   ierr = VecCreate(PETSC_COMM_WORLD,&x);CHKERRQ(ierr);
@@ -46,7 +46,6 @@ int main(int argc,char **argv)
   ierr = PetscFinalize();
   return ierr;
 }
-
 
 /*TEST
 
@@ -89,4 +88,15 @@ int main(int argc,char **argv)
       filter: grep -v type
       requires: kokkos_kernels
 
+   testset:
+      diff_args: -j
+      requires: hip
+      filter: grep -v type
+      args: -vec_type hip
+      output_file: output/ex4_1.out
+      test:
+        suffix: hip
+      test:
+        suffix: hip2
+        nsize: 2
 TEST*/

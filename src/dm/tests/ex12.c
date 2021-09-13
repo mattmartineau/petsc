@@ -28,12 +28,11 @@ int main(int argc,char **argv)
   ierr = DMSetFromOptions(da);CHKERRQ(ierr);
   ierr = DMSetUp(da);CHKERRQ(ierr);
   ierr = DMCreateGlobalVector(da,&global);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
 
   /* Make copy of local array for doing updates */
   ierr = DMCreateLocalVector(da,&local);CHKERRQ(ierr);
-
 
   /* determine starting point of each processor */
   ierr = VecGetOwnershipRange(global,&mybase,&myend);CHKERRQ(ierr);
@@ -41,7 +40,6 @@ int main(int argc,char **argv)
   /* Initialize the Array */
   ierr = VecGetLocalSize (global,&globalsize);CHKERRQ(ierr);
   ierr = VecGetArray (global,&globalptr);CHKERRQ(ierr);
-
 
   for (i=0; i<globalsize; i++) {
     j = i + mybase;

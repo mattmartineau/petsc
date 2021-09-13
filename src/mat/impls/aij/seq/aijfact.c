@@ -89,6 +89,13 @@ PetscErrorCode MatGetOrdering_Flow_SeqAIJ(Mat mat,MatOrderingType type,IS *irow,
   PetscFunctionReturn(0);
 }
 
+static PetscErrorCode MatFactorGetSolverType_petsc(Mat A,MatSolverType *type)
+{
+  PetscFunctionBegin;
+  *type = MATSOLVERPETSC;
+  PetscFunctionReturn(0);
+}
+
 PETSC_INTERN PetscErrorCode MatGetFactor_seqaij_petsc(Mat A,MatFactorType ftype,Mat *B)
 {
   PetscInt       n = A->rmap->n;
@@ -107,18 +114,24 @@ PETSC_INTERN PetscErrorCode MatGetFactor_seqaij_petsc(Mat A,MatFactorType ftype,
     (*B)->ops->lufactorsymbolic  = MatLUFactorSymbolic_SeqAIJ;
 
     ierr = MatSetBlockSizesFromMats(*B,A,A);CHKERRQ(ierr);
+    ierr = PetscStrallocpy(MATORDERINGND,(char**)&(*B)->preferredordering[MAT_FACTOR_LU]);CHKERRQ(ierr);
+    ierr = PetscStrallocpy(MATORDERINGNATURAL,(char**)&(*B)->preferredordering[MAT_FACTOR_ILU]);CHKERRQ(ierr);
+    ierr = PetscStrallocpy(MATORDERINGNATURAL,(char**)&(*B)->preferredordering[MAT_FACTOR_ILUDT]);CHKERRQ(ierr);
   } else if (ftype == MAT_FACTOR_CHOLESKY || ftype == MAT_FACTOR_ICC) {
     ierr = MatSetType(*B,MATSEQSBAIJ);CHKERRQ(ierr);
     ierr = MatSeqSBAIJSetPreallocation(*B,1,MAT_SKIP_ALLOCATION,NULL);CHKERRQ(ierr);
 
     (*B)->ops->iccfactorsymbolic      = MatICCFactorSymbolic_SeqAIJ;
     (*B)->ops->choleskyfactorsymbolic = MatCholeskyFactorSymbolic_SeqAIJ;
+    ierr = PetscStrallocpy(MATORDERINGND,(char**)&(*B)->preferredordering[MAT_FACTOR_CHOLESKY]);CHKERRQ(ierr);
+    ierr = PetscStrallocpy(MATORDERINGNATURAL,(char**)&(*B)->preferredordering[MAT_FACTOR_ICC]);CHKERRQ(ierr);
   } else SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SUP,"Factor type not supported");
   (*B)->factortype = ftype;
 
   ierr = PetscFree((*B)->solvertype);CHKERRQ(ierr);
   ierr = PetscStrallocpy(MATSOLVERPETSC,&(*B)->solvertype);CHKERRQ(ierr);
-  (*B)->useordering = PETSC_TRUE;
+  (*B)->canuseordering = PETSC_TRUE;
+  ierr = PetscObjectComposeFunction((PetscObject)*B,"MatFactorGetSolverType_C",MatFactorGetSolverType_petsc);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -562,7 +575,7 @@ PetscErrorCode MatLUFactorNumeric_SeqAIJ(Mat B,Mat A,const MatFactorInfo *info)
       if (sctx.newshift) break; /* break for-loop */
       rtmp[i] = sctx.pv; /* sctx.pv might be updated in the case of MAT_SHIFT_INBLOCKS */
 
-      /* Mark diagonal and invert diagonal for simplier triangular solves */
+      /* Mark diagonal and invert diagonal for simpler triangular solves */
       pv  = b->a + bdiag[i];
       *pv = 1.0/rtmp[i];
 
@@ -723,7 +736,7 @@ PetscErrorCode MatLUFactorNumeric_SeqAIJ_inplace(Mat B,Mat A,const MatFactorInfo
     }
   } while (sctx.newshift);
 
-  /* invert diagonal entries for simplier triangular solves */
+  /* invert diagonal entries for simpler triangular solves */
   for (i=0; i<n; i++) {
     b->a[diag_offset[i]] = 1.0/b->a[diag_offset[i]];
   }
@@ -910,7 +923,7 @@ PetscErrorCode MatLUFactorNumeric_SeqAIJ_InplaceWithPerm(Mat B,Mat A,const MatFa
     }
   } while (sctx.newshift);
 
-  /* invert diagonal entries for simplier triangular solves */
+  /* invert diagonal entries for simpler triangular solves */
   for (i=0; i<n; i++) {
     a->a[diag[r[i]]] = 1.0/a->a[diag[r[i]]];
   }
@@ -957,7 +970,6 @@ PetscErrorCode MatLUFactor_SeqAIJ(Mat A,IS row,IS col,const MatFactorInfo *info)
   PetscFunctionReturn(0);
 }
 /* ----------------------------------------------------------- */
-
 
 PetscErrorCode MatSolve_SeqAIJ_inplace(Mat A,Vec bb,Vec xx)
 {
@@ -1544,7 +1556,6 @@ PetscErrorCode MatSolveTransposeAdd_SeqAIJ(Mat A,Vec bb,Vec zz,Vec xx)
     for (j=0; j<nz; j++) tmp[vi[j]] -= s1*v[j];
     tmp[i] = s1;
   }
-
 
   /* backward solve the L^T */
   for (i=n-1; i>=0; i--) {
@@ -3388,7 +3399,7 @@ PetscErrorCode MatILUDTFactor_SeqAIJ(Mat A,IS isrow,IS iscol,const MatFactorInfo
     if (*batmp == 0.0) {
       *batmp = dt+shift;
     }
-    *batmp = 1.0/(*batmp); /* invert diagonal entries for simplier triangular solves */
+    *batmp = 1.0/(*batmp); /* invert diagonal entries for simpler triangular solves */
 
     bjtmp = bj + bdiag[i+1]+1;
     batmp = ba + bdiag[i+1]+1;
@@ -3517,7 +3528,7 @@ PetscErrorCode  MatILUDTFactorNumeric_SeqAIJ(Mat fact,Mat A,const MatFactorInfo 
       pv[j] = rtmp[pj[j]];
     }
 
-    /* diagonal: invert diagonal entries for simplier triangular solves */
+    /* diagonal: invert diagonal entries for simpler triangular solves */
     if (rtmp[i] == 0.0) rtmp[i] = dt+shift;
     b->a[bdiag[i]] = 1.0/rtmp[i];
 

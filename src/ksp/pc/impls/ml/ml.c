@@ -98,7 +98,7 @@ static PetscErrorCode PetscML_comm(double p[],void *ML_data)
   const PetscScalar *array;
 
   PetscFunctionBegin;
-  ierr = MPI_Comm_size(PetscObjectComm((PetscObject)A),&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PetscObjectComm((PetscObject)A),&size);CHKERRMPI(ierr);
   if (size == 1) PetscFunctionReturn(0);
 
   ierr = VecPlaceArray(ml->y,p);CHKERRQ(ierr);
@@ -121,7 +121,7 @@ static int PetscML_matvec(ML_Operator *ML_data,int in_length,double p[],int out_
   PetscInt       i;
 
   PetscFunctionBegin;
-  ierr = MPI_Comm_size(PetscObjectComm((PetscObject)A),&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PetscObjectComm((PetscObject)A),&size);CHKERRMPI(ierr);
   if (size == 1) {
     ierr = VecPlaceArray(ml->x,p);CHKERRQ(ierr);
   } else {
@@ -145,7 +145,7 @@ static PetscErrorCode MatMult_ML(Mat A,Vec x,Vec y)
   PetscInt          x_length,y_length;
 
   PetscFunctionBegin;
-  ierr     = MatShellGetContext(A,(void**)&shell);CHKERRQ(ierr);
+  ierr     = MatShellGetContext(A,&shell);CHKERRQ(ierr);
   ierr     = VecGetArrayRead(x,&xarray);CHKERRQ(ierr);
   ierr     = VecGetArray(y,&yarray);CHKERRQ(ierr);
   x_length = shell->mlmat->invec_leng;
@@ -229,7 +229,7 @@ static PetscErrorCode MatDestroy_ML(Mat A)
   Mat_MLShell    *shell;
 
   PetscFunctionBegin;
-  ierr = MatShellGetContext(A,(void**)&shell);CHKERRQ(ierr);
+  ierr = MatShellGetContext(A,&shell);CHKERRQ(ierr);
   ierr = PetscFree(shell);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -252,7 +252,7 @@ static PetscErrorCode MatWrapML_SeqAIJ(ML_Operator *mlmat,MatReuse reuse,Mat *ne
       aij->a = ml_vals;
     } else {
       /* sort ml_cols and ml_vals */
-      ierr = PetscMalloc1(m+1,&nnz);
+      ierr = PetscMalloc1(m+1,&nnz);CHKERRQ(ierr);
       for (i=0; i<m; i++) nnz[i] = ml_rowptr[i+1] - ml_rowptr[i];
       aj = ml_cols; aa = ml_vals;
       for (i=0; i<m; i++) {
@@ -308,7 +308,7 @@ static PetscErrorCode MatWrapML_SHELL(ML_Operator *mlmat,MatReuse reuse,Mat *new
   n = mlmat->invec_leng;
 
   if (reuse) {
-    ierr            = MatShellGetContext(*newmat,(void**)&shellctx);CHKERRQ(ierr);
+    ierr            = MatShellGetContext(*newmat,&shellctx);CHKERRQ(ierr);
     shellctx->mlmat = mlmat;
     PetscFunctionReturn(0);
   }
@@ -355,7 +355,7 @@ static PetscErrorCode MatWrapML_MPIAIJ(ML_Operator *mlmat,MatReuse reuse,Mat *ne
     /* keep track of block size for A matrices */
     ierr = MatSetBlockSize (A,mlmat->num_PDEs);CHKERRQ(ierr);
     ierr = PetscMalloc3(m,&nnzA,m,&nnzB,m,&nnz);CHKERRQ(ierr);
-    ierr = MPI_Scan(&m,&rstart,1,MPIU_INT,MPI_SUM,mlmat->comm->USR_comm);CHKERRQ(ierr);
+    ierr = MPI_Scan(&m,&rstart,1,MPIU_INT,MPI_SUM,mlmat->comm->USR_comm);CHKERRMPI(ierr);
     rstart -= m;
 
     for (i=0; i<m; i++) {
@@ -368,7 +368,7 @@ static PetscErrorCode MatWrapML_MPIAIJ(ML_Operator *mlmat,MatReuse reuse,Mat *ne
       nnzB[row] = nnz[i] - nnzA[row];
     }
     ierr = MatMPIAIJSetPreallocation(A,0,nnzA,0,nnzB);CHKERRQ(ierr);
-    ierr = PetscFree3(nnzA,nnzB,nnz);
+    ierr = PetscFree3(nnzA,nnzB,nnz);CHKERRQ(ierr);
   }
   for (i=0; i<m; i++) {
     PetscInt ncols;
@@ -532,7 +532,7 @@ PetscErrorCode PCSetUp_ML(PC pc)
   PetscFunctionBegin;
   ierr = PetscCitationsRegister("@TechReport{ml_users_guide,\n  author = {M. Sala and J.J. Hu and R.S. Tuminaro},\n  title = {{ML}3.1 {S}moothed {A}ggregation {U}ser's {G}uide},\n  institution =  {Sandia National Laboratories},\n  number = {SAND2004-4821},\n  year = 2004\n}\n",&cite);CHKERRQ(ierr);
   A    = pc->pmat;
-  ierr = MPI_Comm_size(PetscObjectComm((PetscObject)A),&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PetscObjectComm((PetscObject)A),&size);CHKERRMPI(ierr);
 
   if (pc->setupcalled) {
     if (pc->flag == SAME_NONZERO_PATTERN && pc_ml->reuse_interpolation) {
@@ -831,6 +831,7 @@ PetscErrorCode PCSetUp_ML(PC pc)
   gridctx[fine_level].A = A;
 
   level = fine_level - 1;
+  /* TODO: support for GPUs */
   if (size == 1) { /* convert ML P, R and A into seqaij format */
     for (mllevel=1; mllevel<Nlevels; mllevel++) {
       mlmat = &(ml_object->Pmat[mllevel]);
@@ -972,7 +973,7 @@ PetscErrorCode PCSetFromOptions_ML(PetscOptionItems *PetscOptionsObject,PC pc)
 
   PetscFunctionBegin;
   ierr = PetscObjectGetComm((PetscObject)pc,&comm);CHKERRQ(ierr);
-  ierr = MPI_Comm_size(comm,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(comm,&size);CHKERRMPI(ierr);
   ierr = PetscOptionsHead(PetscOptionsObject,"ML options");CHKERRQ(ierr);
 
   PrintLevel = 0;
@@ -1026,7 +1027,7 @@ PetscErrorCode PCSetFromOptions_ML(PetscOptionItems *PetscOptionsObject,PC pc)
     this context, but ML doesn't provide a way to find out which ones.
    */
   ierr = PetscOptionsBool("-pc_ml_OldHierarchy","Use old routine to generate hierarchy","None",pc_ml->OldHierarchy,&pc_ml->OldHierarchy,NULL);CHKERRQ(ierr);
-  ierr = PetscOptionsBool("-pc_ml_repartition", "Allow ML to repartition levels of the heirarchy","ML_Repartition_Activate",pc_ml->Repartition,&pc_ml->Repartition,NULL);CHKERRQ(ierr);
+  ierr = PetscOptionsBool("-pc_ml_repartition", "Allow ML to repartition levels of the hierarchy","ML_Repartition_Activate",pc_ml->Repartition,&pc_ml->Repartition,NULL);CHKERRQ(ierr);
   if (pc_ml->Repartition) {
     ierr = PetscOptionsReal("-pc_ml_repartitionMaxMinRatio", "Acceptable ratio of repartitioned sizes","ML_Repartition_Set_LargestMinMaxRatio",pc_ml->MaxMinRatio,&pc_ml->MaxMinRatio,NULL);CHKERRQ(ierr);
     ierr = PetscOptionsInt("-pc_ml_repartitionMinPerProc", "Smallest repartitioned size","ML_Repartition_Set_MinPerProc",pc_ml->MinPerProc,&pc_ml->MinPerProc,NULL);CHKERRQ(ierr);
@@ -1088,7 +1089,7 @@ PetscErrorCode PCSetFromOptions_ML(PetscOptionItems *PetscOptionsObject,PC pc)
 .  -pc_ml_DampingFactor <1.33333> - P damping factor (ML_Aggregate_Set_DampingFactor)
 .  -pc_ml_Threshold <0> - Smoother drop tol (ML_Aggregate_Set_Threshold)
 .  -pc_ml_SpectralNormScheme_Anorm <false> - Method used for estimating spectral radius (ML_Set_SpectralNormScheme_Anorm)
-.  -pc_ml_repartition <false> - Allow ML to repartition levels of the heirarchy (ML_Repartition_Activate)
+.  -pc_ml_repartition <false> - Allow ML to repartition levels of the hierarchy (ML_Repartition_Activate)
 .  -pc_ml_repartitionMaxMinRatio <1.3> - Acceptable ratio of repartitioned sizes (ML_Repartition_Set_LargestMinMaxRatio)
 .  -pc_ml_repartitionMinPerProc <512>: Smallest repartitioned size (ML_Repartition_Set_MinPerProc)
 .  -pc_ml_repartitionPutOnSingleProc <5000> - Problem size automatically repartitioned to one processor (ML_Repartition_Set_PutOnSingleProc)

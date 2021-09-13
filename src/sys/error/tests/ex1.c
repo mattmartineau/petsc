@@ -38,11 +38,10 @@ int main(int argc, char *args[])
   return ierr;
 }
 
-
 /*TEST
 
    build:
-     requires: !define(PETSC_MISSING_SIGHUP)
+     requires: !defined(PETSC_MISSING_SIGHUP)
 
    test:
      TODO: need to send a signal to the process to kill it from the test harness

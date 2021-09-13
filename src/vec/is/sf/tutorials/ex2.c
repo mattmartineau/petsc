@@ -21,8 +21,8 @@ int main(int argc, char **argv)
   PetscSFNode *iremote;
 
   ierr = PetscInitialize(&argc,&argv,NULL,help);if (ierr) return ierr;
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
 
   if (size != 2) SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_USER, "Only coded for two MPI processes\n");
 
@@ -73,10 +73,10 @@ int main(int argc, char **argv)
   ierr = VecGetArrayRead(B,(const PetscScalar**)&bufB);CHKERRQ(ierr);
   ierr = VecGetArray(Aout,&bufAout);CHKERRQ(ierr);
   ierr = VecGetArray(Bout,&bufBout);CHKERRQ(ierr);
-  ierr = PetscSFBcastBegin(sf,MPIU_SCALAR,(const void*)bufA,(void *)bufAout);CHKERRQ(ierr);
-  ierr = PetscSFBcastBegin(sf,MPIU_SCALAR,(const void*)bufB,(void *)bufBout);CHKERRQ(ierr);
-  ierr = PetscSFBcastEnd(sf,MPIU_SCALAR,(const void*)bufA,(void *)bufAout);CHKERRQ(ierr);
-  ierr = PetscSFBcastEnd(sf,MPIU_SCALAR,(const void*)bufB,(void *)bufBout);CHKERRQ(ierr);
+  ierr = PetscSFBcastBegin(sf,MPIU_SCALAR,(const void*)bufA,(void *)bufAout,MPI_REPLACE);CHKERRQ(ierr);
+  ierr = PetscSFBcastBegin(sf,MPIU_SCALAR,(const void*)bufB,(void *)bufBout,MPI_REPLACE);CHKERRQ(ierr);
+  ierr = PetscSFBcastEnd(sf,MPIU_SCALAR,(const void*)bufA,(void *)bufAout,MPI_REPLACE);CHKERRQ(ierr);
+  ierr = PetscSFBcastEnd(sf,MPIU_SCALAR,(const void*)bufB,(void *)bufBout,MPI_REPLACE);CHKERRQ(ierr);
   ierr = VecRestoreArrayRead(A,(const PetscScalar**)&bufA);CHKERRQ(ierr);
   ierr = VecRestoreArrayRead(B,(const PetscScalar**)&bufB);CHKERRQ(ierr);
   ierr = VecRestoreArray(Aout,&bufAout);CHKERRQ(ierr);
@@ -94,7 +94,6 @@ int main(int argc, char **argv)
   return ierr;
 }
 
-
 /*TEST
 
    test:
@@ -109,7 +108,7 @@ int main(int argc, char **argv)
       filter: grep -v "type" | grep -v "sort"
       output_file: output/ex2_basic.out
       args: -sf_type window -sf_window_sync {{fence active lock}} -sf_window_flavor {{create dynamic allocate}}
-      requires: define(PETSC_HAVE_MPI_ONE_SIDED)
+      requires: defined(PETSC_HAVE_MPI_ONE_SIDED) defined(PETSC_HAVE_MPI_FEATURE_DYNAMIC_WINDOW)
 
    # The nightly test suite with MPICH uses ch3:sock, which is broken when winsize == 0 in some of the processes
    test:
@@ -118,6 +117,6 @@ int main(int argc, char **argv)
       filter: grep -v "type" | grep -v "sort"
       output_file: output/ex2_basic.out
       args: -sf_type window -sf_window_sync {{fence active lock}} -sf_window_flavor shared
-      requires: define(PETSC_HAVE_MPI_PROCESS_SHARED_MEMORY) !define(PETSC_HAVE_MPICH_NUMVERSION) define(PETSC_HAVE_MPI_ONE_SIDED)
+      requires: defined(PETSC_HAVE_MPI_PROCESS_SHARED_MEMORY) !defined(PETSC_HAVE_MPICH_NUMVERSION) defined(PETSC_HAVE_MPI_ONE_SIDED)
 
 TEST*/

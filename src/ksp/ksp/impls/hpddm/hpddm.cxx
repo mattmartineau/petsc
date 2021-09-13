@@ -3,15 +3,24 @@
 /* static array length */
 #define ALEN(a) (sizeof(a)/sizeof((a)[0]))
 
-const char *const KSPHPDDMTypes[]           = { KSPGMRES, "bgmres", KSPCG, "bcg", "gcrodr", "bgcrodr", "bfbcg", KSPPREONLY };
-static const char *HPDDMOrthogonalization[] = { "cgs", "mgs" };
-static const char *HPDDMQR[]                = { "cholqr", "cgs", "mgs" };
-static const char *HPDDMVariant[]           = { "left", "right", "flexible" };
-static const char *HPDDMRecycleTarget[]     = { "SM", "LM", "SR", "LR", "SI", "LI" };
-static const char *HPDDMRecycleStrategy[]   = { "A", "B" };
+const char *const KSPHPDDMTypes[]          = { KSPGMRES, "bgmres", KSPCG, "bcg", "gcrodr", "bgcrodr", "bfbcg", KSPPREONLY };
+const char *const HPDDMOrthogonalization[] = { "cgs", "mgs" };
+const char *const HPDDMQR[]                = { "cholqr", "cgs", "mgs" };
+const char *const HPDDMVariant[]           = { "left", "right", "flexible" };
+const char *const HPDDMRecycleTarget[]     = { "SM", "LM", "SR", "LR", "SI", "LI" };
+const char *const HPDDMRecycleStrategy[]   = { "A", "B" };
 
-static PetscBool citeKSP = PETSC_FALSE;
-static const char hpddmCitationKSP[] = "@inproceedings{jolivet2016block,\n\tTitle = {{Block Iterative Methods and Recycling for Improved Scalability of Linear Solvers}},\n\tAuthor = {Jolivet, Pierre and Tournier, Pierre-Henri},\n\tOrganization = {IEEE},\n\tYear = {2016},\n\tSeries = {SC16},\n\tBooktitle = {Proceedings of the 2016 International Conference for High Performance Computing, Networking, Storage and Analysis}\n}\n";
+PetscBool HPDDMCite = PETSC_FALSE;
+const char HPDDMCitation[] = "@article{jolivet2020petsc,\n"
+"  Author = {Jolivet, Pierre and Roman, Jose E. and Zampini, Stefano},\n"
+"  Title = {{KSPHPDDM} and {PCHPDDM}: Extending {PETSc} with Robust Overlapping {Schwarz} Preconditioners and Advanced {Krylov} Methods},\n"
+"  Year = {2021},\n"
+"  Publisher = {Elsevier},\n"
+"  Journal = {Computer \\& Mathematics with Applications},\n"
+"  Volume = {84},\n"
+"  Pages = {277--295},\n"
+"  Url = {https://github.com/prj-/jolivet2020petsc}\n"
+"}\n";
 
 #if defined(PETSC_HAVE_SLEPC) && defined(PETSC_USE_SHARED_LIBRARIES)
 static PetscBool loadedDL = PETSC_FALSE;
@@ -74,7 +83,7 @@ static PetscErrorCode KSPSetFromOptions_HPDDM(PetscOptionItems *PetscOptionsObje
         ierr = PetscOptionsEList("-ksp_hpddm_recycle_target", "Criterion to select harmonic Ritz vectors", "KSPHPDDM", HPDDMRecycleTarget, ALEN(HPDDMRecycleTarget), HPDDMRecycleTarget[HPDDM_RECYCLE_TARGET_SM], &i, NULL);CHKERRQ(ierr);
         data->cntl[3] = i;
       } else {
-        ierr = MPI_Comm_size(PetscObjectComm((PetscObject)ksp), &size);CHKERRQ(ierr);
+        ierr = MPI_Comm_size(PetscObjectComm((PetscObject)ksp), &size);CHKERRMPI(ierr);
         i = (data->cntl[3] == static_cast<char>(PETSC_DECIDE) ? 1 : data->cntl[3]);
         ierr = PetscOptionsRangeInt("-ksp_hpddm_recycle_redistribute", "Number of processes used to solve eigenvalue problems when recycling in BGCRODR", "KSPHPDDM", i, &i, NULL, 1, PetscMin(size, 192));CHKERRQ(ierr);
         data->cntl[3] = i;
@@ -87,6 +96,8 @@ static PetscErrorCode KSPSetFromOptions_HPDDM(PetscOptionItems *PetscOptionsObje
     data->cntl[0] = HPDDM_KRYLOV_METHOD_NONE;
     data->scntl[1] = 1;
   }
+  if (ksp->nmax > std::numeric_limits<int>::max() || ksp->nmax < std::numeric_limits<int>::min()) SETERRQ1(PetscObjectComm((PetscObject)ksp), PETSC_ERR_ARG_OUTOFRANGE, "KSPMatSolve() block size %D not representable by an integer, which is not handled by KSPHPDDM", ksp->nmax);
+  else data->icntl[1] = static_cast<int>(ksp->nmax);
   ierr = PetscOptionsTail();CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -175,6 +186,8 @@ static PetscErrorCode KSPSetUp_HPDDM(KSP ksp)
       }
     } else data->scntl[1] = 1;
   }
+  if (ksp->nmax > std::numeric_limits<int>::max() || ksp->nmax < std::numeric_limits<int>::min()) SETERRQ1(PetscObjectComm((PetscObject)ksp), PETSC_ERR_ARG_OUTOFRANGE, "KSPMatSolve() block size %D not representable by an integer, which is not handled by KSPHPDDM", ksp->nmax);
+  else data->icntl[1] = static_cast<int>(ksp->nmax);
   PetscFunctionReturn(0);
 }
 
@@ -214,8 +227,6 @@ static PetscErrorCode KSPDestroy_HPDDM(KSP ksp)
   ierr = KSPDestroyDefault(ksp);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ksp, "KSPHPDDMSetDeflationSpace_C", NULL);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ksp, "KSPHPDDMGetDeflationSpace_C", NULL);CHKERRQ(ierr);
-  ierr = PetscObjectComposeFunction((PetscObject)ksp, "KSPSetMatSolveBlockSize_C", NULL);CHKERRQ(ierr);
-  ierr = PetscObjectComposeFunction((PetscObject)ksp, "KSPGetMatSolveBlockSize_C", NULL);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ksp, "KSPHPDDMSetType_C", NULL);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ksp, "KSPHPDDMGetType_C", NULL);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -266,10 +277,10 @@ static PetscErrorCode KSPSolve_HPDDM(KSP ksp)
   PetscErrorCode    ierr;
 
   PetscFunctionBegin;
-  ierr = PetscCitationsRegister(hpddmCitationKSP, &citeKSP);CHKERRQ(ierr);
+  ierr = PetscCitationsRegister(HPDDMCitation, &HPDDMCite);CHKERRQ(ierr);
   ierr = KSPGetOperators(ksp, &A, NULL);CHKERRQ(ierr);
   ierr = PetscObjectTypeCompareAny((PetscObject)A, &flg, MATSEQKAIJ, MATMPIKAIJ, "");CHKERRQ(ierr);
-  ierr = VecGetArray(ksp->vec_sol, &x);CHKERRQ(ierr);
+  ierr = VecGetArrayWrite(ksp->vec_sol, &x);CHKERRQ(ierr);
   ierr = VecGetArrayRead(ksp->vec_rhs, &b);CHKERRQ(ierr);
   if (!flg) {
     ierr = KSPSolve_HPDDM_Private(ksp, b, x, 1);CHKERRQ(ierr);
@@ -301,7 +312,7 @@ static PetscErrorCode KSPSolve_HPDDM(KSP ksp)
     }
   }
   ierr = VecRestoreArrayRead(ksp->vec_rhs, &b);CHKERRQ(ierr);
-  ierr = VecRestoreArray(ksp->vec_sol, &x);CHKERRQ(ierr);
+  ierr = VecRestoreArrayWrite(ksp->vec_sol, &x);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -425,6 +436,7 @@ static PetscErrorCode KSPMatSolve_HPDDM(KSP ksp, Mat B, Mat X)
   PetscErrorCode       ierr;
 
   PetscFunctionBegin;
+  ierr = PetscCitationsRegister(HPDDMCitation, &HPDDMCite);CHKERRQ(ierr);
   if (!op) {
     ierr = KSPSetUp(ksp);CHKERRQ(ierr);
     op = data->op;
@@ -442,25 +454,6 @@ static PetscErrorCode KSPMatSolve_HPDDM(KSP ksp, Mat B, Mat X)
   ierr = KSPSolve_HPDDM_Private(ksp, b, x, n);CHKERRQ(ierr);
   ierr = MatDenseRestoreArrayWrite(X, &x);CHKERRQ(ierr);
   ierr = MatDenseRestoreArrayRead(B, &b);CHKERRQ(ierr);
-  PetscFunctionReturn(0);
-}
-
-static PetscErrorCode KSPSetMatSolveBlockSize_HPDDM(KSP ksp, PetscInt bs)
-{
-  KSP_HPDDM *data = (KSP_HPDDM*)ksp->data;
-
-  PetscFunctionBegin;
-  if (bs > std::numeric_limits<int>::max() || bs < std::numeric_limits<int>::min()) SETERRQ1(PetscObjectComm((PetscObject)ksp), PETSC_ERR_ARG_OUTOFRANGE, "KSPMatSolve() block size %D not representable by an integer", bs);
-  else data->icntl[1] = static_cast<int>(bs);
-  PetscFunctionReturn(0);
-}
-
-static PetscErrorCode KSPGetMatSolveBlockSize_HPDDM(KSP ksp, PetscInt *bs)
-{
-  KSP_HPDDM *data = (KSP_HPDDM*)ksp->data;
-
-  PetscFunctionBegin;
-  *bs = static_cast<PetscInt>(data->icntl[1]);
   PetscFunctionReturn(0);
 }
 
@@ -547,7 +540,7 @@ static PetscErrorCode KSPHPDDMGetType_HPDDM(KSP ksp, KSPHPDDMType *type)
 /*MC
      KSPHPDDM - Interface with the HPDDM library.
 
-   This KSP may be used to further select methods that are currently not implemented natively in PETSc, e.g., GCRODR [2006], a recycled Krylov method which is similar to KSPLGMRES, see [2016] for a comparison. ex75.c shows how to reproduce the results from the aforementioned paper [2006]. A chronological bibliography of relevant publications linked with KSP available in HPDDM through KSPHPDDM, and not available directly in PETSc, may be found below.
+   This KSP may be used to further select methods that are currently not implemented natively in PETSc, e.g., GCRODR [2006], a recycled Krylov method which is similar to KSPLGMRES, see [2016] for a comparison. ex75.c shows how to reproduce the results from the aforementioned paper [2006]. A chronological bibliography of relevant publications linked with KSP available in HPDDM through KSPHPDDM, and not available directly in PETSc, may be found below. The interface is explained in details in [2021].
 
    Options Database Keys:
 +   -ksp_gmres_restart <restart, default=30> - see KSPGMRES
@@ -560,14 +553,15 @@ static PetscErrorCode KSPHPDDMGetType_HPDDM(KSP ksp, KSPHPDDMType *type)
 .   -ksp_hpddm_recycle <n, default=0> - number of harmonic Ritz vectors to compute (only relevant with GCRODR or BGCRODR)
 .   -ksp_hpddm_recycle_target <type, default=SM> - criterion to select harmonic Ritz vectors using either SM, LM, SR, LR, SI, or LI (only relevant with GCRODR or BGCRODR). For BGCRODR, if PETSc is compiled with SLEPc, this option is not relevant, since SLEPc is used instead. Options are set with the prefix -ksp_hpddm_recycle_eps_
 .   -ksp_hpddm_recycle_strategy <type, default=A> - generalized eigenvalue problem A or B to solve for recycling (only relevant with flexible GCRODR or BGCRODR)
--   -ksp_hpddm_recycle_symmetric <true, default=false> - symmetric generalized eigenproblems in BGCRODR, useful to switch to distributed solvers like EPSELEMENTAL (only relevant when PETSc is compiled with SLEPc)
+-   -ksp_hpddm_recycle_symmetric <true, default=false> - symmetric generalized eigenproblems in BGCRODR, useful to switch to distributed solvers like EPSELEMENTAL or EPSSCALAPACK (only relevant when PETSc is compiled with SLEPc)
 
    References:
-+   1980 - The Block Conjugate Gradient Algorithm and Related Methods. O'Leary. Linear Algebra and its Applications.
-.   2006 - Recycling Krylov Subspaces for Sequences of Linear Systems. Parks, de Sturler, Mackey, Johnson, and Maiti. SIAM Journal on Scientific Computing
-.   2013 - A Modified Block Flexible GMRES Method with Deflation at Each Iteration for the Solution of Non-Hermitian Linear Systems with Multiple Right-Hand Sides. Calandra, Gratton, Lago, Vasseur, and Carvalho. SIAM Journal on Scientific Computing.
-.   2016 - Block Iterative Methods and Recycling for Improved Scalability of Linear Solvers. Jolivet and Tournier. SC16.
--   2017 - A breakdown-free block conjugate gradient method. Ji and Li. BIT Numerical Mathematics.
++   1980 - The block conjugate gradient algorithm and related methods. O'Leary. Linear Algebra and its Applications.
+.   2006 - Recycling Krylov subspaces for sequences of linear systems. Parks, de Sturler, Mackey, Johnson, and Maiti. SIAM Journal on Scientific Computing
+.   2013 - A modified block flexible GMRES method with deflation at each iteration for the solution of non-Hermitian linear systems with multiple right-hand sides. Calandra, Gratton, Lago, Vasseur, and Carvalho. SIAM Journal on Scientific Computing.
+.   2016 - Block iterative methods and recycling for improved scalability of linear solvers. Jolivet and Tournier. SC16.
+.   2017 - A breakdown-free block conjugate gradient method. Ji and Li. BIT Numerical Mathematics.
+-   2021 - KSPHPDDM and PCHPDDM: extending PETSc with advanced Krylov methods and robust multilevel overlapping Schwarz preconditioners. Jolivet, Roman, and Zampini. Computer & Mathematics with Applications.
 
    Level: intermediate
 
@@ -606,8 +600,6 @@ PETSC_EXTERN PetscErrorCode KSPCreate_HPDDM(KSP ksp)
   }
   ierr = PetscObjectComposeFunction((PetscObject)ksp, "KSPHPDDMSetDeflationSpace_C", KSPHPDDMSetDeflationSpace_HPDDM);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ksp, "KSPHPDDMGetDeflationSpace_C", KSPHPDDMGetDeflationSpace_HPDDM);CHKERRQ(ierr);
-  ierr = PetscObjectComposeFunction((PetscObject)ksp, "KSPSetMatSolveBlockSize_C", KSPSetMatSolveBlockSize_HPDDM);CHKERRQ(ierr);
-  ierr = PetscObjectComposeFunction((PetscObject)ksp, "KSPGetMatSolveBlockSize_C", KSPGetMatSolveBlockSize_HPDDM);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ksp, "KSPHPDDMSetType_C", KSPHPDDMSetType_HPDDM);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ksp, "KSPHPDDMGetType_C", KSPHPDDMGetType_HPDDM);CHKERRQ(ierr);
 #if defined(PETSC_HAVE_SLEPC) && defined(PETSC_USE_SHARED_LIBRARIES)

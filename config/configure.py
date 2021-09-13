@@ -52,7 +52,8 @@ def check_for_option_changed(opts):
             ('c-blas-lapack','f2cblaslapack'),
             ('cholmod','suitesparse'),
             ('umfpack','suitesparse'),
-            ('matlabengine','matlab-engine'),            
+            ('matlabengine','matlab-engine'),
+            ('sundials','sundials2'),
             ('f-blas-lapack','fblaslapack'),
             ('with-cuda-arch',
              'CUDAFLAGS=-arch'),
@@ -64,7 +65,7 @@ def check_for_option_changed(opts):
   for opt in opts[1:]:
     optname = opt.split('=')[0].strip('-')
     for oldname,newname in optMap:
-      if optname.find(oldname) >=0:
+      if optname.find(oldname) >=0 and not optname.find(newname):
         raise ValueError('The option '+opt+' should probably be '+opt.replace(oldname,newname))
   return
 
@@ -147,42 +148,47 @@ def chksynonyms():
   for l in range(0,len(sys.argv)):
     name = sys.argv[l]
 
-    if name.find('with-blas-lapack') >= 0:
-      sys.argv[l] = name.replace('with-blas-lapack','with-blaslapack')
+    name = name.replace('download-petsc4py','with-petsc4py')
+    name = name.replace('with-openmpi','with-mpi')
+    name = name.replace('with-mpich','with-mpi')
+    name = name.replace('with-blas-lapack','with-blaslapack')
 
     if name.find('with-debug=') >= 0 or name.endswith('with-debug'):
       if name.find('=') == -1:
-        sys.argv[l] = name.replace('with-debug','with-debugging')+'=1'
+        name = name.replace('with-debug','with-debugging')+'=1'
       else:
         head, tail = name.split('=', 1)
-        sys.argv[l] = head.replace('with-debug','with-debugging')+'='+tail
+        name = head.replace('with-debug','with-debugging')+'='+tail
 
     if name.find('with-shared=') >= 0 or name.endswith('with-shared'):
       if name.find('=') == -1:
-        sys.argv[l] = name.replace('with-shared','with-shared-libraries')+'=1'
+        name = name.replace('with-shared','with-shared-libraries')+'=1'
       else:
         head, tail = name.split('=', 1)
-        sys.argv[l] = head.replace('with-shared','with-shared-libraries')+'='+tail
+        name = head.replace('with-shared','with-shared-libraries')+'='+tail
 
     if name.find('with-index-size=') >=0:
       head,tail = name.split('=',1)
       if int(tail)==32:
-        sys.argv[l] = '--with-64-bit-indices=0'
+        name = '--with-64-bit-indices=0'
       elif int(tail)==64:
-        sys.argv[l] = '--with-64-bit-indices=1'
+        name = '--with-64-bit-indices=1'
       else:
         raise RuntimeError('--with-index-size= must be 32 or 64')
 
     if name.find('with-precision=') >=0:
       head,tail = name.split('=',1)
       if tail.find('quad')>=0:
-        sys.argv[l]='--with-precision=__float128'
+        name='--with-precision=__float128'
 
     for i,j in simplereplacements.items():
       if name.find(i+'=') >= 0:
-        sys.argv[l] = name.replace(i+'=',j+'=')
+        name = name.replace(i+'=',j+'=')
       elif name.find('with-'+i.lower()+'=') >= 0:
-        sys.argv[l] = name.replace(i.lower()+'=',j.lower()+'=')
+        name = name.replace(i.lower()+'=',j.lower()+'=')
+
+    # restore 'sys.argv[l]' from the intermediate var 'name'
+    sys.argv[l] = name
 
 def chkwincompilerusinglink():
   for arg in sys.argv:
@@ -205,7 +211,7 @@ def chkcygwinlink():
       if '--ignore-cygwin-link' in sys.argv: return 0
       print('===============================================================================')
       print(' *** Cygwin /usr/bin/link detected! Compiles with Intel icl/ifort can break!  **')
-      print(' *** To workarround do: "mv /usr/bin/link.exe /usr/bin/link-cygwin.exe"     **')
+      print(' *** To workaround do: "mv /usr/bin/link.exe /usr/bin/link-cygwin.exe"     **')
       print(' *** Or to ignore this check, use configure option: --ignore-cygwin-link. But compiles can fail. **')
       print('===============================================================================')
       sys.exit(3)
@@ -312,7 +318,7 @@ def check_cray_modules():
    print('*       module load intel ; module load PrgEnv-intel')
    print('*   or  module load PrgEnv-cray')
    print('*   or  module load PrgEnv-gnu')
-   print('* See https://www.mcs.anl.gov/petsc/documentation/installation.html#doemachines')
+   print('* See https://petsc.org/release/install/install/#installing-on-large-scale-doe-systems')
    print('************************************************************************')
    sys.exit(4)
 
@@ -373,6 +379,9 @@ def petsc_configure(configure_options):
     petscdir = os.environ['PETSC_DIR']
     if petscdir.find(' ') > -1:
       raise RuntimeError('Your PETSC_DIR '+petscdir+' has spaces in it; this is not allowed.\n Change the directory with PETSc to not have spaces in it')
+    if not os.path.isabs(petscdir):
+      raise RuntimeError('PETSC_DIR ("'+petscdir+'") is set as a relative path. It must be set as an absolute path.')
+
     try:
       sys.path.append(os.path.join(petscdir,'lib','petsc','bin'))
       import petscnagupgrade
@@ -381,9 +390,9 @@ def petsc_configure(configure_options):
         petscnagupgrade.currentversion(petscdir)
     except:
       pass
-  print('===============================================================================')
-  print('             Configuring PETSc to compile on your system                       ')
-  print('===============================================================================')
+  print('=============================================================================================')
+  print('                      Configuring PETSc to compile on your system                            ')
+  print('=============================================================================================')
 
   try:
     # Command line arguments take precedence (but don't destroy argv[0])
@@ -551,4 +560,3 @@ def petsc_configure(configure_options):
 
 if __name__ == '__main__':
   petsc_configure([])
-

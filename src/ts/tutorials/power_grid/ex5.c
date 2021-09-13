@@ -95,7 +95,6 @@ PetscErrorCode SaveSolution(TS ts)
   PetscFunctionReturn(0);
 }
 
-
 /* Computes the wind speed using Weibull distribution */
 PetscErrorCode WindSpeeds(AppCtx *user)
 {
@@ -229,13 +228,11 @@ int main(int argc,char **argv)
   PetscScalar       *amat;
   PetscViewer       viewer;
 
-
-
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Initialize program
      - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
   ierr = PetscInitialize(&argc,&argv,(char*)0,help);if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
   if (size > 1) SETERRQ(PETSC_COMM_WORLD,PETSC_ERR_SUP,"Only for sequential runs");
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -295,7 +292,6 @@ int main(int argc,char **argv)
   ierr = VecRestoreArrayRead(U,&x);CHKERRQ(ierr);
   user.stepnum++;
 
-
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Set solver options
    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
@@ -334,13 +330,11 @@ int main(int argc,char **argv)
   return ierr;
 }
 
-
 /*TEST
 
    build:
       requires: !complex
 
    test:
-
 
 TEST*/

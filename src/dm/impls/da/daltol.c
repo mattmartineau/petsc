@@ -104,7 +104,7 @@ PetscErrorCode  DMLocalToLocalBegin_DA(DM da,Vec g,InsertMode mode,Vec l)
 /*
    DMLocalToLocalEnd_DA - Maps from a local vector (including ghost points
    that contain irrelevant values) to another local vector where the ghost
-   points in the second are set correctly.  Must be preceeded by
+   points in the second are set correctly.  Must be preceded by
    DMLocalToLocalBegin_DA().
 
    Neighbor-wise Collective on da
@@ -132,7 +132,6 @@ PetscErrorCode  DMLocalToLocalEnd_DA(DM da,Vec g,InsertMode mode,Vec l)
   PetscFunctionBegin;
   PetscValidHeaderSpecific(da,DM_CLASSID,1);
   PetscValidHeaderSpecific(g,VEC_CLASSID,2);
-  PetscValidHeaderSpecific(g,VEC_CLASSID,4);
   ierr = VecScatterEnd(dd->ltol,g,l,mode,SCATTER_FORWARD);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }

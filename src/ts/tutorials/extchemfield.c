@@ -41,7 +41,7 @@ static const char help[] = "Integrate chemistry using TChem.\n";
         Save the images in a .gif (movie) file
         -draw_save -draw_save_single_file
 
-        Compute the sensitivies of the solution of the first tempature on the initial conditions
+        Compute the sensitivies of the solution of the first temperature on the initial conditions
         -ts_adjoint_solve  -ts_dt 1.e-5 -ts_type cn -ts_adjoint_view_solution draw
 
         Turn off diffusion
@@ -49,7 +49,6 @@ static const char help[] = "Integrate chemistry using TChem.\n";
 
         Turn off reactions
         -reactions no
-
 
     The solution for component i = 0 is the temperature.
 
@@ -138,7 +137,6 @@ int main(int argc,char **argv)
   ierr = PetscFree(snames);CHKERRQ(ierr);
   ierr = PetscFree(names);CHKERRQ(ierr);
 
-
   ierr = DMCreateMatrix(user.dm,&J);CHKERRQ(ierr);
   ierr = DMCreateGlobalVector(user.dm,&X);CHKERRQ(ierr);
 
@@ -169,7 +167,6 @@ int main(int argc,char **argv)
   ierr = TSGetAdapt(ts,&adapt);CHKERRQ(ierr);
   ierr = TSAdaptSetStepLimits(adapt,1e-12,1e-4);CHKERRQ(ierr); /* Also available with -ts_adapt_dt_min/-ts_adapt_dt_max */
   ierr = TSSetMaxSNESFailures(ts,-1);CHKERRQ(ierr);            /* Retry step an unlimited number of times */
-
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Pass information to graphical monitoring routine
@@ -480,7 +477,7 @@ static PetscErrorCode MonitorCell(TS ts,User user,PetscInt cell)
   ierr = DMDAGetCoordinateArray(user->dm,&xc);CHKERRQ(ierr);
   temp = 1.0 + .05*PetscSinScalar(2.*PETSC_PI*xc[cell]);  /* Non-dimensionalized by user->Tini */
   ierr = DMDARestoreCoordinateArray(user->dm,&xc);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
   ierr = PetscSNPrintf(label,sizeof(label),"Initial Temperature %g Cell %d Rank %d",(double)user->Tini*temp,(int)cell,rank);CHKERRQ(ierr);
   ierr = TSMonitorLGCtxCreate(PETSC_COMM_SELF,NULL,label,PETSC_DECIDE,PETSC_DECIDE,600,400,1,&ctx);CHKERRQ(ierr);
   ierr = DMDAGetFieldNames(user->dm,(const char * const **)&snames);CHKERRQ(ierr);

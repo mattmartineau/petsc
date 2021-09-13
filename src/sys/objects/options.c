@@ -18,9 +18,6 @@
 #if defined(PETSC_HAVE_STRINGS_H)
 #  include <strings.h>          /* strcasecmp */
 #endif
-#if defined(PETSC_HAVE_YAML)
-#include <yaml.h>
-#endif
 
 #if defined(PETSC_HAVE_STRCASECMP)
 #define PetscOptNameCmp(a,b) strcasecmp(a,b)
@@ -64,7 +61,7 @@ KHASH_INIT(HO, kh_cstr_t, int, 1, PetscOptHash, PetscOptEqual)
 /*
     This table holds all the options set by the user. For simplicity, we use a static size database
 */
-#define MAXOPTNAME 512
+#define MAXOPTNAME PETSC_MAX_OPTION_NAME
 #define MAXOPTIONS 512
 #define MAXALIASES  25
 #define MAXPREFIXES 25
@@ -106,8 +103,8 @@ struct  _n_PetscOptions {
 static PetscOptions defaultoptions = NULL;  /* the options database routines query this object for options */
 
 /* list of options which preceed others, i.e., are processed in PetscOptionsProcessPrecedentFlags() */
-static const char *precedentOptions[] = {"-options_monitor","-options_monitor_cancel","-help","-skip_petscrc","-options_file_yaml","-options_string_yaml"};
-enum PetscPrecedentOption {PO_OPTIONS_MONITOR,PO_OPTIONS_MONITOR_CANCEL,PO_HELP,PO_SKIP_PETSCRC,PO_OPTIONS_FILE_YAML,PO_OPTIONS_STRING_YAML,PO_NUM};
+static const char *precedentOptions[] = {"-options_monitor","-options_monitor_cancel","-help","-skip_petscrc"};
+enum PetscPrecedentOption {PO_OPTIONS_MONITOR,PO_OPTIONS_MONITOR_CANCEL,PO_HELP,PO_SKIP_PETSCRC,PO_NUM};
 
 static PetscErrorCode PetscOptionsSetValue_Private(PetscOptions,const char[],const char[],int*);
 
@@ -169,6 +166,7 @@ PetscErrorCode PetscOptionsDestroy(PetscOptions *options)
 {
   PetscErrorCode ierr;
 
+  PetscFunctionBegin;
   if (!*options) return 0;
   if ((*options)->previous) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"You are destroying an option that has been used with PetscOptionsPush() but does not have a corresponding PetscOptionsPop()");
   ierr = PetscOptionsClear(*options);if (ierr) return ierr;
@@ -219,8 +217,8 @@ PetscErrorCode PetscOptionsPush(PetscOptions opt)
 
   PetscFunctionBegin;
   ierr = PetscOptionsCreateDefault();CHKERRQ(ierr);
-  opt->previous        = defaultoptions;
-  defaultoptions       = opt;
+  opt->previous  = defaultoptions;
+  defaultoptions = opt;
   PetscFunctionReturn(0);
 }
 
@@ -245,8 +243,8 @@ PetscErrorCode PetscOptionsPop(void)
   PetscFunctionBegin;
   if (!defaultoptions) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Missing default options");
   if (!defaultoptions->previous) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_PLIB,"PetscOptionsPop() called too many times");
-  defaultoptions = defaultoptions->previous;
-  current->previous    = NULL;
+  defaultoptions    = defaultoptions->previous;
+  current->previous = NULL;
   PetscFunctionReturn(0);
 }
 
@@ -258,6 +256,7 @@ PetscErrorCode PetscOptionsDestroyDefault(void)
   PetscErrorCode ierr;
   PetscOptions   tmp;
 
+  if (!defaultoptions) return 0;
   /* Destroy any options that the user forgot to pop */
   while (defaultoptions->previous) {
     tmp = defaultoptions;
@@ -326,31 +325,44 @@ PetscErrorCode PetscOptionsValidKey(const char key[],PetscBool *valid)
 @*/
 PetscErrorCode PetscOptionsInsertString(PetscOptions options,const char in_str[])
 {
-  char           *first,*second;
+  MPI_Comm       comm = PETSC_COMM_SELF;
   PetscErrorCode ierr;
+  char           *first,*second;
   PetscToken     token;
-  PetscBool      key,ispush,ispop,isopts;
 
   PetscFunctionBegin;
   ierr = PetscTokenCreate(in_str,' ',&token);CHKERRQ(ierr);
   ierr = PetscTokenFind(token,&first);CHKERRQ(ierr);
   while (first) {
+    PetscBool isfile,isfileyaml,isstringyaml,ispush,ispop,key;
+    ierr = PetscStrcasecmp(first,"-options_file",&isfile);CHKERRQ(ierr);
+    ierr = PetscStrcasecmp(first,"-options_file_yaml",&isfileyaml);CHKERRQ(ierr);
+    ierr = PetscStrcasecmp(first,"-options_string_yaml",&isstringyaml);CHKERRQ(ierr);
     ierr = PetscStrcasecmp(first,"-prefix_push",&ispush);CHKERRQ(ierr);
     ierr = PetscStrcasecmp(first,"-prefix_pop",&ispop);CHKERRQ(ierr);
-    ierr = PetscStrcasecmp(first,"-options_file",&isopts);CHKERRQ(ierr);
     ierr = PetscOptionsValidKey(first,&key);CHKERRQ(ierr);
-    if (ispush) {
+    if (!key) {
+      ierr = PetscTokenFind(token,&first);CHKERRQ(ierr);
+    } else if (isfile) {
+      ierr = PetscTokenFind(token,&second);CHKERRQ(ierr);
+      ierr = PetscOptionsInsertFile(comm,options,second,PETSC_TRUE);CHKERRQ(ierr);
+      ierr = PetscTokenFind(token,&first);CHKERRQ(ierr);
+    } else if (isfileyaml) {
+      ierr = PetscTokenFind(token,&second);CHKERRQ(ierr);
+      ierr = PetscOptionsInsertFileYAML(comm,options,second,PETSC_TRUE);CHKERRQ(ierr);
+      ierr = PetscTokenFind(token,&first);CHKERRQ(ierr);
+    } else if (isstringyaml) {
+      ierr = PetscTokenFind(token,&second);CHKERRQ(ierr);
+      ierr = PetscOptionsInsertStringYAML(options,second);CHKERRQ(ierr);
+      ierr = PetscTokenFind(token,&first);CHKERRQ(ierr);
+    } else if (ispush) {
       ierr = PetscTokenFind(token,&second);CHKERRQ(ierr);
       ierr = PetscOptionsPrefixPush(options,second);CHKERRQ(ierr);
       ierr = PetscTokenFind(token,&first);CHKERRQ(ierr);
     } else if (ispop) {
       ierr = PetscOptionsPrefixPop(options);CHKERRQ(ierr);
       ierr = PetscTokenFind(token,&first);CHKERRQ(ierr);
-    } else if (isopts) {
-      ierr = PetscTokenFind(token,&second);CHKERRQ(ierr);
-      ierr = PetscOptionsInsertFile(PETSC_COMM_SELF,options,second,PETSC_TRUE);CHKERRQ(ierr);
-      ierr = PetscTokenFind(token,&first);CHKERRQ(ierr);
-    } else if (key) {
+    } else {
       ierr = PetscTokenFind(token,&second);CHKERRQ(ierr);
       ierr = PetscOptionsValidKey(second,&key);CHKERRQ(ierr);
       if (!key) {
@@ -360,8 +372,6 @@ PetscErrorCode PetscOptionsInsertString(PetscOptions options,const char in_str[]
         ierr  = PetscOptionsSetValue(options,first,NULL);CHKERRQ(ierr);
         first = second;
       }
-    } else {
-      ierr = PetscTokenFind(token,&first);CHKERRQ(ierr);
     }
   }
   ierr = PetscTokenDestroy(&token);CHKERRQ(ierr);
@@ -393,41 +403,47 @@ static char *Petscgetline(FILE * f)
   return NULL;
 }
 
-/*@C
-     PetscOptionsInsertFile - Inserts options into the database from a file.
-
-     Collective
-
-  Input Parameter:
-+   comm - the processes that will share the options (usually PETSC_COMM_WORLD)
-.   options - options database, use NULL for default global database
-.   file - name of file
--   require - if PETSC_TRUE will generate an error if the file does not exist
-
-
-  Notes:
-    Use  # for lines that are comments and which should be ignored.
-    Usually, instead of using this command, one should list the file name in the call to PetscInitialize(), this insures that certain options
-   such as -log_view or -malloc_debug are processed properly. This routine only sets options into the options database that will be processed by later
-   calls to XXXSetFromOptions() it should not be used for options listed under PetscInitialize().
-   The collectivity of this routine is complex; only the MPI processes in comm will
-   have the affect of these options. If some processes that create objects call this routine and others do
-   not the code may fail in complicated ways because the same parallel solvers may incorrectly use different options
-   on different ranks.
-
-  Level: developer
-
-.seealso: PetscOptionsSetValue(), PetscOptionsView(), PetscOptionsHasName(), PetscOptionsGetInt(),
-          PetscOptionsGetReal(), PetscOptionsGetString(), PetscOptionsGetIntArray(), PetscOptionsBool(),
-          PetscOptionsName(), PetscOptionsBegin(), PetscOptionsEnd(), PetscOptionsHead(),
-          PetscOptionsStringArray(),PetscOptionsRealArray(), PetscOptionsScalar(),
-          PetscOptionsBoolGroupBegin(), PetscOptionsBoolGroup(), PetscOptionsBoolGroupEnd(),
-          PetscOptionsFList(), PetscOptionsEList()
-
-@*/
-PetscErrorCode PetscOptionsInsertFile(MPI_Comm comm,PetscOptions options,const char file[],PetscBool require)
+static PetscErrorCode PetscOptionsFilename(MPI_Comm comm,const char file[],char filename[PETSC_MAX_PATH_LEN],PetscBool *yaml)
 {
-  char           *string,fname[PETSC_MAX_PATH_LEN],*vstring = NULL,*astring = NULL,*packed = NULL;
+  char           fname[PETSC_MAX_PATH_LEN+8],path[PETSC_MAX_PATH_LEN+8],*tail;
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  *yaml = PETSC_FALSE;
+  ierr = PetscStrreplace(comm,file,fname,sizeof(fname));CHKERRQ(ierr);
+  ierr = PetscFixFilename(fname,path);CHKERRQ(ierr);
+  ierr = PetscStrendswith(path,":yaml",yaml);CHKERRQ(ierr);
+  if (*yaml) {
+    ierr = PetscStrrchr(path,':',&tail);CHKERRQ(ierr);
+    tail[-1] = 0; /* remove ":yaml" suffix from path */
+  }
+  ierr = PetscStrncpy(filename,path,PETSC_MAX_PATH_LEN);CHKERRQ(ierr);
+  /* check for standard YAML and JSON filename extensions */
+  if (!*yaml) {ierr = PetscStrendswith(filename,".yaml",yaml);CHKERRQ(ierr);}
+  if (!*yaml) {ierr = PetscStrendswith(filename,".yml", yaml);CHKERRQ(ierr);}
+  if (!*yaml) {ierr = PetscStrendswith(filename,".json",yaml);CHKERRQ(ierr);}
+  if (!*yaml) { /* check file contents */
+    PetscMPIInt rank;
+    ierr = MPI_Comm_rank(comm,&rank);CHKERRMPI(ierr);
+    if (!rank) {
+      FILE *fh = fopen(filename,"r");
+      if (fh) {
+        char buf[6] = "";
+        if (fread(buf,1,6,fh) > 0) {
+          ierr = PetscStrncmp(buf,"%YAML ",6,yaml);CHKERRQ(ierr);  /* check for '%YAML' tag */
+          if (!*yaml) {ierr = PetscStrncmp(buf,"---",3,yaml);CHKERRQ(ierr);}  /* check for document start */
+        }
+        (void)fclose(fh);
+      }
+    }
+    ierr = MPI_Bcast(yaml,1,MPIU_BOOL,0,comm);CHKERRMPI(ierr);
+  }
+  PetscFunctionReturn(0);
+}
+
+static PetscErrorCode PetscOptionsInsertFilePetsc(MPI_Comm comm,PetscOptions options,const char file[],PetscBool require)
+{
+  char           *string,*vstring = NULL,*astring = NULL,*packed = NULL;
   char           *tokens[4];
   PetscErrorCode ierr;
   size_t         i,len,bytes;
@@ -441,13 +457,15 @@ PetscErrorCode PetscOptionsInsertFile(MPI_Comm comm,PetscOptions options,const c
   PetscBool      isdir,alias=PETSC_FALSE,valid;
 
   PetscFunctionBegin;
-  ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
   ierr = PetscMemzero(tokens,sizeof(tokens));CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(comm,&rank);CHKERRMPI(ierr);
   if (!rank) {
-    cnt        = 0;
-    acnt       = 0;
+    char fpath[PETSC_MAX_PATH_LEN];
+    char fname[PETSC_MAX_PATH_LEN];
 
-    ierr = PetscFixFilename(file,fname);CHKERRQ(ierr);
+    ierr = PetscStrreplace(PETSC_COMM_SELF,file,fpath,sizeof(fpath));CHKERRQ(ierr);
+    ierr = PetscFixFilename(fpath,fname);CHKERRQ(ierr);
+
     fd   = fopen(fname,"r");
     ierr = PetscTestDirectory(fname,'r',&isdir);CHKERRQ(ierr);
     if (isdir && require) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_USER,"Specified options file %s is a directory",fname);
@@ -549,14 +567,14 @@ destroy:
   counts[0] = acnt;
   counts[1] = cnt;
   err = MPI_Bcast(counts,2,MPI_INT,0,comm);
-  if (err) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_LIB,"Error in first MPI collective call, could be caused by using an incorrect mpiexec or a network problem, it can be caused by having VPN running: see https://www.mcs.anl.gov/petsc/documentation/faq.html");
+  if (err) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_LIB,"Error in first MPI collective call, could be caused by using an incorrect mpiexec or a network problem, it can be caused by having VPN running: see https://petsc.org/release/faq/");
   acnt = counts[0];
   cnt = counts[1];
   if (rank) {
     ierr = PetscMalloc1(2+acnt+cnt,&packed);CHKERRQ(ierr);
   }
   if (acnt || cnt) {
-    ierr = MPI_Bcast(packed,2+acnt+cnt,MPI_CHAR,0,comm);CHKERRQ(ierr);
+    ierr = MPI_Bcast(packed,2+acnt+cnt,MPI_CHAR,0,comm);CHKERRMPI(ierr);
     astring = packed;
     vstring = packed + acnt + 1;
   }
@@ -579,52 +597,107 @@ destroy:
   PetscFunctionReturn(0);
 }
 
-static PetscErrorCode PetscOptionsInsertArgs(PetscOptions options,int argc,char *args[])
+/*@C
+     PetscOptionsInsertFile - Inserts options into the database from a file.
+
+     Collective
+
+  Input Parameter:
++   comm - the processes that will share the options (usually PETSC_COMM_WORLD)
+.   options - options database, use NULL for default global database
+.   file - name of file,
+           ".yml" and ".yaml" filename extensions are inserted as YAML options,
+           append ":yaml" to filename to force YAML options.
+-   require - if PETSC_TRUE will generate an error if the file does not exist
+
+  Notes:
+   Use  # for lines that are comments and which should be ignored.
+   Usually, instead of using this command, one should list the file name in the call to PetscInitialize(), this insures that certain options
+   such as -log_view or -malloc_debug are processed properly. This routine only sets options into the options database that will be processed by later
+   calls to XXXSetFromOptions() it should not be used for options listed under PetscInitialize().
+   The collectivity of this routine is complex; only the MPI processes in comm will
+   have the affect of these options. If some processes that create objects call this routine and others do
+   not the code may fail in complicated ways because the same parallel solvers may incorrectly use different options
+   on different ranks.
+
+  Level: developer
+
+.seealso: PetscOptionsSetValue(), PetscOptionsView(), PetscOptionsHasName(), PetscOptionsGetInt(),
+          PetscOptionsGetReal(), PetscOptionsGetString(), PetscOptionsGetIntArray(), PetscOptionsBool(),
+          PetscOptionsName(), PetscOptionsBegin(), PetscOptionsEnd(), PetscOptionsHead(),
+          PetscOptionsStringArray(),PetscOptionsRealArray(), PetscOptionsScalar(),
+          PetscOptionsBoolGroupBegin(), PetscOptionsBoolGroup(), PetscOptionsBoolGroupEnd(),
+          PetscOptionsFList(), PetscOptionsEList()
+
+@*/
+PetscErrorCode PetscOptionsInsertFile(MPI_Comm comm,PetscOptions options,const char file[],PetscBool require)
 {
+  char           filename[PETSC_MAX_PATH_LEN];
+  PetscBool      yaml;
   PetscErrorCode ierr;
-  int            left    = argc - 1;
-  char           **eargs = args + 1;
+
+  PetscFunctionBegin;
+  ierr = PetscOptionsFilename(comm,file,filename,&yaml);CHKERRQ(ierr);
+  if (yaml) {
+    ierr = PetscOptionsInsertFileYAML(comm,options,filename,require);CHKERRQ(ierr);
+  } else {
+    ierr = PetscOptionsInsertFilePetsc(comm,options,filename,require);CHKERRQ(ierr);
+  }
+  PetscFunctionReturn(0);
+}
+
+/*@C
+   PetscOptionsInsertArgs - Inserts options into the database from a array of strings
+
+   Logically Collective
+
+   Input Parameter:
++  options - options object
+.  argc - the array lenght
+-  args - the string array
+
+   Level: intermediate
+
+.seealso: PetscOptions, PetscOptionsInsertString(), PetscOptionsInsertFile()
+@*/
+PetscErrorCode PetscOptionsInsertArgs(PetscOptions options,int argc,char *args[])
+{
+  MPI_Comm       comm = PETSC_COMM_WORLD;
+  PetscErrorCode ierr;
+  int            left          = PetscMax(argc,0);
+  char           *const *eargs = args;
 
   PetscFunctionBegin;
   while (left) {
-    PetscBool isoptions_file,isprefixpush,isprefixpop,isp4,tisp4,isp4yourname,isp4rmrank,key;
-    ierr = PetscStrcasecmp(eargs[0],"-options_file",&isoptions_file);CHKERRQ(ierr);
-    ierr = PetscStrcasecmp(eargs[0],"-prefix_push",&isprefixpush);CHKERRQ(ierr);
-    ierr = PetscStrcasecmp(eargs[0],"-prefix_pop",&isprefixpop);CHKERRQ(ierr);
-    ierr = PetscStrcasecmp(eargs[0],"-p4pg",&isp4);CHKERRQ(ierr);
-    ierr = PetscStrcasecmp(eargs[0],"-p4yourname",&isp4yourname);CHKERRQ(ierr);
-    ierr = PetscStrcasecmp(eargs[0],"-p4rmrank",&isp4rmrank);CHKERRQ(ierr);
-    ierr = PetscStrcasecmp(eargs[0],"-p4wd",&tisp4);CHKERRQ(ierr);
-    isp4 = (PetscBool) (isp4 || tisp4);
-    ierr = PetscStrcasecmp(eargs[0],"-np",&tisp4);CHKERRQ(ierr);
-    isp4 = (PetscBool) (isp4 || tisp4);
-    ierr = PetscStrcasecmp(eargs[0],"-p4amslave",&tisp4);CHKERRQ(ierr);
+    PetscBool isfile,isfileyaml,isstringyaml,ispush,ispop,key;
+    ierr = PetscStrcasecmp(eargs[0],"-options_file",&isfile);CHKERRQ(ierr);
+    ierr = PetscStrcasecmp(eargs[0],"-options_file_yaml",&isfileyaml);CHKERRQ(ierr);
+    ierr = PetscStrcasecmp(eargs[0],"-options_string_yaml",&isstringyaml);CHKERRQ(ierr);
+    ierr = PetscStrcasecmp(eargs[0],"-prefix_push",&ispush);CHKERRQ(ierr);
+    ierr = PetscStrcasecmp(eargs[0],"-prefix_pop",&ispop);CHKERRQ(ierr);
     ierr = PetscOptionsValidKey(eargs[0],&key);CHKERRQ(ierr);
-
     if (!key) {
       eargs++; left--;
-    } else if (isoptions_file) {
-      if (left <= 1) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_USER,"Missing filename for -options_file filename option");
-      if (eargs[1][0] == '-') SETERRQ(PETSC_COMM_SELF,PETSC_ERR_USER,"Missing filename for -options_file filename option");
-      ierr = PetscOptionsInsertFile(PETSC_COMM_WORLD,options,eargs[1],PETSC_TRUE);CHKERRQ(ierr);
+    } else if (isfile) {
+      if (left <= 1 || eargs[1][0] == '-') SETERRQ(PETSC_COMM_SELF,PETSC_ERR_USER,"Missing filename for -options_file filename option");
+      ierr = PetscOptionsInsertFile(comm,options,eargs[1],PETSC_TRUE);CHKERRQ(ierr);
       eargs += 2; left -= 2;
-    } else if (isprefixpush) {
+    } else if (isfileyaml) {
+      if (left <= 1 || eargs[1][0] == '-') SETERRQ(PETSC_COMM_SELF,PETSC_ERR_USER,"Missing filename for -options_file_yaml filename option");
+      ierr = PetscOptionsInsertFileYAML(comm,options,eargs[1],PETSC_TRUE);CHKERRQ(ierr);
+      eargs += 2; left -= 2;
+    } else if (isstringyaml) {
+      if (left <= 1 || eargs[1][0] == '-') SETERRQ(PETSC_COMM_SELF,PETSC_ERR_USER,"Missing string for -options_string_yaml string option");
+      ierr = PetscOptionsInsertStringYAML(options,eargs[1]);CHKERRQ(ierr);
+      eargs += 2; left -= 2;
+    } else if (ispush) {
       if (left <= 1) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_USER,"Missing prefix for -prefix_push option");
       if (eargs[1][0] == '-') SETERRQ(PETSC_COMM_SELF,PETSC_ERR_USER,"Missing prefix for -prefix_push option (prefixes cannot start with '-')");
       ierr = PetscOptionsPrefixPush(options,eargs[1]);CHKERRQ(ierr);
       eargs += 2; left -= 2;
-    } else if (isprefixpop) {
+    } else if (ispop) {
       ierr = PetscOptionsPrefixPop(options);CHKERRQ(ierr);
       eargs++; left--;
-
-      /*
-       These are "bad" options that MPICH, etc put on the command line
-       we strip them out here.
-       */
-    } else if (tisp4 || isp4rmrank) {
-      eargs += 1; left -= 1;
-    } else if (isp4 || isp4yourname) {
-      eargs += 2; left -= 2;
     } else {
       PetscBool nextiskey = PETSC_FALSE;
       if (left >= 2) {ierr = PetscOptionsValidKey(eargs[1],&nextiskey);CHKERRQ(ierr);}
@@ -670,7 +743,7 @@ static PetscErrorCode PetscOptionsProcessPrecedentFlags(PetscOptions options,int
     ierr = PetscOptionsFindPair(options,NULL,opt[o],&val[o],&set[o]);CHKERRQ(ierr);
   }
 
-  /* Loop through all args to collect last occuring value of each option */
+  /* Loop through all args to collect last occurring value of each option */
   for (a=1; a<argc; a++) {
     PetscBool valid, eq;
 
@@ -699,10 +772,8 @@ static PetscErrorCode PetscOptionsProcessPrecedentFlags(PetscOptions options,int
   /* Store precedent options in database and mark them as used */
   for (o=0; o<n; o++) {
     if (set[o]) {
-      int pos;
-
-      ierr = PetscOptionsSetValue_Private(options,opt[o],val[o],&pos);CHKERRQ(ierr);
-      options->used[pos] = PETSC_TRUE;
+      ierr = PetscOptionsSetValue_Private(options,opt[o],val[o],&a);CHKERRQ(ierr);
+      options->used[a] = PETSC_TRUE;
     }
   }
 
@@ -721,12 +792,12 @@ PETSC_STATIC_INLINE PetscErrorCode PetscOptionsSkipPrecedent(PetscOptions option
     for (i=0; i<PO_NUM; i++) {
       if (!PetscOptNameCmp(precedentOptions[i],name)) {
         /* check if precedent option has been set already */
-        ierr = PetscOptionsFindPair(options,NULL,name,NULL,flg);CHKERRQ(ierr);
+        ierr = PetscOptionsFindPair(options,NULL,name,NULL,flg);if (ierr) return ierr;
         if (*flg) break;
       }
     }
   }
-  PetscFunctionReturn(0);
+  return 0;
 }
 
 /*@C
@@ -739,8 +810,9 @@ PETSC_STATIC_INLINE PetscErrorCode PetscOptionsSkipPrecedent(PetscOptions option
 +  options - options database or NULL for the default global database
 .  argc - count of number of command line arguments
 .  args - the command line arguments
--  file - [optional] PETSc database file, also checks ~/.petscrc, .petscrc and petscrc.
-          Use NULL to not check for code specific file.
+-  file - [optional] PETSc database file, append ":yaml" to filename to specify YAML options format.
+          Use NULL or empty string to not check for code specific file.
+          Also checks ~/.petscrc, .petscrc and petscrc.
           Use -skip_petscrc in the code specific file (or command line) to skip ~/.petscrc, .petscrc and petscrc files.
 
    Note:
@@ -749,7 +821,8 @@ PETSC_STATIC_INLINE PetscErrorCode PetscOptionsSkipPrecedent(PetscOptions option
    can be called several times, adding additional entries into the database.
 
    Options Database Keys:
-.   -options_file <filename> - read options from a file
++   -options_file <filename> - read options from a file
+-   -options_file_yaml <filename> - read options from a YAML file
 
    See PetscInitialize() for options related to option database monitoring.
 
@@ -760,16 +833,15 @@ PETSC_STATIC_INLINE PetscErrorCode PetscOptionsSkipPrecedent(PetscOptions option
 @*/
 PetscErrorCode PetscOptionsInsert(PetscOptions options,int *argc,char ***args,const char file[])
 {
+  MPI_Comm       comm = PETSC_COMM_WORLD;
   PetscErrorCode ierr;
   PetscMPIInt    rank;
-  char           filename[PETSC_MAX_PATH_LEN];
   PetscBool      hasArgs = (argc && *argc) ? PETSC_TRUE : PETSC_FALSE;
   PetscBool      skipPetscrc = PETSC_FALSE, skipPetscrcSet = PETSC_FALSE;
 
-
   PetscFunctionBegin;
-  if (hasArgs && !(args && *args)) SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_ARG_NULL, "*argc > 1 but *args not given");
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
+  if (hasArgs && !(args && *args)) SETERRQ(comm,PETSC_ERR_ARG_NULL,"*argc > 1 but *args not given");
+  ierr = MPI_Comm_rank(comm,&rank);CHKERRMPI(ierr);
 
   if (!options) {
     ierr = PetscOptionsCreateDefault();CHKERRQ(ierr);
@@ -780,18 +852,18 @@ PetscErrorCode PetscOptionsInsert(PetscOptions options,int *argc,char ***args,co
     ierr = PetscOptionsProcessPrecedentFlags(options,*argc,*args,&skipPetscrc,&skipPetscrcSet);CHKERRQ(ierr);
   }
   if (file && file[0]) {
-    ierr = PetscStrreplace(PETSC_COMM_WORLD,file,filename,PETSC_MAX_PATH_LEN);CHKERRQ(ierr);
-    ierr = PetscOptionsInsertFile(PETSC_COMM_WORLD,options,filename,PETSC_TRUE);CHKERRQ(ierr);
+    ierr = PetscOptionsInsertFile(comm,options,file,PETSC_TRUE);CHKERRQ(ierr);
     /* if -skip_petscrc has not been set from command line, check whether it has been set in the file */
     if (!skipPetscrcSet) {ierr = PetscOptionsGetBool(options,NULL,"-skip_petscrc",&skipPetscrc,NULL);CHKERRQ(ierr);}
   }
   if (!skipPetscrc) {
-    ierr = PetscGetHomeDirectory(filename,PETSC_MAX_PATH_LEN-16);CHKERRQ(ierr);
-    /* PetscOptionsInsertFile() does a fopen() on rank0 only - so only rank0 HomeDir value is relavent */
-    if (filename[0]) { ierr = PetscStrcat(filename,"/.petscrc");CHKERRQ(ierr); }
-    ierr = PetscOptionsInsertFile(PETSC_COMM_WORLD,options,filename,PETSC_FALSE);CHKERRQ(ierr);
-    ierr = PetscOptionsInsertFile(PETSC_COMM_WORLD,options,".petscrc",PETSC_FALSE);CHKERRQ(ierr);
-    ierr = PetscOptionsInsertFile(PETSC_COMM_WORLD,options,"petscrc",PETSC_FALSE);CHKERRQ(ierr);
+    char filename[PETSC_MAX_PATH_LEN];
+    ierr = PetscGetHomeDirectory(filename,sizeof(filename));CHKERRQ(ierr);
+    ierr = MPI_Bcast(filename,(int)sizeof(filename),MPI_CHAR,0,comm);CHKERRMPI(ierr);
+    if (filename[0]) {ierr = PetscStrcat(filename,"/.petscrc");CHKERRQ(ierr);}
+    ierr = PetscOptionsInsertFile(comm,options,filename,PETSC_FALSE);CHKERRQ(ierr);
+    ierr = PetscOptionsInsertFile(comm,options,".petscrc",PETSC_FALSE);CHKERRQ(ierr);
+    ierr = PetscOptionsInsertFile(comm,options,"petscrc",PETSC_FALSE);CHKERRQ(ierr);
   }
 
   /* insert environment options */
@@ -800,60 +872,38 @@ PetscErrorCode PetscOptionsInsert(PetscOptions options,int *argc,char ***args,co
     size_t len       = 0;
     if (!rank) {
       eoptions = (char*)getenv("PETSC_OPTIONS");
-      ierr     = PetscStrlen(eoptions,&len);CHKERRQ(ierr);
-      ierr     = MPI_Bcast(&len,1,MPIU_SIZE_T,0,PETSC_COMM_WORLD);CHKERRQ(ierr);
-    } else {
-      ierr = MPI_Bcast(&len,1,MPIU_SIZE_T,0,PETSC_COMM_WORLD);CHKERRQ(ierr);
-      if (len) {
-        ierr = PetscMalloc1(len+1,&eoptions);CHKERRQ(ierr);
-      }
+      ierr = PetscStrlen(eoptions,&len);CHKERRQ(ierr);
     }
+    ierr = MPI_Bcast(&len,1,MPIU_SIZE_T,0,comm);CHKERRMPI(ierr);
     if (len) {
-      ierr = MPI_Bcast(eoptions,len,MPI_CHAR,0,PETSC_COMM_WORLD);CHKERRQ(ierr);
+      if (rank) {ierr = PetscMalloc1(len+1,&eoptions);CHKERRQ(ierr);}
+      ierr = MPI_Bcast(eoptions,len,MPI_CHAR,0,comm);CHKERRMPI(ierr);
       if (rank) eoptions[len] = 0;
       ierr = PetscOptionsInsertString(options,eoptions);CHKERRQ(ierr);
       if (rank) {ierr = PetscFree(eoptions);CHKERRQ(ierr);}
     }
   }
 
-#if defined(PETSC_HAVE_YAML)
+  /* insert YAML environment options */
   {
     char   *eoptions = NULL;
     size_t len       = 0;
     if (!rank) {
       eoptions = (char*)getenv("PETSC_OPTIONS_YAML");
-      ierr     = PetscStrlen(eoptions,&len);CHKERRQ(ierr);
-      ierr     = MPI_Bcast(&len,1,MPIU_SIZE_T,0,PETSC_COMM_WORLD);CHKERRQ(ierr);
-    } else {
-      ierr = MPI_Bcast(&len,1,MPIU_SIZE_T,0,PETSC_COMM_WORLD);CHKERRQ(ierr);
-      if (len) {
-        ierr = PetscMalloc1(len+1,&eoptions);CHKERRQ(ierr);
-      }
+      ierr = PetscStrlen(eoptions,&len);CHKERRQ(ierr);
     }
+    ierr = MPI_Bcast(&len,1,MPIU_SIZE_T,0,comm);CHKERRMPI(ierr);
     if (len) {
-      ierr = MPI_Bcast(eoptions,len,MPI_CHAR,0,PETSC_COMM_WORLD);CHKERRQ(ierr);
+      if (rank) {ierr = PetscMalloc1(len+1,&eoptions);CHKERRQ(ierr);}
+      ierr = MPI_Bcast(eoptions,len,MPI_CHAR,0,comm);CHKERRMPI(ierr);
       if (rank) eoptions[len] = 0;
       ierr = PetscOptionsInsertStringYAML(options,eoptions);CHKERRQ(ierr);
       if (rank) {ierr = PetscFree(eoptions);CHKERRQ(ierr);}
     }
   }
-  {
-    char      yaml_file[PETSC_MAX_PATH_LEN];
-    char      yaml_string[BUFSIZ];
-    PetscBool yaml_flg;
-    ierr = PetscOptionsGetString(NULL,NULL,"-options_file_yaml",yaml_file,sizeof(yaml_file),&yaml_flg);CHKERRQ(ierr);
-    if (yaml_flg) {
-      ierr = PetscOptionsInsertFileYAML(PETSC_COMM_WORLD,yaml_file,PETSC_TRUE);CHKERRQ(ierr);
-    }
-    ierr = PetscOptionsGetString(NULL,NULL,"-options_string_yaml",yaml_string,sizeof(yaml_string),&yaml_flg);CHKERRQ(ierr);
-    if (yaml_flg) {
-      ierr = PetscOptionsInsertStringYAML(NULL,yaml_string);CHKERRQ(ierr);
-    }
-  }
-#endif
 
   /* insert command line options here because they take precedence over arguments in petscrc/environment */
-  if (hasArgs) {ierr = PetscOptionsInsertArgs(options,*argc,*args);CHKERRQ(ierr);}
+  if (hasArgs) {ierr = PetscOptionsInsertArgs(options,*argc-1,*args+1);CHKERRQ(ierr);}
   PetscFunctionReturn(0);
 }
 
@@ -970,13 +1020,14 @@ PetscErrorCode PetscOptionsPrefixPush(PetscOptions options,const char prefix[])
   PetscBool      valid;
 
   PetscFunctionBegin;
-  PetscValidCharPointer(prefix,1);
+  PetscValidCharPointer(prefix,2);
   options = options ? options : defaultoptions;
   if (options->prefixind >= MAXPREFIXES) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Maximum depth of prefix stack %d exceeded, recompile \n src/sys/objects/options.c with larger value for MAXPREFIXES",MAXPREFIXES);
   key[0] = '-'; /* keys must start with '-' */
   ierr = PetscStrncpy(key+1,prefix,sizeof(key)-1);CHKERRQ(ierr);
   ierr = PetscOptionsValidKey(key,&valid);CHKERRQ(ierr);
-  if (!valid) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_USER,"Given prefix \"%s\" not valid (the first character must be a letter, do not include leading '-')",prefix);
+  if (!valid && options->prefixind > 0 && isdigit((int)prefix[0])) valid = PETSC_TRUE; /* If the prefix stack is not empty, make numbers a valid prefix */
+  if (!valid) SETERRQ2(PETSC_COMM_SELF,PETSC_ERR_USER,"Given prefix \"%s\" not valid (the first character must be a letter%s, do not include leading '-')",prefix,options->prefixind?" or digit":"");
   start = options->prefixind ? options->prefixstack[options->prefixind-1] : 0;
   ierr = PetscStrlen(prefix,&n);CHKERRQ(ierr);
   if (n+1 > sizeof(options->prefix)-start) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Maximum prefix length %d exceeded",sizeof(options->prefix));
@@ -1156,7 +1207,7 @@ static PetscErrorCode PetscOptionsSetValue_Private(PetscOptions options,const ch
 
   if (name[0] != '-') return PETSC_ERR_ARG_OUTOFRANGE;
 
-  ierr = PetscOptionsSkipPrecedent(options,name,&flg);CHKERRQ(ierr);
+  ierr = PetscOptionsSkipPrecedent(options,name,&flg);if (ierr) return ierr;
   if (flg) return 0;
 
   name++; /* skip starting dash */
@@ -1221,6 +1272,13 @@ setvalue:
     options->values[n] = NULL;
   }
 
+  /* handle -help so that it can be set from anywhere */
+  if (!PetscOptNameCmp(name,"help")) {
+    options->help = PETSC_TRUE;
+    options->help_intro = (value && !PetscOptNameCmp(value,"intro")) ? PETSC_TRUE : PETSC_FALSE;
+    options->used[n] = PETSC_TRUE;
+  }
+
   if (PetscErrorHandlingInitialized) {
     ierr = PetscOptionsMonitor(options,name,value);CHKERRQ(ierr);
   }
@@ -1256,8 +1314,7 @@ PetscErrorCode PetscOptionsClearValue(PetscOptions options,const char name[])
   PetscFunctionBegin;
   options = options ? options : defaultoptions;
   if (name[0] != '-') SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Name must begin with '-': Instead %s",name);
-
-  if (!PetscOptNameCmp(name,"-help")) options->help = PETSC_FALSE;
+  if (!PetscOptNameCmp(name,"-help")) options->help = options->help_intro = PETSC_FALSE;
 
   name++; /* skip starting dash */
 
@@ -1573,8 +1630,8 @@ PetscErrorCode PetscOptionsHasHelpIntro_Internal(PetscOptions options,PetscBool 
 }
 
 /*@C
-   PetscOptionsHasName - Determines whether a certain option is given in the database. This returns true whether the option is a number, string or boolean, even
-                      its value is set to false.
+   PetscOptionsHasName - Determines whether a certain option is given in the database. This returns true whether the option is a number, string or Boolean, even
+                      if its value is set to false.
 
    Not Collective
 
@@ -1694,7 +1751,7 @@ PetscErrorCode PetscOptionsUsed(PetscOptions options,const char *name,PetscBool 
   options = options ? options : defaultoptions;
   *used = PETSC_FALSE;
   for (i=0; i<options->N; i++) {
-    ierr = PetscStrcmp(options->names[i],name,used);CHKERRQ(ierr);
+    ierr = PetscStrcasecmp(options->names[i],name,used);CHKERRQ(ierr);
     if (*used) {
       *used = options->used[i];
       break;
@@ -2199,7 +2256,7 @@ PetscErrorCode PetscOptionsGetBool(PetscOptions options,const char pre[],const c
 
   PetscFunctionBegin;
   PetscValidCharPointer(name,3);
-  if (ivalue) PetscValidIntPointer(ivalue,4);
+  if (ivalue) PetscValidBoolPointer(ivalue,4);
   ierr = PetscOptionsFindPair(options,pre,name,&value,&flag);CHKERRQ(ierr);
   if (flag) {
     if (set) *set = PETSC_TRUE;
@@ -2589,7 +2646,7 @@ char *PetscOptionsGetStringMatlab(PetscOptions options,const char pre[],const ch
 
    Output Parameter:
 +  dvalue - the integer values to return
-.  nmax - actual number of values retreived
+.  nmax - actual number of values retrieved
 -  set - PETSC_TRUE if found, else PETSC_FALSE
 
    Level: beginner
@@ -2616,7 +2673,7 @@ PetscErrorCode PetscOptionsGetBoolArray(PetscOptions options,const char pre[],co
 
   PetscFunctionBegin;
   PetscValidCharPointer(name,3);
-  PetscValidIntPointer(dvalue,4);
+  PetscValidBoolPointer(dvalue,4);
   PetscValidIntPointer(nmax,5);
 
   ierr = PetscOptionsFindPair(options,pre,name,&svalue,&flag);CHKERRQ(ierr);
@@ -2649,7 +2706,7 @@ PetscErrorCode PetscOptionsGetBoolArray(PetscOptions options,const char pre[],co
 
    Output Parameters:
 +  ivalue - the  enum values to return
-.  nmax - actual number of values retreived
+.  nmax - actual number of values retrieved
 -  set - PETSC_TRUE if found, else PETSC_FALSE
 
    Level: beginner
@@ -2714,7 +2771,7 @@ PetscErrorCode PetscOptionsGetEnumArray(PetscOptions options,const char pre[],co
 
    Output Parameter:
 +  ivalue - the integer values to return
-.  nmax - actual number of values retreived
+.  nmax - actual number of values retrieved
 -  set - PETSC_TRUE if found, else PETSC_FALSE
 
    Level: beginner
@@ -2816,7 +2873,7 @@ PetscErrorCode PetscOptionsGetIntArray(PetscOptions options,const char pre[],con
 
    Output Parameters:
 +  dvalue - the double values to return
-.  nmax - actual number of values retreived
+.  nmax - actual number of values retrieved
 -  set - PETSC_TRUE if found, else PETSC_FALSE
 
    Level: beginner
@@ -2872,7 +2929,7 @@ PetscErrorCode PetscOptionsGetRealArray(PetscOptions options,const char pre[],co
 
    Output Parameters:
 +  dvalue - the scalar values to return
-.  nmax - actual number of values retreived
+.  nmax - actual number of values retrieved
 -  set - PETSC_TRUE if found, else PETSC_FALSE
 
    Level: beginner
@@ -2895,7 +2952,7 @@ PetscErrorCode PetscOptionsGetScalarArray(PetscOptions options,const char pre[],
 
   PetscFunctionBegin;
   PetscValidCharPointer(name,3);
-  PetscValidRealPointer(dvalue,4);
+  PetscValidScalarPointer(dvalue,4);
   PetscValidIntPointer(nmax,5);
 
   ierr = PetscOptionsFindPair(options,pre,name,&svalue,&flag);CHKERRQ(ierr);

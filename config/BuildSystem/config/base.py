@@ -54,7 +54,7 @@ Output
   The object may define a headerPrefix member, which will be appended, followed
 by an underscore, to every define which is output from it. Similarly, a substPrefix
 can be defined which applies to every substitution from the object. Typedefs and
-function prototypes are placed in a separate header in order to accomodate languges
+function prototypes are placed in a separate header in order to accommodate languges
 such as Fortran whose preprocessor can sometimes fail at these statements.
 '''
 import script
@@ -177,8 +177,9 @@ class Configure(script.Script):
 
   def delDefine(self, name):
     '''Designate that "name" should be deleted (never put in)  configuration header'''
-    self.logPrint('Deleting "'+name+'"')
-    if name in self.defines: del self.defines[name]
+    if name in self.defines:
+      self.logPrint('Deleting "'+name+'"')
+      del self.defines[name]
     return
 
   def addTypedef(self, name, value):
@@ -531,9 +532,8 @@ class Configure(script.Script):
     command = self.getCompilerCmd()
     if self.compilerDefines: self.framework.outputHeader(self.compilerDefines)
     self.framework.outputCHeader(self.compilerFixes)
-    f = open(self.compilerSource, 'w')
-    f.write(self.getCode(includes, body, codeBegin, codeEnd))
-    f.close()
+    with open(self.compilerSource, 'w') as f:
+      f.write(self.getCode(includes, body, codeBegin, codeEnd))
     (out, err, ret) = Configure.executeShellCommand(command, checkCommand = report, log = self.log)
     if not os.path.isfile(self.compilerObj):
       err += '\nPETSc Error: No output file produced'
@@ -560,7 +560,7 @@ class Configure(script.Script):
       else:
         flagsArg = 'CXXFLAGS'
     elif language == 'HIP':
-      flagsArg = 'HIPCCFLAGS'
+      flagsArg = 'HIPFLAGS'
     elif language == 'SYCL':
       flagsArg = 'SYCLCXXFLAGS'
     elif language == 'FC':

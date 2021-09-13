@@ -18,7 +18,7 @@ static PetscErrorCode DMView_DA_3d(DM da,PetscViewer viewer)
 #endif
 
   PetscFunctionBegin;
-  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)da),&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)da),&rank);CHKERRMPI(ierr);
 
   ierr = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&iascii);CHKERRQ(ierr);
   ierr = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERDRAW,&isdraw);CHKERRQ(ierr);
@@ -36,11 +36,11 @@ static PetscErrorCode DMView_DA_3d(DM da,PetscViewer viewer)
       PetscInt      i,nmax = 0,nmin = PETSC_MAX_INT,navg = 0,*nz,nzlocal;
       DMDALocalInfo info;
       PetscMPIInt   size;
-      ierr = MPI_Comm_size(PetscObjectComm((PetscObject)da),&size);CHKERRQ(ierr);
+      ierr = MPI_Comm_size(PetscObjectComm((PetscObject)da),&size);CHKERRMPI(ierr);
       ierr = DMDAGetLocalInfo(da,&info);CHKERRQ(ierr);
       nzlocal = info.xm*info.ym*info.zm;
       ierr = PetscMalloc1(size,&nz);CHKERRQ(ierr);
-      ierr = MPI_Allgather(&nzlocal,1,MPIU_INT,nz,1,MPIU_INT,PetscObjectComm((PetscObject)da));CHKERRQ(ierr);
+      ierr = MPI_Allgather(&nzlocal,1,MPIU_INT,nz,1,MPIU_INT,PetscObjectComm((PetscObject)da));CHKERRMPI(ierr);
       for (i=0; i<(PetscInt)size; i++) {
         nmax = PetscMax(nmax,nz[i]);
         nmin = PetscMin(nmin,nz[i]);
@@ -228,7 +228,6 @@ PetscErrorCode  DMSetUp_DA_3D(DM da)
   PetscBool        twod;
   PetscErrorCode   ierr;
 
-
   PetscFunctionBegin;
   if (stencil_type == DMDA_STENCIL_BOX && (bx == DM_BOUNDARY_MIRROR || by == DM_BOUNDARY_MIRROR || bz == DM_BOUNDARY_MIRROR)) SETERRQ(PetscObjectComm((PetscObject)da),PETSC_ERR_SUP,"Mirror boundary and box stencil");
   ierr = PetscObjectGetComm((PetscObject) da, &comm);CHKERRQ(ierr);
@@ -236,8 +235,8 @@ PetscErrorCode  DMSetUp_DA_3D(DM da)
   if (((PetscInt64) M)*((PetscInt64) N)*((PetscInt64) P)*((PetscInt64) dof) > (PetscInt64) PETSC_MPI_INT_MAX) SETERRQ4(comm,PETSC_ERR_INT_OVERFLOW,"Mesh of %D by %D by %D by %D (dof) is too large for 32 bit indices",M,N,P,dof);
 #endif
 
-  ierr = MPI_Comm_size(comm,&size);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(comm,&size);CHKERRMPI(ierr);
+  ierr = MPI_Comm_rank(comm,&rank);CHKERRMPI(ierr);
 
   if (m != PETSC_DECIDE) {
     if (m < 1) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Non-positive number of processors in X direction: %D",m);
@@ -439,7 +438,7 @@ PetscErrorCode  DMSetUp_DA_3D(DM da)
   /* determine starting point of each processor */
   nn       = x*y*z;
   ierr     = PetscMalloc2(size+1,&bases,size,&ldims);CHKERRQ(ierr);
-  ierr     = MPI_Allgather(&nn,1,MPIU_INT,ldims,1,MPIU_INT,comm);CHKERRQ(ierr);
+  ierr     = MPI_Allgather(&nn,1,MPIU_INT,ldims,1,MPIU_INT,comm);CHKERRMPI(ierr);
   bases[0] = 0;
   for (i=1; i<=size; i++) bases[i] = ldims[i-1];
   for (i=1; i<=size; i++) bases[i] += bases[i-1];
@@ -475,7 +474,7 @@ PetscErrorCode  DMSetUp_DA_3D(DM da)
     bottom = ys - Ys; top = bottom + y;
     down   = zs - Zs;   up  = down + z;
     count  = 0;
-    /* the bottom chunck */
+    /* the bottom chunk */
     for (i=(IZs-Zs); i<down; i++) {
       for (j=bottom; j<top; j++) {
         for (k=left; k<right; k++) idx[count++] = (i*(Ye-Ys) + j)*(Xe-Xs) + k;
@@ -1370,7 +1369,6 @@ PetscErrorCode  DMSetUp_DA_3D(DM da)
   dd->ao        = NULL;
   PetscFunctionReturn(0);
 }
-
 
 /*@C
    DMDACreate3d - Creates an object that will manage the communication of three-dimensional

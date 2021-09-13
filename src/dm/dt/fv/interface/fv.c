@@ -1,5 +1,6 @@
 #include <petsc/private/petscfvimpl.h> /*I "petscfv.h" I*/
 #include <petscdmplex.h>
+#include <petscdmplextransform.h>
 #include <petscds.h>
 
 PetscClassId PETSCLIMITER_CLASSID = 0;
@@ -1631,7 +1632,7 @@ PetscErrorCode PetscFVSetDualSpace(PetscFV fvm, PetscDualSpace sp)
 . fvm - The PetscFV object
 
   Output Parameter:
-. T - The basis function values and derviatives at quadrature points
+. T - The basis function values and derivatives at quadrature points
 
   Note:
 $ T->T[0] = B[(p*pdim + i)*Nc + c] is the value at point p for basis function i and component c
@@ -1670,7 +1671,7 @@ PetscErrorCode PetscFVGetCellTabulation(PetscFV fvm, PetscTabulation *T)
 - K       - The order of derivative to tabulate
 
   Output Parameter:
-. T - The basis function values and derviative at tabulation points
+. T - The basis function values and derivative at tabulation points
 
   Note:
 $ T->T[0] = B[(p*pdim + i)*Nc + c] is the value at point p for basis function i and component c
@@ -1793,7 +1794,7 @@ PetscErrorCode PetscFVRefine(PetscFV fv, PetscFV *fvRef)
   DM                K, Kref;
   PetscQuadrature   q, qref;
   DMPolytopeType    ct;
-  DMPlexCellRefiner cr;
+  DMPlexTransform   tr;
   PetscReal        *v0;
   PetscReal        *jac, *invjac;
   PetscInt          numComp, numSubelements, s;
@@ -1817,8 +1818,9 @@ PetscErrorCode PetscFVRefine(PetscFV fv, PetscFV *fvRef)
   ierr = PetscFVSetUp(*fvRef);CHKERRQ(ierr);
   /* Create quadrature */
   ierr = DMPlexGetCellType(K, 0, &ct);CHKERRQ(ierr);
-  ierr = DMPlexCellRefinerCreate(K, &cr);CHKERRQ(ierr);
-  ierr = DMPlexCellRefinerGetAffineTransforms(cr, ct, &numSubelements, &v0, &jac, &invjac);CHKERRQ(ierr);
+  ierr = DMPlexTransformCreate(PETSC_COMM_SELF, &tr);CHKERRQ(ierr);
+  ierr = DMPlexTransformSetType(tr, DMPLEXREFINEREGULAR);CHKERRQ(ierr);
+  ierr = DMPlexRefineRegularGetAffineTransforms(tr, ct, &numSubelements, &v0, &jac, &invjac);CHKERRQ(ierr);
   ierr = PetscQuadratureExpandComposite(q, numSubelements, v0, jac, &qref);CHKERRQ(ierr);
   ierr = PetscDualSpaceSimpleSetDimension(Qref, numSubelements);CHKERRQ(ierr);
   for (s = 0; s < numSubelements; ++s) {
@@ -1839,7 +1841,7 @@ PetscErrorCode PetscFVRefine(PetscFV fv, PetscFV *fvRef)
     ierr = PetscQuadratureDestroy(&qs);CHKERRQ(ierr);
   }
   ierr = PetscFVSetQuadrature(*fvRef, qref);CHKERRQ(ierr);
-  ierr = DMPlexCellRefinerDestroy(&cr);CHKERRQ(ierr);
+  ierr = DMPlexTransformDestroy(&tr);CHKERRQ(ierr);
   ierr = PetscQuadratureDestroy(&qref);CHKERRQ(ierr);
   ierr = PetscDualSpaceDestroy(&Qref);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -2030,7 +2032,7 @@ static PetscErrorCode PetscFVLeastSquaresPseudoInverse_Static(PetscInt m,PetscIn
   ierr = PetscBLASIntCast(mstride,&lda);CHKERRQ(ierr);
   ierr = PetscBLASIntCast(worksize,&ldwork);CHKERRQ(ierr);
   ierr = PetscFPTrapPush(PETSC_FP_TRAP_OFF);CHKERRQ(ierr);
-  LAPACKgeqrf_(&M,&N,A,&lda,tau,work,&ldwork,&info);
+  PetscStackCallBLAS("LAPACKgeqrf",LAPACKgeqrf_(&M,&N,A,&lda,tau,work,&ldwork,&info));
   ierr = PetscFPTrapPop();CHKERRQ(ierr);
   if (info) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_LIB,"xGEQRF error");
   R = A; /* Upper triangular part of A now contains R, the rest contains the elementary reflectors */
@@ -2101,12 +2103,12 @@ static PetscErrorCode PetscFVLeastSquaresPseudoInverseSVD_Static(PetscInt m,Pets
 #if defined(PETSC_USE_COMPLEX)
   rworkSize = 5 * PetscMin(M,N);
   ierr  = PetscMalloc1(rworkSize,&rwork);CHKERRQ(ierr);
-  LAPACKgelss_(&M,&N,&nrhs,A,&lda,Brhs,&ldb, (PetscReal *) tau,&rcond,&irank,tmpwork,&ldwork,rwork,&info);
+  PetscStackCallBLAS("LAPACKgelss",LAPACKgelss_(&M,&N,&nrhs,A,&lda,Brhs,&ldb, (PetscReal *) tau,&rcond,&irank,tmpwork,&ldwork,rwork,&info));
   ierr = PetscFPTrapPop();CHKERRQ(ierr);
   ierr = PetscFree(rwork);CHKERRQ(ierr);
 #else
   nrhs  = M;
-  LAPACKgelss_(&M,&N,&nrhs,A,&lda,Brhs,&ldb, (PetscReal *) tau,&rcond,&irank,tmpwork,&ldwork,&info);
+  PetscStackCallBLAS("LAPACKgelss",LAPACKgelss_(&M,&N,&nrhs,A,&lda,Brhs,&ldb, (PetscReal *) tau,&rcond,&irank,tmpwork,&ldwork,&info));
   ierr = PetscFPTrapPop();CHKERRQ(ierr);
 #endif
   if (info) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_LIB,"xGELSS error");

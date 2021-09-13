@@ -4,7 +4,6 @@ static char help[] = "Test VecCreate{Seq|MPI}ViennaCLWithArrays.\n\n";
 #include "petsc.h"
 #include "petscviennacl.h"
 
-
 int main(int argc,char **argv)
 {
   PetscErrorCode ierr;
@@ -14,7 +13,7 @@ int main(int argc,char **argv)
   PetscScalar    xHost[5] = {0.,1.,2.,3.,4.};
 
   ierr = PetscInitialize(&argc, &argv, (char*)0, help); if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
 
   if (size == 1) {
     ierr = VecCreateSeqViennaCLWithArrays(PETSC_COMM_WORLD,1,n,xHost,NULL,&x);CHKERRQ(ierr);
@@ -45,7 +44,7 @@ int main(int argc,char **argv)
 /*TEST
 
    build:
-      requires: viennacl define(PETSC_HAVE_VIENNACL_NO_CUDA)
+      requires: viennacl defined(PETSC_HAVE_VIENNACL_NO_CUDA)
 
    test:
       nsize: 1

@@ -62,7 +62,7 @@ static PetscErrorCode PCSetCoordinates_HARA(PC pc, PetscInt sdim, PetscInt nlocc
     ierr  = PetscArraycmp(pchara->coords,coords,sdim*nlocc,&reset);CHKERRQ(ierr);
     reset = (PetscBool)!reset;
   }
-  ierr = MPIU_Allreduce(MPI_IN_PLACE,&reset,1,MPIU_BOOL,MPI_LOR,PetscObjectComm((PetscObject)pc));CHKERRQ(ierr);
+  ierr = MPIU_Allreduce(MPI_IN_PLACE,&reset,1,MPIU_BOOL,MPI_LOR,PetscObjectComm((PetscObject)pc));CHKERRMPI(ierr);
   if (reset) {
     ierr = PCReset_HARA(pc);CHKERRQ(ierr);
     ierr = PetscMalloc1(sdim*nlocc,&pchara->coords);CHKERRQ(ierr);
@@ -349,7 +349,7 @@ static PetscErrorCode MatMatMultNumeric_Hyper(Mat M, Mat X, Mat Y,void *ctx)
   PetscFunctionReturn(0);
 }
 
-/* Basic Newton-Schultz sampler: (2 * I - M * A ) * M */
+/* Basic Newton-Schultz sampler: (2 * I - M * A) * M */
 static PetscErrorCode MatMultKernel_NS(Mat M, Vec x, Vec y, PetscBool t)
 {
   PC             pc;
@@ -394,7 +394,7 @@ static PetscErrorCode MatMultTranspose_NS(Mat M, Vec x, Vec y)
   PetscFunctionReturn(0);
 }
 
-/* (2 * I - M * A ) * M, MatMat version */
+/* (2 * I - M * A) * M, MatMat version */
 static PetscErrorCode MatMatMultKernel_NS(Mat M, Mat X, Mat Y, PetscBool t)
 {
   PC             pc;

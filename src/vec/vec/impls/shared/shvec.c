@@ -35,7 +35,6 @@ PetscErrorCode VecDuplicate_Shared(Vec win,Vec *v)
   PetscFunctionReturn(0);
 }
 
-
 PETSC_EXTERN PetscErrorCode VecCreate_Shared(Vec vv)
 {
   PetscErrorCode ierr;
@@ -72,7 +71,6 @@ PETSC_EXTERN PetscErrorCode VecCreate_Shared(Vec vv)
 #endif
 #include <sys/shm.h>
 #include <sys/mman.h>
-
 
 static PetscMPIInt Petsc_ShmComm_keyval = MPI_KEYVAL_INVALID;
 
@@ -119,10 +117,10 @@ PetscErrorCode PetscSharedMalloc(MPI_Comm comm,PetscInt llen,PetscInt len,void *
   PetscFunctionBegin;
   *result = 0;
 
-  ierr   = MPI_Scan(&llen,&shift,1,MPI_INT,MPI_SUM,comm);CHKERRQ(ierr);
+  ierr   = MPI_Scan(&llen,&shift,1,MPI_INT,MPI_SUM,comm);CHKERRMPI(ierr);
   shift -= llen;
 
-  ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(comm,&rank);CHKERRMPI(ierr);
   if (!rank) {
     id = shmget(key,len, 0666 |IPC_CREAT);
     if (id == -1) {
@@ -153,7 +151,7 @@ PETSC_EXTERN PetscErrorCode VecCreate_Shared(Vec vv)
   PetscMPIInt    size;
 
   PetscFunctionBegin;
-  ierr = MPI_Comm_size(PetscObjectComm((PetscObject)vv),&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PetscObjectComm((PetscObject)vv),&size);CHKERRMPI(ierr);
   if (size > 1) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SUP_SYS,"No supported for shared memory vector objects on this machine");
   ierr = VecCreate_Seq(vv);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -197,8 +195,4 @@ PetscErrorCode  VecCreateShared(MPI_Comm comm,PetscInt n,PetscInt N,Vec *v)
   ierr = VecSetType(*v,VECSHARED);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
-
-
-
-
 

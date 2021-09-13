@@ -316,7 +316,7 @@ PetscErrorCode PetscStrNArrayDestroy(PetscInt n,char ***list)
 
   PetscFunctionBegin;
   if (!*list) PetscFunctionReturn(0);
-  for (i=0; i<n; i++){
+  for (i=0; i<n; i++) {
     ierr = PetscFree((*list)[i]);CHKERRQ(ierr);
   }
   ierr = PetscFree(*list);CHKERRQ(ierr);
@@ -601,8 +601,6 @@ PetscErrorCode  PetscStrcasecmp(const char a[],const char b[],PetscBool  *t)
   PetscFunctionReturn(0);
 }
 
-
-
 /*@C
    PetscStrncmp - Compares two strings, up to a certain length
 
@@ -636,7 +634,7 @@ PetscErrorCode  PetscStrncmp(const char a[],const char b[],size_t n,PetscBool  *
 }
 
 /*@C
-   PetscStrchr - Locates first occurance of a character in a string
+   PetscStrchr - Locates first occurrence of a character in a string
 
    Not Collective
 
@@ -645,7 +643,7 @@ PetscErrorCode  PetscStrncmp(const char a[],const char b[],size_t n,PetscBool  *
 -  b - character
 
    Output Parameter:
-.  c - location of occurance, NULL if not found
+.  c - location of occurrence, NULL if not found
 
    Level: intermediate
 
@@ -661,7 +659,7 @@ PetscErrorCode  PetscStrchr(const char a[],char b,char *c[])
 }
 
 /*@C
-   PetscStrrchr - Locates one location past the last occurance of a character in a string,
+   PetscStrrchr - Locates one location past the last occurrence of a character in a string,
       if the character is not found then returns entire string
 
    Not Collective
@@ -671,7 +669,7 @@ PetscErrorCode  PetscStrchr(const char a[],char b,char *c[])
 -  b - character
 
    Output Parameter:
-.  tmp - location of occurance, a if not found
+.  tmp - location of occurrence, a if not found
 
    Level: intermediate
 
@@ -804,7 +802,6 @@ PetscErrorCode  PetscStrbeginswith(const char a[],const char b[],PetscBool *flg)
   PetscFunctionReturn(0);
 }
 
-
 /*@C
    PetscStrendswithwhich - Determines if a string ends with one of several possible strings
 
@@ -839,7 +836,7 @@ PetscErrorCode  PetscStrendswithwhich(const char a[],const char *const *bs,Petsc
 }
 
 /*@C
-   PetscStrrstr - Locates last occurance of string in another string
+   PetscStrrstr - Locates last occurrence of string in another string
 
    Not Collective
 
@@ -848,7 +845,7 @@ PetscErrorCode  PetscStrendswithwhich(const char a[],const char *const *bs,Petsc
 -  b - string to find
 
    Output Parameter:
-.  tmp - location of occurance
+.  tmp - location of occurrence
 
    Notes:
     Not for use in Fortran
@@ -870,7 +867,7 @@ PetscErrorCode  PetscStrrstr(const char a[],const char b[],char *tmp[])
 }
 
 /*@C
-   PetscStrstr - Locates first occurance of string in another string
+   PetscStrstr - Locates first occurrence of string in another string
 
    Not Collective
 
@@ -879,7 +876,7 @@ PetscErrorCode  PetscStrrstr(const char a[],const char b[],char *tmp[])
 -  needle - string to find
 
    Output Parameter:
-.  tmp - location of occurance, is a NULL if the string is not found
+.  tmp - location of occurrence, is a NULL if the string is not found
 
    Notes:
     Not for use in Fortran
@@ -905,7 +902,7 @@ struct _p_PetscToken {char token;char *array;char *current;};
 .  a - pointer to token
 
    Output Parameter:
-.  result - location of occurance, NULL if not found
+.  result - location of occurrence, NULL if not found
 
    Notes:
 
@@ -923,7 +920,6 @@ struct _p_PetscToken {char token;char *array;char *current;};
     Not for use in Fortran
 
    Level: intermediate
-
 
 .seealso: PetscTokenCreate(), PetscTokenDestroy()
 @*/

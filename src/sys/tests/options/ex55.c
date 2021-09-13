@@ -44,7 +44,7 @@ int main(int argc,char **argv)
 
    testset:
       localrunfiles: ex55options .petscrc petscrc
-      filter: egrep -v -e "(malloc|nox|display|saws_port|vecscatter|options_left|check_pointer_intensity|cuda_initialize|error_output_stdout|use_gpu_aware_mpi)"
+      filter: egrep -v -e "(malloc|nox|display|saws_port|vecscatter|options_left|check_pointer_intensity|cuda_initialize|error_output_stdout|use_gpu_aware_mpi|checkstack)"
       args: -options_left 0 -options_view -options_monitor_viewer ascii
       args: -skip_petscrc {{0 1}separate output} -options_monitor_cancel {{0 1}separate output}
       test:
@@ -59,12 +59,13 @@ int main(int argc,char **argv)
       # test effect of -skip_petscrc in ex55options file
       suffix: 4
       localrunfiles: ex55options .petscrc petscrc
-      filter: egrep -v -e "(malloc|nox|display|saws_port|vecscatter|options_left|check_pointer_intensity|cuda_initialize|error_output_stdout|use_gpu_aware_mpi)"
+      filter: egrep -v -e "(malloc|nox|display|saws_port|vecscatter|options_left|check_pointer_intensity|cuda_initialize|error_output_stdout|use_gpu_aware_mpi|checkstack)"
       args: -options_left 0 -options_view -options_monitor
    testset:
+      # test -help / -help intro / -version from command line
       localrunfiles: ex55options .petscrc petscrc
       filter: egrep -e "(version|help|^See)"
-      args: -options_left 0 -options_view -options_monitor
+      args: -options_left -options_view -options_monitor
       test:
         suffix: 5a
         args: -help
@@ -74,5 +75,20 @@ int main(int argc,char **argv)
       test:
         suffix: 5c
         args: -version
+   testset:
+      # test -help / -help intro / -version from file
+      localrunfiles: ex55options rc_help rc_help_intro rc_version
+      filter: egrep -e "(version|help|^See)"
+      args: -skip_petscrc
+      args: -options_left -options_view -options_monitor
+      test:
+        suffix: 6a
+        args: -options_file rc_help
+      test:
+        suffix: 6b
+        args: -options_file rc_help_intro
+      test:
+        suffix: 6c
+        args: -options_file rc_version
 
 TEST*/

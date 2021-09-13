@@ -91,7 +91,6 @@ int main(int argc,char **argv)
   ierr = TSSetProblemType(ts,TS_NONLINEAR);CHKERRQ(ierr);
   ierr = TSSetIFunction(ts,NULL,IFunction,&appctx);CHKERRQ(ierr);
 
-
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Set initial conditions
    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
@@ -244,8 +243,8 @@ PetscErrorCode InitialConditions(DM da,Vec U)
   */
   for (i=xs; i<xs+xm; i++) {
     x = i*hx;
-    if (x < 1.0) u[i].rho = 0.0;
-    else         u[i].rho = 1.0;
+    if (i < Mx-1) u[i].rho = 0.0;
+    else          u[i].rho = 1.0;
     u[i].c = PetscCosReal(.5*PETSC_PI*x);
   }
 
@@ -255,9 +254,6 @@ PetscErrorCode InitialConditions(DM da,Vec U)
   ierr = DMDAVecRestoreArrayWrite(da,U,&u);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
-
-
-
 
 /*TEST
 

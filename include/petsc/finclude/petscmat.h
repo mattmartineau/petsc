@@ -81,6 +81,9 @@
 #define MATMAIJ            'maij'
 #define MATSEQMAIJ         'seqmaij'
 #define MATMPIMAIJ         'mpimaij'
+#define MATKAIJ            'kaij'
+#define MATSEQKAIJ         'seqkaij'
+#define MATMPIKAIJ         'mpikaij'
 #define MATIS              'is'
 #define MATAIJ             'aij'
 #define MATSEQAIJ          'seqaij'
@@ -91,6 +94,9 @@
 #define MATAIJCUSPARSE     'aijcusparse'
 #define MATSEQAIJCUSPARSE  'seqaijcusparse'
 #define MATMPIAIJCUSPARSE  'mpiaijcusparse'
+#define MATAIJKOKKOS       'aijkokkos'
+#define MATSEQAIJKOKKOS    'seqaijkokkos'
+#define MATMPIAIJKOKKOS    'mpiaijkokkos'
 #define MATAIJVIENNACL     'aijviennacl'
 #define MATSEQAIJVIENNACL  'seqaijviennacl'
 #define MATMPIAIJVIENNACL  'mpiaijviennacl'
@@ -107,10 +113,13 @@
 #define MATSEQBAIJMKL      'seqbaijmkl'
 #define MATMPIBAIJMKL      'mpibaijmkl'
 #define MATSHELL           'shell'
+#define MATCENTERING       'centering'
 #define MATDENSE           'dense'
+#define MATDENSECUDA       'densecuda'
 #define MATSEQDENSE        'seqdense'
 #define MATSEQDENSECUDA    'seqdensecuda'
 #define MATMPIDENSE        'mpidense'
+#define MATMPIDENSECUDA    'mpidensecuda'
 #define MATELEMENTAL       'elemental'
 #define MATSCALAPACK       'scalapack'
 #define MATBAIJ            'baij'
@@ -133,6 +142,7 @@
 #define MATTRANSPOSEMAT    'transpose'
 #define MATSCHURCOMPLEMENT 'schurcomplement'
 #define MATPYTHON          'python'
+#define MATHYPRE           'hypre'
 #define MATHYPRESTRUCT     'hyprestruct'
 #define MATHYPRESSTRUCT    'hypresstruct'
 #define MATSUBMATRIX       'submatrix'
@@ -152,7 +162,9 @@
 #define MATLMVMSYMBROYDEN  'lmvmsymbroyden'
 #define MATLMVMSYMBADBROYDEN 'lmvmsymbadbroyden'
 #define MATLMVMDIAGBROYDEN 'lmvmdiagbroyden'
+#define MATCONSTANTDIAGONAL 'constantdiagonal'
 #define MATHARA            'hara'
+#define MATHTOOL           'htool'
 
 !
 ! MatMFFDType values
@@ -182,7 +194,11 @@
 #define MATSOLVERPETSC           'petsc'
 #define MATSOLVERBAS             'bas'
 #define MATSOLVERCUSPARSE        'cusparse'
+#define MATSOLVERCUSPARSEBAND    'cusparseband'
 #define MATSOLVERCUDA            'cuda'
+#define MATSOLVERKOKKOS          'kokkos'
+#define MATSOLVERKOKKOSDEVICE    'kokkosdevice'
+#define MATSOLVERSPQR            'spqr'
 
 !
 ! GPU Storage Formats for CUSPARSE

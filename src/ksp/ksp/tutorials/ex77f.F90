@@ -43,9 +43,9 @@
       call KSPSetFromOptions(ksp,ierr);CHKERRA(ierr)
       call KSPSetUp(ksp,ierr);CHKERRA(ierr)
       call KSPMatSolve(ksp,B,X,ierr);CHKERRA(ierr)
-      call KSPGetMatSolveBlockSize(ksp,M,ierr);CHKERRA(ierr)
+      call KSPGetMatSolveBatchSize(ksp,M,ierr);CHKERRA(ierr)
       if (M .ne. PETSC_DECIDE) then
-        call KSPSetMatSolveBlockSize(ksp,PETSC_DECIDE,ierr);CHKERRA(ierr)
+        call KSPSetMatSolveBatchSize(ksp,PETSC_DECIDE,ierr);CHKERRA(ierr)
         call MatZeroEntries(X,ierr);CHKERRA(ierr)
         call KSPMatSolve(ksp,B,X,ierr);CHKERRA(ierr)
       endif
@@ -72,7 +72,7 @@
 !
 !   testset:
 !      nsize: 2
-!      requires: datafilespath double !complex !define(PETSC_USE_64BIT_INDICES)
+!      requires: datafilespath double !complex !defined(PETSC_USE_64BIT_INDICES)
 !      args: -ksp_converged_reason -ksp_max_it 1000 -f ${DATAFILESPATH}/matrices/hpddm/GCRODR/A_400.dat
 !      test:
 !         suffix: 1
@@ -103,19 +103,19 @@
 !         suffix: 4
 !         requires: hpddm
 !         output_file: output/ex77_4.out
-!         args: -ksp_rtol 1e-4 -ksp_type hpddm -ksp_hpddm_recycle 5 -ksp_hpddm_type bgcrodr -ksp_view_final_residual -N 12 -ksp_matsolve_block_size 5
+!         args: -ksp_rtol 1e-4 -ksp_type hpddm -ksp_hpddm_recycle 5 -ksp_hpddm_type bgcrodr -ksp_view_final_residual -N 12 -ksp_matsolve_batch_size 5
 !   test:
 !      nsize: 1
 !      suffix: preonly
-!      requires: hpddm datafilespath double !complex !define(PETSC_USE_64BIT_INDICES)
+!      requires: hpddm datafilespath double !complex !defined(PETSC_USE_64BIT_INDICES)
 !      output_file: output/ex77_preonly.out
 !      args: -N 6 -f ${DATAFILESPATH}/matrices/hpddm/GCRODR/A_400.dat -pc_type lu -ksp_type hpddm -ksp_hpddm_type preonly
 !   test:
 !      nsize: 4
 !      suffix: 4_slepc
-!      requires: hpddm datafilespath double !complex !define(PETSC_USE_64BIT_INDICES) slepc
+!      requires: hpddm datafilespath double !complex !defined(PETSC_USE_64BIT_INDICES) slepc defined(PETSC_HAVE_DYNAMIC_LIBRARIES) defined(PETSC_USE_SHARED_LIBRARIES)
 !      output_file: output/ex77_4.out
 !      filter: sed "/^ksp_hpddm_recycle_ Linear eigensolve converged/d"
-!      args: -ksp_converged_reason -ksp_max_it 500 -f ${DATAFILESPATH}/matrices/hpddm/GCRODR/A_400.dat -ksp_rtol 1e-4 -ksp_type hpddm -ksp_hpddm_recycle 5 -ksp_hpddm_type bgcrodr -ksp_view_final_residual -N 12 -ksp_matsolve_block_size 5 -ksp_hpddm_recycle_redistribute 2 -ksp_hpddm_recycle_mat_type dense -ksp_hpddm_recycle_eps_converged_reason -ksp_hpddm_recycle_st_pc_type redundant
+!      args: -ksp_converged_reason -ksp_max_it 500 -f ${DATAFILESPATH}/matrices/hpddm/GCRODR/A_400.dat -ksp_rtol 1e-4 -ksp_type hpddm -ksp_hpddm_recycle 5 -ksp_hpddm_type bgcrodr -ksp_view_final_residual -N 12 -ksp_matsolve_batch_size 5 -ksp_hpddm_recycle_redistribute 2 -ksp_hpddm_recycle_mat_type dense -ksp_hpddm_recycle_eps_converged_reason -ksp_hpddm_recycle_st_pc_type redundant
 !
 !TEST*/

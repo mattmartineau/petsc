@@ -53,7 +53,6 @@ PetscErrorCode PCDeflationSetInitOnly(PC pc,PetscBool flg)
   PetscFunctionReturn(0);
 }
 
-
 static PetscErrorCode PCDeflationSetLevels_Deflation(PC pc,PetscInt current,PetscInt max)
 {
   PC_Deflation   *def = (PC_Deflation*)pc->data;
@@ -413,7 +412,7 @@ PetscErrorCode PCDeflationGetPC(PC pc,PC *apc)
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(pc,PC_CLASSID,1);
-  PetscValidPointer(pc,2);
+  PetscValidPointer(pc,1);
   ierr = PetscTryMethod(pc,"PCDeflationGetPC_C",(PC,PC*),(pc,apc));CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -671,7 +670,7 @@ static PetscErrorCode PCSetUp_Deflation(PC pc)
       /* Reduction factor choice */
       red = def->reductionfact;
       if (red < 0) {
-        ierr = MPI_Comm_size(comm,&commsize);CHKERRQ(ierr);
+        ierr = MPI_Comm_size(comm,&commsize);CHKERRMPI(ierr);
         red  = ceil((float)commsize/ceil((float)m/commsize));
         ierr = PetscObjectTypeCompareAny((PetscObject)(def->WtAW),&match,MATSEQDENSE,MATMPIDENSE,MATDENSE,"");CHKERRQ(ierr);
         if (match) red = commsize;

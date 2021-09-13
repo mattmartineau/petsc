@@ -8,7 +8,7 @@ class CompilerOptions(config.base.Configure):
     import config.setCompilers
 
     if language == 'C':
-      if compiler.endswith('mpicc') or compiler.endswith('mpiicc') :
+      if [s for s in ['mpicc','mpiicc'] if os.path.basename(compiler).find(s)>=0]:
         try:
           output   = self.executeShellCommand(compiler + ' -show', log = self.log)[0]
           self.framework.addMakeMacro('MPICC_SHOW',output.strip().replace('\n','\\\\n'))
@@ -22,6 +22,8 @@ class CompilerOptions(config.base.Configure):
     if config.setCompilers.Configure.isGNU(compiler, self.log) or config.setCompilers.Configure.isClang(compiler, self.log):
       if bopt == '':
         flags.extend(['-Wall', '-Wwrite-strings', '-Wno-strict-aliasing','-Wno-unknown-pragmas'])
+        if config.setCompilers.Configure.isGcc110plus(compiler, self.log):
+          flags.extend(['-Wno-misleading-indentation','-Wno-stringop-overflow'])
         # skip -fstack-protector for brew gcc - as this gives SEGV
         if not (config.setCompilers.Configure.isDarwin(self.log) and config.setCompilers.Configure.isGNU(compiler, self.log)):
           flags.extend(['-fstack-protector'])
@@ -36,9 +38,9 @@ class CompilerOptions(config.base.Configure):
         if not nargs.ArgBool('with-errorchecking', arg if arg is not None else '1', isTemporary=True).getValue():
           flags.extend(['-Wno-unused-but-set-variable'])
       elif bopt == 'g':
-        flags.append('-g3')
+        flags.extend(['-g3','-O0'])
       elif bopt == 'gcov':
-        flags.extend(['--coverage','-Og']) # --coverage is equal to -fprofile-arcs -ftest-coverage. Use -Og to have accurate coverage result and fine performance
+        flags.extend(['--coverage','-Og']) # --coverage is equal to -fprofile-arcs -ftest-coverage. Use -Og to have accurate coverage results and good performance
       elif bopt == 'O':
         flags.append('-g')
         if config.setCompilers.Configure.isClang(compiler, self.log):
@@ -53,19 +55,20 @@ class CompilerOptions(config.base.Configure):
           # next one fails in OpenMP build and we don't use it anyway so remove
           # flags.append('-Qoption,cpp,--extended_float_type')
         elif bopt == 'g':
-          flags.append('-g')
+          flags.extend(['-g','-O0'])
         elif bopt == 'O':
           flags.append('-g')
           flags.append('-O3')
       # Windows Intel
       elif compiler.find('win32fe icl') >= 0:
         if bopt == '':
+          flags.extend(['-Qstd=c99'])
           if self.argDB['with-shared-libraries']:
             flags.extend(['-MD'])
           else:
             flags.extend(['-MT'])
         elif bopt == 'g':
-          flags.extend(['-Z7'])
+          flags.extend(['-Z7','-Od'])
         elif bopt == 'O':
           flags.extend(['-O3', '-QxW'])
       # Windows Microsoft
@@ -77,17 +80,28 @@ class CompilerOptions(config.base.Configure):
           else:
             flags.extend(['-MT','-wd4996'])
         elif bopt == 'g':
-          flags.extend(['-Z7'])
+          flags.extend(['-Z7','-Od'])
         elif bopt == 'O':
           flags.extend(['-O2', '-QxW'])
       # Windows Borland
       elif compiler.find('win32fe bcc32') >= 0:
         if bopt == '':
           flags.append('-RT -w-8019 -w-8060 -w-8057 -w-8004 -w-8066')
+      if config.setCompilers.Configure.isNVCC(compiler, self.log):
+        if bopt == 'g':
+          # nvcc --help says:
+          #  -g : Generate debug information for host code.
+          #  -G : Generate debug information for device code. Turns off all optimizations. Don't use for profiling; use -lineinfo instead.
+          #  -lineinfo: Generate line-number information for device code.
+          # We use '-g -lineinfo' to generate debug info for both host and device code in *.cu files.
+          # If users want to turn off all optimizations, they can use --CUDAOPTFLAGS="-G".
+          flags.extend(['-g', '-lineinfo'])
+        elif bopt == 'O':
+          flags.append('-O3')
     # Generic
     if not len(flags):
       if bopt == 'g':
-        flags.append('-g')
+        flags.extend(['-g','-O0'])
       elif bopt == 'O':
         flags.append('-O')
     if bopt == 'O':
@@ -97,7 +111,7 @@ class CompilerOptions(config.base.Configure):
   def getCxxFlags(self, compiler, bopt):
     import config.setCompilers
 
-    if compiler.endswith('mpiCC') or compiler.endswith('mpicxx') or compiler.endswith('mpiicxx') or compiler.endswith('mpiicpc'):
+    if [s for s in ['mpiCC','mpic++','mpicxx','mpiicxx','mpiicpc'] if os.path.basename(compiler).find(s)>=0]:
       try:
         output   = self.executeShellCommand(compiler+' -show', log = self.log)[0]
         self.framework.addMakeMacro('MPICXX_SHOW',output.strip().replace('\n','\\\\n'))
@@ -111,8 +125,12 @@ class CompilerOptions(config.base.Configure):
     if config.setCompilers.Configure.isGNU(compiler, self.log) or config.setCompilers.Configure.isClang(compiler, self.log):
       if bopt == '':
         flags.extend(['-Wall', '-Wwrite-strings', '-Wno-strict-aliasing','-Wno-unknown-pragmas'])
-        # skip -fstack-protector for brew gcc - as this gives SEGV
-        if not (config.setCompilers.Configure.isDarwin(self.log) and config.setCompilers.Configure.isGNU(compiler, self.log)):
+        if not any([
+            # skip -fstack-protector for brew gcc - as this gives SEGV
+            config.setCompilers.Configure.isDarwin(self.log) and config.setCompilers.Configure.isGNU(compiler, self.log),
+            # hipcc for ROCm-4.0 crashes on some source files with -fstack-protector
+            config.setCompilers.Configure.isHIP(compiler, self.log),
+        ]):
           flags.extend(['-fstack-protector'])
         if config.setCompilers.Configure.isDarwinCatalina(self.log) and config.setCompilers.Configure.isClang(compiler, self.log):
           flags.extend(['-fno-stack-check'])
@@ -125,7 +143,7 @@ class CompilerOptions(config.base.Configure):
           flags.extend(['-Wno-unused-but-set-variable'])
       elif bopt in ['g']:
         # -g3 causes an as SEGV on OSX
-        flags.append('-g')
+        flags.extend(['-g','-O0'])
       elif bopt == 'gcov':
         flags.extend(['--coverage','-Og'])
       elif bopt in ['O']:
@@ -140,7 +158,7 @@ class CompilerOptions(config.base.Configure):
       if bopt == '':
         flags.append('-qrtti=dyna')  # support dynamic casts in C++
       elif bopt in ['g']:
-        flags.append('-g')
+        flags.extend(['-g','-O0'])
       elif bopt in ['O']:
         flags.append('-O')
     else:
@@ -149,7 +167,7 @@ class CompilerOptions(config.base.Configure):
         if bopt == '':
           flags.append('-wd1572')
         elif bopt == 'g':
-          flags.append('-g')
+          flags.extend(['-g','-O0'])
         elif bopt == 'O':
           flags.append('-g')
           flags.append('-O3')
@@ -161,7 +179,7 @@ class CompilerOptions(config.base.Configure):
           else:
             flags.extend(['-MT','-GR','-EHsc']) # removing GX in favor of EHsc
         elif bopt in ['g']:
-          flags.extend(['-Z7'])
+          flags.extend(['-Z7','-Od'])
         elif bopt in ['O']:
           flags.extend(['-O3', '-QxW'])
       # Windows Microsoft
@@ -172,7 +190,7 @@ class CompilerOptions(config.base.Configure):
           else:
             flags.extend(['-MT','-GR','-EHsc']) # removing GX in favor of EHsc
         elif bopt == 'g':
-          flags.extend(['-Z7','-Zm200'])
+          flags.extend(['-Z7','-Zm200','-Od'])
         elif bopt == 'O':
           flags.extend(['-O2','-QxW','-Zm200'])
       # Windows Borland
@@ -182,7 +200,7 @@ class CompilerOptions(config.base.Configure):
     # Generic
     if not len(flags):
       if bopt in ['g']:
-        flags.append('-g')
+        flags.extend(['-g','-O0'])
       elif bopt in ['O']:
         flags.append('-O')
     if bopt == 'O':
@@ -191,7 +209,7 @@ class CompilerOptions(config.base.Configure):
 
   def getFortranFlags(self, compiler, bopt):
 
-    if compiler.endswith('mpif77') or compiler.endswith('mpif90') or compiler.endswith('mpifort') or compiler.endswith('mpiifort'):
+    if [s for s in ['mpif77','mpif90','mpifort','mpiifort'] if os.path.basename(compiler).find(s)>=0]:
       try:
         output   = self.executeShellCommand(compiler+' -show', log = self.log)[0]
         self.framework.addMakeMacro('MPIFC_SHOW',output.strip().replace('\n','\\\\n'))
@@ -212,7 +230,7 @@ class CompilerOptions(config.base.Configure):
           flags.extend(['-Wno-line-truncation']) # Work around bug in this series, fixed in 4.6: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=42852
       elif bopt == 'g':
         # g77 3.2.3 preprocesses the file into nothing if we give -g3
-        flags.append('-g')
+        flags.extend(['-g','-O0'])
       elif bopt == 'gcov':
         flags.extend(['--coverage','-Og'])
       elif bopt == 'O':
@@ -229,7 +247,7 @@ class CompilerOptions(config.base.Configure):
       # Linux Intel
       if config.setCompilers.Configure.isIntel(compiler, self.log) and not compiler.find('win32fe') >=0:
         if bopt == 'g':
-          flags.append('-g')
+          flags.extend(['-g','-O0'])
         elif bopt == 'O':
           flags.append('-g')
           flags.append('-O3')
@@ -241,7 +259,7 @@ class CompilerOptions(config.base.Configure):
           else:
             flags.extend(['-MT'])
         elif bopt == 'g':
-          flags.extend(['-Z7'])
+         flags.extend(['-Z7','-Od'])
         elif bopt == 'O':
           flags.extend(['-O3', '-QxW'])
       # Compaq Visual FORTRAN
@@ -249,13 +267,13 @@ class CompilerOptions(config.base.Configure):
         if bopt == '':
           flags.append('-threads')
         elif bopt == 'g':
-          flags.extend(['-debug:full'])
+          flags.extend(['-debug:full','-Od'])
         elif bopt == 'O':
           flags.extend(['-optimize:5', '-fast'])
     # Generic
     if not len(flags):
       if bopt == 'g':
-        flags.append('-g')
+        flags.extend(['-g','-O0'])
       elif bopt == 'O':
         flags.append('-O')
     if bopt == 'O':
@@ -263,8 +281,10 @@ class CompilerOptions(config.base.Configure):
     return flags
 
   def getCompilerFlags(self, language, compiler, bopt):
+    if bopt == 'gcov' and (language == 'CUDA' or language == 'HIP' or language == 'SYCL'):
+      return ''
     if bopt == 'gcov' and not config.setCompilers.Configure.isGNU(compiler, self.log) and not config.setCompilers.Configure.isClang(compiler, self.log):
-      raise RuntimeError('Having --with-gcov but the compiler is neither GCC nor Clang, we do not know how to do gcov')
+      raise RuntimeError('Have --with-gcov but the compiler is neither GCC nor Clang, we do not know how to do gcov with other compilers')
     flags = ''
     if language == 'C' or language == 'CUDA':
       flags = self.getCFlags(compiler, bopt, language)
@@ -303,6 +323,7 @@ class CompilerOptions(config.base.Configure):
       if not status:
         if compiler.find('win32fe') > -1:
           version = '\\n'.join(output.split('\n')[0:2])
+          version = version.replace('\r','')
         else:
           #PGI/Windows writes an empty '\r\n' on the first line of output
           if output.count('\n') > 1 and output.split('\n')[0] == '\r':

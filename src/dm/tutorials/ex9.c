@@ -47,7 +47,7 @@ int main(int argc,char **argv)
   ierr = VecSet(global,-1.0);CHKERRQ(ierr);
   ierr = DMGlobalToLocalBegin(da,global,INSERT_VALUES,local);CHKERRQ(ierr);
   ierr = DMGlobalToLocalEnd(da,global,INSERT_VALUES,local);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
   ierr = VecScale(local,rank+1);CHKERRQ(ierr);
   ierr = DMLocalToGlobalBegin(da,local,ADD_VALUES,global);CHKERRQ(ierr);
   ierr = DMLocalToGlobalEnd(da,local,ADD_VALUES,global);CHKERRQ(ierr);
@@ -57,17 +57,17 @@ int main(int argc,char **argv)
   ierr = PetscViewerSetFromOptions(viewer);CHKERRQ(ierr);
 
   /* Write the Vec without one extra dimension for BS */
-  ierr = PetscViewerHDF5SetBaseDimension2(viewer, PETSC_FALSE);
+  ierr = PetscViewerHDF5SetBaseDimension2(viewer, PETSC_FALSE);CHKERRQ(ierr);
   ierr = PetscObjectSetName((PetscObject) global, "noBsDim");CHKERRQ(ierr);
   ierr = VecView(global,viewer);CHKERRQ(ierr);
 
   /* Write the Vec with one extra, 1-sized, dimension for BS */
-  ierr = PetscViewerHDF5SetBaseDimension2(viewer, PETSC_TRUE);
+  ierr = PetscViewerHDF5SetBaseDimension2(viewer, PETSC_TRUE);CHKERRQ(ierr);
   ierr = PetscObjectSetName((PetscObject) global, "bsDim");CHKERRQ(ierr);
   ierr = VecView(global,viewer);CHKERRQ(ierr);
 
   ierr = PetscViewerDestroy(&viewer);CHKERRQ(ierr);
-  ierr = MPI_Barrier(PETSC_COMM_WORLD);CHKERRQ(ierr);
+  ierr = MPI_Barrier(PETSC_COMM_WORLD);CHKERRMPI(ierr);
   ierr = VecDuplicate(global,&global2);CHKERRQ(ierr);
 
   /* Create the HDF5 viewer for reading */
@@ -102,7 +102,6 @@ int main(int argc,char **argv)
   ierr = PetscFinalize();
   return ierr;
 }
-
 
 /*TEST
 

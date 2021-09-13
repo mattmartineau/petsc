@@ -6,7 +6,6 @@ static char help[] = "AO test contributed by Sebastian Steiger <steiger@purdue.e
     mpiexec -n 12 ./ex3
     mpiexec -n 30 ./ex3 -ao_type basic
 */
-#define PETSC_SKIP_CXX_COMPLEX_FIX
 
 #include <iostream>
 #include <fstream>
@@ -26,8 +25,8 @@ int main(int argc, char** argv)
   PetscMPIInt    size,rank;
 
   ierr = PetscInitialize(&argc, &argv, (char*)0, help);if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD, &size);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD, &rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD, &size);CHKERRMPI(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD, &rank);CHKERRMPI(ierr);
 
   ierr = PetscOptionsGetString(NULL,NULL,"-datafiles",datafiles,sizeof(datafiles),&flg);CHKERRQ(ierr);
   if (!flg) SETERRQ(PETSC_COMM_WORLD,PETSC_ERR_USER,"Must specify -datafiles ${DATAFILESPATH}/ao");
@@ -65,11 +64,10 @@ int main(int argc, char** argv)
   return ierr;
 }
 
-
 /*TEST
 
    build:
-     requires: !define(PETSC_USE_64BIT_INDICES)
+     requires: !defined(PETSC_USE_64BIT_INDICES)
 
    test:
       nsize: 12

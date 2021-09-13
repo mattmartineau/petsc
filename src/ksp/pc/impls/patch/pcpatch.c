@@ -261,12 +261,12 @@ static PetscErrorCode PCPatchCreateDefaultSF_Private(PC pc, PetscInt n, const Pe
     }
     /* Offsets are the offsets on the current process of the
      * global dof numbering for the subspaces. */
-    ierr = MPI_Type_contiguous(n, MPIU_INT, &contig);CHKERRQ(ierr);
-    ierr = MPI_Type_commit(&contig);CHKERRQ(ierr);
+    ierr = MPI_Type_contiguous(n, MPIU_INT, &contig);CHKERRMPI(ierr);
+    ierr = MPI_Type_commit(&contig);CHKERRMPI(ierr);
 
-    ierr = PetscSFBcastBegin(rankSF, contig, offsets, remoteOffsets);CHKERRQ(ierr);
-    ierr = PetscSFBcastEnd(rankSF, contig, offsets, remoteOffsets);CHKERRQ(ierr);
-    ierr = MPI_Type_free(&contig);CHKERRQ(ierr);
+    ierr = PetscSFBcastBegin(rankSF, contig, offsets, remoteOffsets,MPI_REPLACE);CHKERRQ(ierr);
+    ierr = PetscSFBcastEnd(rankSF, contig, offsets, remoteOffsets,MPI_REPLACE);CHKERRQ(ierr);
+    ierr = MPI_Type_free(&contig);CHKERRMPI(ierr);
     ierr = PetscFree(offsets);CHKERRQ(ierr);
     ierr = PetscSFDestroy(&rankSF);CHKERRQ(ierr);
     /* Now remoteOffsets contains the offsets on the remote
@@ -799,8 +799,8 @@ static PetscErrorCode PCPatchCompleteCellPatch(PC pc, PetscHSetI ht, PetscHSetI 
         /* Facet integrals couple dofs across facets, so in that case for each of
          * the facets we need to add all dofs on the other side of the facet to
          * the seen dofs. */
-        if (patch->usercomputeopintfacet){
-          if (fBegin <= seenpoint && seenpoint < fEnd){
+        if (patch->usercomputeopintfacet) {
+          if (fBegin <= seenpoint && seenpoint < fEnd) {
             ierr = DMPlexGetTransitiveClosure(dm, seenpoint, PETSC_FALSE, &fStarSize, &fStar);CHKERRQ(ierr);
             for (fsi = 0; fsi < fStarSize*2; fsi += 2) {
               ierr = DMPlexGetTransitiveClosure(dm, fStar[fsi], PETSC_TRUE, &fClosureSize, &fClosure);CHKERRQ(ierr);
@@ -1086,7 +1086,6 @@ static PetscErrorCode PCPatchCreateCellPatches(PC pc)
   ierr = PetscMalloc1(numIntFacets, &intFacetsArray);CHKERRQ(ierr);
   ierr = PetscMalloc1(numIntFacets*2, &intFacetsToPatchCell);CHKERRQ(ierr);
   ierr = PetscMalloc1(numExtFacets, &extFacetsArray);CHKERRQ(ierr);
-
 
   /* Now that we know how much space we need, run through again and actually remember the cells. */
   for (v = vStart; v < vEnd; v++) {
@@ -1784,7 +1783,7 @@ static PetscErrorCode PCPatchCreateMatrix_Private(PC pc, PetscInt point, Mat *ma
     }
     ierr = PetscSectionGetChart(patch->cellCounts, &pStart, &pEnd);CHKERRQ(ierr);
     point += pStart;
-    if (point >= pEnd) SETERRQ3(PETSC_COMM_SELF, PETSC_ERR_ARG_OUTOFRANGE, "Operator point %D not in [%D, %D)\n", point, pStart, pEnd);CHKERRQ(ierr);
+    if (point >= pEnd) SETERRQ3(PETSC_COMM_SELF, PETSC_ERR_ARG_OUTOFRANGE, "Operator point %D not in [%D, %D)\n", point, pStart, pEnd);
     ierr = PetscSectionGetDof(patch->cellCounts, point, &ncell);CHKERRQ(ierr);
     ierr = PetscSectionGetOffset(patch->cellCounts, point, &offset);CHKERRQ(ierr);
     ierr = PetscLogEventBegin(PC_Patch_Prealloc, pc, 0, 0, 0);CHKERRQ(ierr);
@@ -1994,7 +1993,7 @@ PetscErrorCode PCPatchComputeFunction_Internal(PC pc, Vec x, Vec F, PetscInt poi
   ierr = PetscSectionGetChart(patch->cellCounts, &pStart, &pEnd);CHKERRQ(ierr);
 
   point += pStart;
-  if (point >= pEnd) SETERRQ3(PETSC_COMM_SELF, PETSC_ERR_ARG_OUTOFRANGE, "Operator point %D not in [%D, %D)\n", point, pStart, pEnd);CHKERRQ(ierr);
+  if (point >= pEnd) SETERRQ3(PETSC_COMM_SELF, PETSC_ERR_ARG_OUTOFRANGE, "Operator point %D not in [%D, %D)\n", point, pStart, pEnd);
 
   ierr = PetscSectionGetDof(patch->cellCounts, point, &ncell);CHKERRQ(ierr);
   ierr = PetscSectionGetOffset(patch->cellCounts, point, &offset);CHKERRQ(ierr);
@@ -2091,7 +2090,7 @@ PetscErrorCode PCPatchComputeOperator_Internal(PC pc, Vec x, Mat mat, PetscInt p
   ierr = PetscSectionGetChart(patch->cellCounts, &pStart, &pEnd);CHKERRQ(ierr);
 
   point += pStart;
-  if (point >= pEnd) SETERRQ3(PETSC_COMM_SELF, PETSC_ERR_ARG_OUTOFRANGE, "Operator point %D not in [%D, %D)\n", point, pStart, pEnd);CHKERRQ(ierr);
+  if (point >= pEnd) SETERRQ3(PETSC_COMM_SELF, PETSC_ERR_ARG_OUTOFRANGE, "Operator point %D not in [%D, %D)\n", point, pStart, pEnd);
 
   ierr = PetscSectionGetDof(patch->cellCounts, point, &ncell);CHKERRQ(ierr);
   ierr = PetscSectionGetOffset(patch->cellCounts, point, &offset);CHKERRQ(ierr);
@@ -2283,7 +2282,6 @@ static PetscErrorCode PCPatchPrecomputePatchTensors_Private(PC pc)
   Mat             vecMat;
   PetscInt        cStart, cEnd;
   DM              dm, plex;
-
 
   ierr = ISGetSize(patch->cells, &ncell);CHKERRQ(ierr);
   if (!ncell) { /* No cells to assemble over -> skip */
@@ -2772,8 +2770,8 @@ static PetscErrorCode PCSetUp_PATCH(PC pc)
 
       ierr = VecGetArray(patch->dof_weights, &output);CHKERRQ(ierr);
       ierr = VecGetArray(global, &input);CHKERRQ(ierr);
-      ierr = PetscSFBcastBegin(patch->sectionSF, MPIU_SCALAR, input, output);CHKERRQ(ierr);
-      ierr = PetscSFBcastEnd(patch->sectionSF, MPIU_SCALAR, input, output);CHKERRQ(ierr);
+      ierr = PetscSFBcastBegin(patch->sectionSF, MPIU_SCALAR, input, output,MPI_REPLACE);CHKERRQ(ierr);
+      ierr = PetscSFBcastEnd(patch->sectionSF, MPIU_SCALAR, input, output,MPI_REPLACE);CHKERRQ(ierr);
       ierr = VecRestoreArray(patch->dof_weights, &output);CHKERRQ(ierr);
       ierr = VecRestoreArray(global, &input);CHKERRQ(ierr);
       ierr = VecDestroy(&global);CHKERRQ(ierr);
@@ -2903,8 +2901,8 @@ static PetscErrorCode PCApply_PATCH(PC pc, Vec x, Vec y)
   /* Scatter from global space into overlapped local spaces */
   ierr = VecGetArrayRead(x, &globalRHS);CHKERRQ(ierr);
   ierr = VecGetArray(patch->localRHS, &localRHS);CHKERRQ(ierr);
-  ierr = PetscSFBcastBegin(patch->sectionSF, MPIU_SCALAR, globalRHS, localRHS);CHKERRQ(ierr);
-  ierr = PetscSFBcastEnd(patch->sectionSF, MPIU_SCALAR, globalRHS, localRHS);CHKERRQ(ierr);
+  ierr = PetscSFBcastBegin(patch->sectionSF, MPIU_SCALAR, globalRHS, localRHS,MPI_REPLACE);CHKERRQ(ierr);
+  ierr = PetscSFBcastEnd(patch->sectionSF, MPIU_SCALAR, globalRHS, localRHS,MPI_REPLACE);CHKERRQ(ierr);
   ierr = VecRestoreArrayRead(x, &globalRHS);CHKERRQ(ierr);
   ierr = VecRestoreArray(patch->localRHS, &localRHS);CHKERRQ(ierr);
 
@@ -3232,7 +3230,7 @@ static PetscErrorCode PCView_PATCH(PC pc, PetscViewer viewer)
   /* TODO Redo tabbing with set tbas in new style */
   ierr = PetscObjectTypeCompare((PetscObject) viewer, PETSCVIEWERASCII, &isascii);CHKERRQ(ierr);
   if (!isascii) PetscFunctionReturn(0);
-  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject) pc), &rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject) pc), &rank);CHKERRMPI(ierr);
   ierr = PetscViewerASCIIPushTab(viewer);CHKERRQ(ierr);
   ierr = PetscViewerASCIIPrintf(viewer, "Subspace Correction preconditioner with %d patches\n", patch->npatch);CHKERRQ(ierr);
   if (patch->local_composition_type == PC_COMPOSITE_MULTIPLICATIVE) {

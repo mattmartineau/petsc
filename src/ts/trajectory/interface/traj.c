@@ -5,7 +5,7 @@
 PetscFunctionList TSTrajectoryList              = NULL;
 PetscBool         TSTrajectoryRegisterAllCalled = PETSC_FALSE;
 PetscClassId      TSTRAJECTORY_CLASSID;
-PetscLogEvent     TSTrajectory_Set, TSTrajectory_Get, TSTrajectory_GetVecs;
+PetscLogEvent     TSTrajectory_Set, TSTrajectory_Get, TSTrajectory_GetVecs, TSTrajectory_SetUp;
 
 /*@C
   TSTrajectoryRegister - Adds a way of storing trajectories to the TS package
@@ -617,7 +617,7 @@ PetscErrorCode TSTrajectoryDestroy(TSTrajectory *tj)
     MPI_Comm    comm;
 
     ierr = PetscObjectGetComm((PetscObject)(*tj),&comm);CHKERRQ(ierr);
-    ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
+    ierr = MPI_Comm_rank(comm,&rank);CHKERRMPI(ierr);
     if (!rank && (*tj)->dirname) { /* we own the directory, so we run PetscRMTree on it */
       ierr = PetscRMTree((*tj)->dirname);CHKERRQ(ierr);
     }
@@ -910,6 +910,7 @@ PetscErrorCode  TSTrajectorySetUp(TSTrajectory tj,TS ts)
   if (ts) PetscValidHeaderSpecific(ts,TS_CLASSID,2);
   if (tj->setupcalled) PetscFunctionReturn(0);
 
+  ierr = PetscLogEventBegin(TSTrajectory_SetUp,tj,ts,0,0);CHKERRQ(ierr);
   if (!((PetscObject)tj)->type_name) {
     ierr = TSTrajectorySetType(tj,ts,TSTRAJECTORYBASIC);CHKERRQ(ierr);
   }
@@ -928,6 +929,7 @@ PetscErrorCode  TSTrajectorySetUp(TSTrajectory tj,TS ts)
   ierr = PetscFree(tj->dirfiletemplate);CHKERRQ(ierr);
   ierr = PetscMalloc((s1 + s2 + 10)*sizeof(char),&tj->dirfiletemplate);CHKERRQ(ierr);
   ierr = PetscSNPrintf(tj->dirfiletemplate,s1+s2+10,"%s/%s",tj->dirname,tj->filetemplate);CHKERRQ(ierr);
+  ierr = PetscLogEventEnd(TSTrajectory_SetUp,tj,ts,0,0);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 

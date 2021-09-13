@@ -9,7 +9,7 @@
    Input Parameters:
 +  ksp - iterative context obtained from KSPCreate
 .  fcn - modifypc function
-.  ctx - optional contex
+.  ctx - optional context
 -  d - optional context destroy routine
 
    Calling Sequence of function:
@@ -46,7 +46,6 @@ PetscErrorCode  KSPFGMRESSetModifyPC(KSP ksp,PetscErrorCode (*fcn)(KSP,PetscInt,
   ierr = PetscTryMethod(ksp,"KSPFGMRESSetModifyPC_C",(KSP,PetscErrorCode (*)(KSP,PetscInt,PetscInt,PetscReal,void*),void*,PetscErrorCode (*)(void*)),(ksp,fcn,ctx,d));CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
-
 
 /* The following are different routines used to modify the preconditioner */
 
@@ -127,7 +126,4 @@ PetscErrorCode  KSPFGMRESModifyPCKSP(KSP ksp,PetscInt total_its,PetscInt loc_its
   }
   PetscFunctionReturn(0);
 }
-
-
-
 

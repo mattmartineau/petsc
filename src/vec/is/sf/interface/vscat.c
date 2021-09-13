@@ -51,7 +51,7 @@ static PetscErrorCode VecScatterBegin_Internal(VecScatter sf,Vec x,Vec y,InsertM
   ierr = VecLockWriteSet_Private(y,PETSC_TRUE);CHKERRQ(ierr);
 
   /* SCATTER_LOCAL indicates ignoring inter-process communication */
-  ierr = MPI_Comm_size(PetscObjectComm((PetscObject)sf),&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PetscObjectComm((PetscObject)sf),&size);CHKERRMPI(ierr);
   if ((mode & SCATTER_LOCAL) && size > 1) { /* Lazy creation of sf->vscat.lsf since SCATTER_LOCAL is uncommon */
     if (!sf->vscat.lsf) {ierr = PetscSFCreateLocalSF_Private(sf,&sf->vscat.lsf);CHKERRQ(ierr);}
     wsf = sf->vscat.lsf;
@@ -60,7 +60,7 @@ static PetscErrorCode VecScatterBegin_Internal(VecScatter sf,Vec x,Vec y,InsertM
   }
 
   /* Note xdata/ydata is always recorded on sf (not lsf) above */
-  if (addv == INSERT_VALUES)   mop = MPIU_REPLACE;
+  if (addv == INSERT_VALUES)   mop = MPI_REPLACE;
   else if (addv == ADD_VALUES) mop = MPIU_SUM; /* Petsc defines its own MPI datatype and SUM operation for __float128 etc. */
   else if (addv == MAX_VALUES) mop = MPIU_MAX;
   else if (addv == MIN_VALUES) mop = MPIU_MIN;
@@ -69,7 +69,7 @@ static PetscErrorCode VecScatterBegin_Internal(VecScatter sf,Vec x,Vec y,InsertM
   if (mode & SCATTER_REVERSE) { /* REVERSE indicates leaves to root scatter. Note that x and y are swapped in input */
     ierr = PetscSFReduceWithMemTypeBegin(wsf,sf->vscat.unit,xmtype,sf->vscat.xdata,ymtype,sf->vscat.ydata,mop);CHKERRQ(ierr);
   } else { /* FORWARD indicates x to y scatter, where x is root and y is leaf */
-    ierr = PetscSFBcastAndOpWithMemTypeBegin(wsf,sf->vscat.unit,xmtype,sf->vscat.xdata,ymtype,sf->vscat.ydata,mop);CHKERRQ(ierr);
+    ierr = PetscSFBcastWithMemTypeBegin(wsf,sf->vscat.unit,xmtype,sf->vscat.xdata,ymtype,sf->vscat.ydata,mop);CHKERRQ(ierr);
   }
   PetscFunctionReturn(0);
 }
@@ -83,10 +83,10 @@ static PetscErrorCode VecScatterEnd_Internal(VecScatter sf,Vec x,Vec y,InsertMod
 
   PetscFunctionBegin;
   /* SCATTER_LOCAL indicates ignoring inter-process communication */
-  ierr = MPI_Comm_size(PetscObjectComm((PetscObject)sf),&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PetscObjectComm((PetscObject)sf),&size);CHKERRMPI(ierr);
   wsf  = ((mode & SCATTER_LOCAL) && size > 1) ? sf->vscat.lsf : sf;
 
-  if (addv == INSERT_VALUES)   mop = MPIU_REPLACE;
+  if (addv == INSERT_VALUES)   mop = MPI_REPLACE;
   else if (addv == ADD_VALUES) mop = MPIU_SUM;
   else if (addv == MAX_VALUES) mop = MPIU_MAX;
   else if (addv == MIN_VALUES) mop = MPIU_MIN;
@@ -95,7 +95,7 @@ static PetscErrorCode VecScatterEnd_Internal(VecScatter sf,Vec x,Vec y,InsertMod
   if (mode & SCATTER_REVERSE) { /* reverse scatter sends leaves to roots. Note that x and y are swapped in input */
     ierr = PetscSFReduceEnd(wsf,sf->vscat.unit,sf->vscat.xdata,sf->vscat.ydata,mop);CHKERRQ(ierr);
   } else { /* forward scatter sends roots to leaves, i.e., x to y */
-    ierr = PetscSFBcastAndOpEnd(wsf,sf->vscat.unit,sf->vscat.xdata,sf->vscat.ydata,mop);CHKERRQ(ierr);
+    ierr = PetscSFBcastEnd(wsf,sf->vscat.unit,sf->vscat.xdata,sf->vscat.ydata,mop);CHKERRQ(ierr);
   }
 
   if (x != y) {
@@ -133,7 +133,7 @@ static PetscErrorCode VecScatterRemap_Internal(VecScatter sf,const PetscInt *tom
   if (frommap) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SUP,"Unable to remap the FROM in scatters yet");
   if (!tomap) PetscFunctionReturn(0);
 
-  ierr = MPI_Comm_size(PetscObjectComm((PetscObject)sf),&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PetscObjectComm((PetscObject)sf),&size);CHKERRMPI(ierr);
 
   /* Since the indices changed, we must also update the local SF. But we do not do it since
      lsf is rarely used. We just destroy lsf and rebuild it on demand from updated sf.
@@ -143,7 +143,7 @@ static PetscErrorCode VecScatterRemap_Internal(VecScatter sf,const PetscInt *tom
   ierr = PetscSFGetType(sf,&type);CHKERRQ(ierr);
   ierr = PetscObjectTypeCompare((PetscObject)sf,PETSCSFBASIC,&isbasic);CHKERRQ(ierr);
   ierr = PetscObjectTypeCompare((PetscObject)sf,PETSCSFNEIGHBOR,&isneighbor);CHKERRQ(ierr);
-  if (!isbasic && !isneighbor) SETERRQ1(PetscObjectComm((PetscObject)sf),PETSC_ERR_SUP,"VecScatterRemap on SF type %s is not supported",type);CHKERRQ(ierr);
+  if (!isbasic && !isneighbor) SETERRQ1(PetscObjectComm((PetscObject)sf),PETSC_ERR_SUP,"VecScatterRemap on SF type %s is not supported",type);
 
   ierr = PetscSFSetUp(sf);CHKERRQ(ierr); /* to bulid sf->irootloc if SetUp is not yet called */
 
@@ -188,7 +188,6 @@ static PetscErrorCode VecScatterRemap_Internal(VecScatter sf,const PetscInt *tom
 + num_procs   - number of remote processors
 - num_entries - number of vector entries to send or recv
 
-
   .seealso: VecScatterGetRemote_Private(), VecScatterGetRemoteOrdered_Private()
 
   Notes:
@@ -205,7 +204,7 @@ PetscErrorCode VecScatterGetRemoteCount_Private(VecScatter sf,PetscBool send,Pet
 
   PetscFunctionBegin;
   ierr = PetscSFSetUp(sf);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)sf),&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)sf),&rank);CHKERRMPI(ierr);
 
   /* This routine is mainly used for MatMult's Mvctx. In Mvctx, we scatter an MPI vector x to a sequential vector lvec.
      Remember x is roots and lvec is leaves. 'send' means roots to leaves communication. If 'send' is true, we need to
@@ -254,7 +253,7 @@ PetscErrorCode VecScatterGetRemote_Private(VecScatter sf,PetscBool send,PetscInt
 
   PetscFunctionBegin;
   ierr = PetscSFSetUp(sf);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)sf),&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)sf),&rank);CHKERRMPI(ierr);
 
   if (send) {ierr = PetscSFGetLeafRanks(sf,&nranks,&ranks,&offset,&location);CHKERRQ(ierr);}
   else {ierr = PetscSFGetRootRanks(sf,&nranks,&ranks,&offset,&location,NULL);CHKERRQ(ierr);}
@@ -440,6 +439,10 @@ PetscErrorCode VecScatterGetType(VecScatter sf, VecScatterType *type)
   Input Parameters:
 + name        - The name of a new user-defined creation routine
 - create_func - The creation routine itself
+
+  Level: advanced
+
+.seealso: VecRegister()
 @*/
 PetscErrorCode VecScatterRegister(const char sname[], PetscErrorCode (*function)(VecScatter))
 {
@@ -473,7 +476,7 @@ PetscErrorCode  VecScatterGetMerged(VecScatter sf,PetscBool *flg)
   if (flg) *flg = sf->vscat.beginandendtogether;
   PetscFunctionReturn(0);
 }
-/*@
+/*@C
    VecScatterDestroy - Destroys a scatter context created by VecScatterCreate()
 
    Collective on VecScatter
@@ -617,7 +620,6 @@ PetscErrorCode  VecScatterRemap(VecScatter sf,PetscInt tomap[],PetscInt frommap[
 
   Level: beginner
 
-
 .seealso: VecScatterCreate(), VecScatterDestroy(), VecScatterSetUp()
 @*/
 PetscErrorCode VecScatterSetFromOptions(VecScatter sf)
@@ -712,11 +714,11 @@ PetscErrorCode VecScatterCreate(Vec x,IS ix,Vec y,IS iy,VecScatter *newsf)
 
   /* Get comm from x and y */
   ierr = PetscObjectGetComm((PetscObject)x,&xcomm);CHKERRQ(ierr);
-  ierr = MPI_Comm_size(xcomm,&xcommsize);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(xcomm,&xcommsize);CHKERRMPI(ierr);
   ierr = PetscObjectGetComm((PetscObject)y,&ycomm);CHKERRQ(ierr);
-  ierr = MPI_Comm_size(ycomm,&ycommsize);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(ycomm,&ycommsize);CHKERRMPI(ierr);
   if (xcommsize > 1 && ycommsize > 1) {
-    ierr = MPI_Comm_compare(xcomm,ycomm,&result);CHKERRQ(ierr);
+    ierr = MPI_Comm_compare(xcomm,ycomm,&result);CHKERRMPI(ierr);
     if (result == MPI_UNEQUAL) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_NOTSAMECOMM,"VecScatterCreate: parallel vectors x and y must have identical/congruent/similar communicators");
   }
   bs = 1; /* default, no blocking */
@@ -758,7 +760,7 @@ PetscErrorCode VecScatterCreate(Vec x,IS ix,Vec y,IS iy,VecScatter *newsf)
   ierr = ISGetLocalSize(iy,&iysize);CHKERRQ(ierr);
   ierr = VecGetSize(x,&xlen);CHKERRQ(ierr);
   ierr = VecGetSize(y,&ylen);CHKERRQ(ierr);
-  if (ixsize != iysize) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_SIZ,"Scatter sizes of ix and iy don't match locally");
+  if (ixsize != iysize) SETERRQ2(PETSC_COMM_SELF,PETSC_ERR_ARG_SIZ,"Scatter sizes of ix and iy don't match locally ix=%D iy=%D",ixsize,iysize);
   ierr = ISGetMinMax(ix,&min,&max);CHKERRQ(ierr);
   if (min < 0 || max >= xlen) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Scatter indices in ix are out of range");
   ierr = ISGetMinMax(iy,&min,&max);CHKERRQ(ierr);
@@ -783,7 +785,7 @@ PetscErrorCode VecScatterCreate(Vec x,IS ix,Vec y,IS iy,VecScatter *newsf)
     PetscInt    pattern[2] = {0, 0}; /* A boolean array with pattern[0] for allgather-like (ToAll) and pattern[1] for gather-like (ToZero) */
     PetscLayout map;
 
-    ierr = MPI_Comm_rank(xcomm,&rank);CHKERRQ(ierr);
+    ierr = MPI_Comm_rank(xcomm,&rank);CHKERRMPI(ierr);
     ierr = VecGetLayout(x,&map);CHKERRQ(ierr);
     if (!rank) {
       if (ixid == IS_STRIDE && iyid == IS_STRIDE && ixsize == xlen && ixfirst == 0 && ixstep == 1 && iyfirst == 0 && iystep == 1) {
@@ -801,7 +803,7 @@ PetscErrorCode VecScatterCreate(Vec x,IS ix,Vec y,IS iy,VecScatter *newsf)
     }
 
     /* One stone (the expensive allreduce) two birds: pattern[] tells if it is ToAll or ToZero */
-    ierr   = MPIU_Allreduce(MPI_IN_PLACE,pattern,2,MPIU_INT,MPI_LAND,xcomm);CHKERRQ(ierr);
+    ierr   = MPIU_Allreduce(MPI_IN_PLACE,pattern,2,MPIU_INT,MPI_LAND,xcomm);CHKERRMPI(ierr);
 
     if (pattern[0] || pattern[1]) {
       ierr = PetscSFCreate(xcomm,&sf);CHKERRQ(ierr);
@@ -834,7 +836,7 @@ PetscErrorCode VecScatterCreate(Vec x,IS ix,Vec y,IS iy,VecScatter *newsf)
     m[1] = -bsy;
   }
   /* Get max and min of bsx,bsy over all processes in one allreduce */
-  ierr = MPIU_Allreduce(MPI_IN_PLACE,m,2,MPIU_INT,MPI_MAX,bigcomm);CHKERRQ(ierr);
+  ierr = MPIU_Allreduce(MPI_IN_PLACE,m,2,MPIU_INT,MPI_MAX,bigcomm);CHKERRMPI(ierr);
   max = m[0]; min = -m[1];
 
   /* Since we used allreduce above, all ranks will have the same min and max. min==max
@@ -846,7 +848,7 @@ PetscErrorCode VecScatterCreate(Vec x,IS ix,Vec y,IS iy,VecScatter *newsf)
     ierr = VecGetLocalSize(y,&ylen);CHKERRQ(ierr);
     m[0] = xlen%min;
     m[1] = ylen%min;
-    ierr = MPIU_Allreduce(MPI_IN_PLACE,m,2,MPIU_INT,MPI_LOR,bigcomm);CHKERRQ(ierr);
+    ierr = MPIU_Allreduce(MPI_IN_PLACE,m,2,MPIU_INT,MPI_LOR,bigcomm);CHKERRMPI(ierr);
     if (!m[0] && !m[1]) can_do_block_opt = PETSC_TRUE;
   }
 
@@ -1033,23 +1035,23 @@ PetscErrorCode VecScatterCreate(Vec x,IS ix,Vec y,IS iy,VecScatter *newsf)
 
     for (i=disp=0; i<nrecv; i++) {
       count = rlens[i];
-      ierr  = MPI_Irecv(rxindices+disp,count,MPIU_INT,recvfrom[i],tag1,ycomm,rreqs+i);CHKERRQ(ierr);
-      ierr  = MPI_Irecv(ryindices+disp,count,MPIU_INT,recvfrom[i],tag2,ycomm,rreqs+nrecv+i);CHKERRQ(ierr);
+      ierr  = MPI_Irecv(rxindices+disp,count,MPIU_INT,recvfrom[i],tag1,ycomm,rreqs+i);CHKERRMPI(ierr);
+      ierr  = MPI_Irecv(ryindices+disp,count,MPIU_INT,recvfrom[i],tag2,ycomm,rreqs+nrecv+i);CHKERRMPI(ierr);
       disp += rlens[i];
     }
 
     for (i=0; i<nsend; i++) {
       ierr  = PetscMPIIntCast(sstart[i+1]-sstart[i],&count);CHKERRQ(ierr);
-      ierr  = MPI_Isend(xindices_sorted+sstart[i],count,MPIU_INT,sendto[i],tag1,ycomm,sreqs+i);CHKERRQ(ierr);
-      ierr  = MPI_Isend(yindices_sorted+sstart[i],count,MPIU_INT,sendto[i],tag2,ycomm,sreqs+nsend+i);CHKERRQ(ierr);
+      ierr  = MPI_Isend(xindices_sorted+sstart[i],count,MPIU_INT,sendto[i],tag1,ycomm,sreqs+i);CHKERRMPI(ierr);
+      ierr  = MPI_Isend(yindices_sorted+sstart[i],count,MPIU_INT,sendto[i],tag2,ycomm,sreqs+nsend+i);CHKERRMPI(ierr);
     }
-    ierr = MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);CHKERRQ(ierr);
+    ierr = MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);CHKERRMPI(ierr);
 
     /* Transform VecScatter into SF */
     nleaves = rlentotal;
     ierr    = PetscMalloc1(nleaves,&ilocal);CHKERRQ(ierr);
     ierr    = PetscMalloc1(nleaves,&iremote);CHKERRQ(ierr);
-    ierr    = MPI_Comm_rank(ycomm,&yrank);CHKERRQ(ierr);
+    ierr    = MPI_Comm_rank(ycomm,&yrank);CHKERRMPI(ierr);
     for (i=disp=0; i<nrecv; i++) {
       for (j=0; j<rlens[i]; j++) {
         k               = disp + j; /* k-th index pair */
@@ -1103,8 +1105,8 @@ PetscErrorCode VecScatterCreate(Vec x,IS ix,Vec y,IS iy,VecScatter *newsf)
 functionend:
   sf->vscat.bs = bs;
   if (sf->vscat.bs > 1) {
-    ierr = MPI_Type_contiguous(sf->vscat.bs,MPIU_SCALAR,&sf->vscat.unit);CHKERRQ(ierr);
-    ierr = MPI_Type_commit(&sf->vscat.unit);CHKERRQ(ierr);
+    ierr = MPI_Type_contiguous(sf->vscat.bs,MPIU_SCALAR,&sf->vscat.unit);CHKERRMPI(ierr);
+    ierr = MPI_Type_commit(&sf->vscat.unit);CHKERRMPI(ierr);
   } else {
     sf->vscat.unit = MPIU_SCALAR;
   }
@@ -1189,7 +1191,6 @@ PetscErrorCode  VecScatterCreateToAll(Vec vin,VecScatter *ctx,Vec *vout)
   PetscFunctionReturn(0);
 }
 
-
 /*@C
       VecScatterCreateToZero - Creates an output vector and a scatter context used to
               copy all vector values into the output vector on the zeroth processor
@@ -1251,7 +1252,7 @@ PetscErrorCode  VecScatterCreateToZero(Vec vin,VecScatter *ctx,Vec *vout)
 
   /* Create vec on each proc, with the same size of the original mpi vec (all on process 0)*/
   ierr = VecGetSize(vin,&N);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)vin),&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)vin),&rank);CHKERRMPI(ierr);
   if (rank) N = 0;
   ierr = VecCreateSeq(PETSC_COMM_SELF,N,tmpv);CHKERRQ(ierr);
   ierr = VecSetFromOptions(*tmpv);CHKERRQ(ierr);
@@ -1278,7 +1279,6 @@ PetscErrorCode  VecScatterCreateToZero(Vec vin,VecScatter *ctx,Vec *vout)
 -  mode - the scattering mode, usually SCATTER_FORWARD.  The available modes are:
     SCATTER_FORWARD or SCATTER_REVERSE
 
-
    Level: intermediate
 
    Options Database: See VecScatterCreate()
@@ -1303,7 +1303,6 @@ PetscErrorCode  VecScatterCreateToZero(Vec vin,VecScatter *ctx,Vec *vout)
    is sequential, VecScatterBegin() can serve to gather values to a
    single processor.  Similarly, if y is parallel and x sequential, the
    routine can scatter from one processor to many processors.
-
 
 .seealso: VecScatterCreate(), VecScatterEnd()
 @*/

@@ -8,7 +8,6 @@ T*/
 #include <petscsys.h>
 #include <petscviewer.h>
 
-
 int main(int argc,char **argv)
 {
   PetscErrorCode    ierr;
@@ -30,7 +29,7 @@ int main(int argc,char **argv)
   */
   ierr = PetscInitialize(&argc,&argv,(char*)0,help);if (ierr) return ierr;
   comm = PETSC_COMM_WORLD;
-  ierr = MPI_Comm_size(comm,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(comm,&size);CHKERRMPI(ierr);
   if (size < 4) SETERRQ(PETSC_COMM_WORLD,PETSC_ERR_SUP,"Must run with at least 4 MPI processes");
   ierr = PetscOptionsGetViewer(comm,NULL,NULL,"-viewer",&viewer,&format,&flg);CHKERRQ(ierr);
   if (!viewer) SETERRQ(PETSC_COMM_WORLD,PETSC_ERR_SUP,"Must use -viewer option");
@@ -68,7 +67,6 @@ int main(int argc,char **argv)
   ierr = PetscFinalize();
   return ierr;
 }
-
 
 /*TEST
 

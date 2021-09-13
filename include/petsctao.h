@@ -9,7 +9,6 @@ PetscErrorCode MatDFischer(Mat, Vec, Vec, Vec, Vec, Vec, Vec, Vec, Vec);
 PetscErrorCode MatDSFischer(Mat, Vec, Vec, Vec, Vec, PetscReal, Vec, Vec, Vec, Vec, Vec);
 PETSC_EXTERN PetscErrorCode TaoSoftThreshold(Vec, PetscReal, PetscReal, Vec);
 
-
 /*E
   TaoSubsetType - PetscInt representing the way TAO handles active sets
 
@@ -73,7 +72,6 @@ M*/
 .seealso: TaoADMMSetUpdateType(), TAO_ADMM_UPDATE_BASIC, TAO_ADMM_UPDATE_ADAPTIVE
 M*/
 
-
 /*E
      TaoADMMRegularizerType - Determine regularizer routine - either user provided or soft threshold
 
@@ -103,6 +101,19 @@ M*/
 .seealso: TaoSoftThreshold(), TaoADMMSetRegularizerObjectiveAndGradientRoutine(),
           TaoADMMSetRegularizerHessianRoutine(), TaoADMMSetRegularizerType(), TAO_ADMM_REGULARIZER_USER
 M*/
+
+/*E
+     TaoALMMType - Determine the augmented Lagrangian formulation used in the TAOALMM subproblem.
+
+$  TAO_ALMM_CLASSIC - classic augmented Lagrangian definition including slack variables for inequality constraints
+$  TAO_ALMM_PHR     - Powell-Hestenes-Rockafellar formulation without slack variables, uses pointwise min() for inequalities
+
+  Level: advanced
+
+.seealso TAOALMM, TaoALMMSetType(), TaoALMMGetType()
+E*/
+typedef enum {TAO_ALMM_CLASSIC,TAO_ALMM_PHR} TaoALMMType;
+PETSC_EXTERN const char *const TaoALMMTypes[];
 
 typedef struct _p_Tao*   Tao;
 
@@ -144,6 +155,7 @@ typedef const char *TaoType;
 #define TAOPDIPM    "pdipm"
 #define TAOSHELL    "shell"
 #define TAOADMM     "admm"
+#define TAOALMM     "almm"
 
 PETSC_EXTERN PetscClassId TAO_CLASSID;
 PETSC_EXTERN PetscFunctionList TaoList;
@@ -213,7 +225,10 @@ PETSC_EXTERN PetscErrorCode TaoGetSolutionVector(Tao, Vec*);
 PETSC_EXTERN PetscErrorCode TaoGetGradientVector(Tao, Vec*);
 PETSC_EXTERN PetscErrorCode TaoSetGradientNorm(Tao, Mat);
 PETSC_EXTERN PetscErrorCode TaoGetGradientNorm(Tao, Mat*);
+PETSC_EXTERN PetscErrorCode TaoSetLMVMMatrix(Tao, Mat);
 PETSC_EXTERN PetscErrorCode TaoGetLMVMMatrix(Tao, Mat*);
+PETSC_EXTERN PetscErrorCode TaoSetRecycleHistory(Tao, PetscBool);
+PETSC_EXTERN PetscErrorCode TaoGetRecycleHistory(Tao, PetscBool*);
 PETSC_EXTERN PetscErrorCode TaoLMVMSetH0(Tao, Mat);
 PETSC_EXTERN PetscErrorCode TaoLMVMGetH0(Tao, Mat*);
 PETSC_EXTERN PetscErrorCode TaoLMVMGetH0KSP(Tao, KSP*);
@@ -235,8 +250,8 @@ PETSC_EXTERN PetscErrorCode TaoSetJacobianInequalityRoutine(Tao,Mat,Mat,PetscErr
 PETSC_EXTERN PetscErrorCode TaoSetJacobianEqualityRoutine(Tao,Mat,Mat,PetscErrorCode(*)(Tao,Vec, Mat, Mat, void*), void*);
 
 PETSC_EXTERN PetscErrorCode TaoShellSetSolve(Tao, PetscErrorCode(*)(Tao));
-PETSC_EXTERN PetscErrorCode TaoShellSetContext(Tao, void*);
-PETSC_EXTERN PetscErrorCode TaoShellGetContext(Tao, void**);
+PETSC_EXTERN PetscErrorCode TaoShellSetContext(Tao,void*);
+PETSC_EXTERN PetscErrorCode TaoShellGetContext(Tao,void*);
 
 PETSC_DEPRECATED_FUNCTION("Use TaoSetResidualRoutine() (since version 3.11)") PETSC_STATIC_INLINE PetscErrorCode TaoSetSeparableObjectiveRoutine(Tao tao, Vec res, PetscErrorCode (*func)(Tao, Vec, Vec, void*),void *ctx) {return TaoSetResidualRoutine(tao, res, func, ctx);}
 PETSC_DEPRECATED_FUNCTION("Use TaoSetResidualWeights() (since version 3.11)") PETSC_STATIC_INLINE PetscErrorCode TaoSetSeparableObjectiveWeights(Tao tao, Vec sigma_v, PetscInt n, PetscInt *rows, PetscInt *cols, PetscReal *vals) {return TaoSetResidualWeights(tao, sigma_v, n, rows, cols, vals);}
@@ -368,4 +383,13 @@ PETSC_EXTERN PetscErrorCode TaoADMMSetRegularizerType(Tao, TaoADMMRegularizerTyp
 PETSC_EXTERN PetscErrorCode TaoADMMGetRegularizerType(Tao, TaoADMMRegularizerType*);
 PETSC_EXTERN PetscErrorCode TaoADMMSetUpdateType(Tao, TaoADMMUpdateType);
 PETSC_EXTERN PetscErrorCode TaoADMMGetUpdateType(Tao, TaoADMMUpdateType*);
+
+PETSC_EXTERN PetscErrorCode TaoALMMGetType(Tao, TaoALMMType*);
+PETSC_EXTERN PetscErrorCode TaoALMMSetType(Tao, TaoALMMType);
+PETSC_EXTERN PetscErrorCode TaoALMMGetSubsolver(Tao, Tao*);
+PETSC_EXTERN PetscErrorCode TaoALMMSetSubsolver(Tao, Tao);
+PETSC_EXTERN PetscErrorCode TaoALMMGetMultipliers(Tao, Vec*);
+PETSC_EXTERN PetscErrorCode TaoALMMSetMultipliers(Tao, Vec);
+PETSC_EXTERN PetscErrorCode TaoALMMGetPrimalIS(Tao, IS*, IS*);
+PETSC_EXTERN PetscErrorCode TaoALMMGetDualIS(Tao, IS*, IS*);
 #endif

@@ -25,131 +25,135 @@
     Real number definitions
  */
 #if defined(PETSC_USE_REAL_SINGLE)
-#define PetscSqrtReal(a)    sqrtf(a)
-#define PetscCbrtReal(a)    cbrtf(a)
-#define PetscHypotReal(a,b) hypotf(a,b)
-#define PetscAtan2Real(a,b) atan2f(a,b)
-#define PetscPowReal(a,b)   powf(a,b)
-#define PetscExpReal(a)     expf(a)
-#define PetscLogReal(a)     logf(a)
-#define PetscLog10Real(a)   log10f(a)
-#define PetscLog2Real(a)    log2f(a)
-#define PetscSinReal(a)     sinf(a)
-#define PetscCosReal(a)     cosf(a)
-#define PetscTanReal(a)     tanf(a)
-#define PetscAsinReal(a)    asinf(a)
-#define PetscAcosReal(a)    acosf(a)
-#define PetscAtanReal(a)    atanf(a)
-#define PetscSinhReal(a)    sinhf(a)
-#define PetscCoshReal(a)    coshf(a)
-#define PetscTanhReal(a)    tanhf(a)
-#define PetscAsinhReal(a)   asinhf(a)
-#define PetscAcoshReal(a)   acoshf(a)
-#define PetscAtanhReal(a)   atanhf(a)
-#define PetscCeilReal(a)    ceilf(a)
-#define PetscFloorReal(a)   floorf(a)
-#define PetscFmodReal(a,b)  fmodf(a,b)
-#define PetscTGamma(a)      tgammaf(a)
+#define PetscSqrtReal(a)       sqrtf(a)
+#define PetscCbrtReal(a)       cbrtf(a)
+#define PetscHypotReal(a,b)    hypotf(a,b)
+#define PetscAtan2Real(a,b)    atan2f(a,b)
+#define PetscPowReal(a,b)      powf(a,b)
+#define PetscExpReal(a)        expf(a)
+#define PetscLogReal(a)        logf(a)
+#define PetscLog10Real(a)      log10f(a)
+#define PetscLog2Real(a)       log2f(a)
+#define PetscSinReal(a)        sinf(a)
+#define PetscCosReal(a)        cosf(a)
+#define PetscTanReal(a)        tanf(a)
+#define PetscAsinReal(a)       asinf(a)
+#define PetscAcosReal(a)       acosf(a)
+#define PetscAtanReal(a)       atanf(a)
+#define PetscSinhReal(a)       sinhf(a)
+#define PetscCoshReal(a)       coshf(a)
+#define PetscTanhReal(a)       tanhf(a)
+#define PetscAsinhReal(a)      asinhf(a)
+#define PetscAcoshReal(a)      acoshf(a)
+#define PetscAtanhReal(a)      atanhf(a)
+#define PetscCeilReal(a)       ceilf(a)
+#define PetscFloorReal(a)      floorf(a)
+#define PetscFmodReal(a,b)     fmodf(a,b)
+#define PetscCopysignReal(a,b) copysignf(a,b)
+#define PetscTGamma(a)         tgammaf(a)
 #if defined(PETSC_HAVE_LGAMMA_IS_GAMMA)
-#define PetscLGamma(a)      gammaf(a)
+#define PetscLGamma(a)         gammaf(a)
 #else
-#define PetscLGamma(a)      lgammaf(a)
+#define PetscLGamma(a)         lgammaf(a)
 #endif
 
 #elif defined(PETSC_USE_REAL_DOUBLE)
-#define PetscSqrtReal(a)    sqrt(a)
-#define PetscCbrtReal(a)    cbrt(a)
-#define PetscHypotReal(a,b) hypot(a,b)
-#define PetscAtan2Real(a,b) atan2(a,b)
-#define PetscPowReal(a,b)   pow(a,b)
-#define PetscExpReal(a)     exp(a)
-#define PetscLogReal(a)     log(a)
-#define PetscLog10Real(a)   log10(a)
-#define PetscLog2Real(a)    log2(a)
-#define PetscSinReal(a)     sin(a)
-#define PetscCosReal(a)     cos(a)
-#define PetscTanReal(a)     tan(a)
-#define PetscAsinReal(a)    asin(a)
-#define PetscAcosReal(a)    acos(a)
-#define PetscAtanReal(a)    atan(a)
-#define PetscSinhReal(a)    sinh(a)
-#define PetscCoshReal(a)    cosh(a)
-#define PetscTanhReal(a)    tanh(a)
-#define PetscAsinhReal(a)   asinh(a)
-#define PetscAcoshReal(a)   acosh(a)
-#define PetscAtanhReal(a)   atanh(a)
-#define PetscCeilReal(a)    ceil(a)
-#define PetscFloorReal(a)   floor(a)
-#define PetscFmodReal(a,b)  fmod(a,b)
-#define PetscTGamma(a)      tgamma(a)
+#define PetscSqrtReal(a)       sqrt(a)
+#define PetscCbrtReal(a)       cbrt(a)
+#define PetscHypotReal(a,b)    hypot(a,b)
+#define PetscAtan2Real(a,b)    atan2(a,b)
+#define PetscPowReal(a,b)      pow(a,b)
+#define PetscExpReal(a)        exp(a)
+#define PetscLogReal(a)        log(a)
+#define PetscLog10Real(a)      log10(a)
+#define PetscLog2Real(a)       log2(a)
+#define PetscSinReal(a)        sin(a)
+#define PetscCosReal(a)        cos(a)
+#define PetscTanReal(a)        tan(a)
+#define PetscAsinReal(a)       asin(a)
+#define PetscAcosReal(a)       acos(a)
+#define PetscAtanReal(a)       atan(a)
+#define PetscSinhReal(a)       sinh(a)
+#define PetscCoshReal(a)       cosh(a)
+#define PetscTanhReal(a)       tanh(a)
+#define PetscAsinhReal(a)      asinh(a)
+#define PetscAcoshReal(a)      acosh(a)
+#define PetscAtanhReal(a)      atanh(a)
+#define PetscCeilReal(a)       ceil(a)
+#define PetscFloorReal(a)      floor(a)
+#define PetscFmodReal(a,b)     fmod(a,b)
+#define PetscCopysignReal(a,b) copysign(a,b)
+#define PetscTGamma(a)         tgamma(a)
 #if defined(PETSC_HAVE_LGAMMA_IS_GAMMA)
-#define PetscLGamma(a)      gamma(a)
+#define PetscLGamma(a)         gamma(a)
 #else
-#define PetscLGamma(a)      lgamma(a)
+#define PetscLGamma(a)         lgamma(a)
 #endif
 
 #elif defined(PETSC_USE_REAL___FLOAT128)
-#define PetscSqrtReal(a)    sqrtq(a)
-#define PetscCbrtReal(a)    cbrtq(a)
-#define PetscHypotReal(a,b) hypotq(a,b)
-#define PetscAtan2Real(a,b) atan2q(a,b)
-#define PetscPowReal(a,b)   powq(a,b)
-#define PetscExpReal(a)     expq(a)
-#define PetscLogReal(a)     logq(a)
-#define PetscLog10Real(a)   log10q(a)
-#define PetscLog2Real(a)    log2q(a)
-#define PetscSinReal(a)     sinq(a)
-#define PetscCosReal(a)     cosq(a)
-#define PetscTanReal(a)     tanq(a)
-#define PetscAsinReal(a)    asinq(a)
-#define PetscAcosReal(a)    acosq(a)
-#define PetscAtanReal(a)    atanq(a)
-#define PetscSinhReal(a)    sinhq(a)
-#define PetscCoshReal(a)    coshq(a)
-#define PetscTanhReal(a)    tanhq(a)
-#define PetscAsinhReal(a)   asinhq(a)
-#define PetscAcoshReal(a)   acoshq(a)
-#define PetscAtanhReal(a)   atanhq(a)
-#define PetscCeilReal(a)    ceilq(a)
-#define PetscFloorReal(a)   floorq(a)
-#define PetscFmodReal(a,b)  fmodq(a,b)
-#define PetscTGamma(a)      tgammaq(a)
+#define PetscSqrtReal(a)       sqrtq(a)
+#define PetscCbrtReal(a)       cbrtq(a)
+#define PetscHypotReal(a,b)    hypotq(a,b)
+#define PetscAtan2Real(a,b)    atan2q(a,b)
+#define PetscPowReal(a,b)      powq(a,b)
+#define PetscExpReal(a)        expq(a)
+#define PetscLogReal(a)        logq(a)
+#define PetscLog10Real(a)      log10q(a)
+#define PetscLog2Real(a)       log2q(a)
+#define PetscSinReal(a)        sinq(a)
+#define PetscCosReal(a)        cosq(a)
+#define PetscTanReal(a)        tanq(a)
+#define PetscAsinReal(a)       asinq(a)
+#define PetscAcosReal(a)       acosq(a)
+#define PetscAtanReal(a)       atanq(a)
+#define PetscSinhReal(a)       sinhq(a)
+#define PetscCoshReal(a)       coshq(a)
+#define PetscTanhReal(a)       tanhq(a)
+#define PetscAsinhReal(a)      asinhq(a)
+#define PetscAcoshReal(a)      acoshq(a)
+#define PetscAtanhReal(a)      atanhq(a)
+#define PetscCeilReal(a)       ceilq(a)
+#define PetscFloorReal(a)      floorq(a)
+#define PetscFmodReal(a,b)     fmodq(a,b)
+#define PetscCopysignReal(a,b) copysignq(a,b)
+#define PetscTGamma(a)         tgammaq(a)
 #if defined(PETSC_HAVE_LGAMMA_IS_GAMMA)
-#define PetscLGamma(a)      gammaq(a)
+#define PetscLGamma(a)         gammaq(a)
 #else
-#define PetscLGamma(a)      lgammaq(a)
+#define PetscLGamma(a)         lgammaq(a)
 #endif
 
 #elif defined(PETSC_USE_REAL___FP16)
-#define PetscSqrtReal(a)    sqrtf(a)
-#define PetscCbrtReal(a)    cbrtf(a)
-#define PetscHypotReal(a,b) hypotf(a,b)
-#define PetscAtan2Real(a,b) atan2f(a,b)
-#define PetscPowReal(a,b)   powf(a,b)
-#define PetscExpReal(a)     expf(a)
-#define PetscLogReal(a)     logf(a)
-#define PetscLog10Real(a)   log10f(a)
-#define PetscLog2Real(a)    log2f(a)
-#define PetscSinReal(a)     sinf(a)
-#define PetscCosReal(a)     cosf(a)
-#define PetscTanReal(a)     tanf(a)
-#define PetscAsinReal(a)    asinf(a)
-#define PetscAcosReal(a)    acosf(a)
-#define PetscAtanReal(a)    atanf(a)
-#define PetscSinhReal(a)    sinhf(a)
-#define PetscCoshReal(a)    coshf(a)
-#define PetscTanhReal(a)    tanhf(a)
-#define PetscAsinhReal(a)   asinhf(a)
-#define PetscAcoshReal(a)   acoshf(a)
-#define PetscAtanhReal(a)   atanhf(a)
-#define PetscCeilReal(a)    ceilf(a)
-#define PetscFloorReal(a)   floorf(a)
-#define PetscFmodReal(a,b)  fmodf(a,b)
-#define PetscTGamma(a)      tgammaf(a)
+#define PetscSqrtReal(a)       sqrtf(a)
+#define PetscCbrtReal(a)       cbrtf(a)
+#define PetscHypotReal(a,b)    hypotf(a,b)
+#define PetscAtan2Real(a,b)    atan2f(a,b)
+#define PetscPowReal(a,b)      powf(a,b)
+#define PetscExpReal(a)        expf(a)
+#define PetscLogReal(a)        logf(a)
+#define PetscLog10Real(a)      log10f(a)
+#define PetscLog2Real(a)       log2f(a)
+#define PetscSinReal(a)        sinf(a)
+#define PetscCosReal(a)        cosf(a)
+#define PetscTanReal(a)        tanf(a)
+#define PetscAsinReal(a)       asinf(a)
+#define PetscAcosReal(a)       acosf(a)
+#define PetscAtanReal(a)       atanf(a)
+#define PetscSinhReal(a)       sinhf(a)
+#define PetscCoshReal(a)       coshf(a)
+#define PetscTanhReal(a)       tanhf(a)
+#define PetscAsinhReal(a)      asinhf(a)
+#define PetscAcoshReal(a)      acoshf(a)
+#define PetscAtanhReal(a)      atanhf(a)
+#define PetscCeilReal(a)       ceilf(a)
+#define PetscFloorReal(a)      floorf(a)
+#define PetscFmodReal(a,b)     fmodf(a,b)
+#define PetscCopySignReal(a,b) copysignf(a,b)
+#define PetscTGamma(a)         tgammaf(a)
 #if defined(PETSC_HAVE_LGAMMA_IS_GAMMA)
-#define PetscLGamma(a)      gammaf(a)
+#define PetscLGamma(a)         gammaf(a)
 #else
-#define PetscLGamma(a)      lgammaf(a)
+#define PetscLGamma(a)         lgammaf(a)
 #endif
 
 #endif /* PETSC_USE_REAL_* */
@@ -198,7 +202,7 @@ M*/
     Complex number definitions
  */
 #if defined(PETSC_HAVE_COMPLEX)
-#if defined(__cplusplus) && defined(PETSC_HAVE_CXX_COMPLEX) && !defined(PETSC_USE_REAL___FLOAT128)
+#if defined(__cplusplus) && !defined(PETSC_USE_REAL___FLOAT128)
 /* C++ support of complex number */
 
 #define PetscRealPartComplex(a)      (a).real()
@@ -294,10 +298,9 @@ PETSC_STATIC_INLINE PetscComplex PetscAtanhComplex(PetscComplex z)
 
 */
 
-#elif defined(PETSC_HAVE_C99_COMPLEX) && !defined(PETSC_USE_REAL___FP16)
-/* C99 support of complex number */
+#else /* C99 support of complex number */
 
-#if defined(PETSC_USE_REAL_SINGLE) || defined(PETSC_USE_REAL___FP16)
+#if defined(PETSC_USE_REAL_SINGLE)
 #define PetscRealPartComplex(a)      crealf(a)
 #define PetscImaginaryPartComplex(a) cimagf(a)
 #define PetscAbsComplex(a)           cabsf(a)
@@ -367,7 +370,7 @@ PETSC_STATIC_INLINE PetscComplex PetscAtanhComplex(PetscComplex z)
 #define PetscAtanhComplex(a)         catanhq(a)
 
 #endif /* PETSC_USE_REAL_* */
-#endif /* (__cplusplus && PETSC_HAVE_CXX_COMPLEX) else-if (!__cplusplus && PETSC_HAVE_C99_COMPLEX) */
+#endif /* (__cplusplus) */
 
 /*
    PETSC_i is the imaginary number, i
@@ -381,7 +384,7 @@ PETSC_EXTERN PetscComplex PETSC_i;
 */
 PETSC_STATIC_INLINE PetscComplex PetscCMPLX(PetscReal x, PetscReal y)
 {
-#if   defined(__cplusplus) && defined(PETSC_HAVE_CXX_COMPLEX) && !defined(PETSC_USE_REAL___FLOAT128)
+#if defined(__cplusplus) && !defined(PETSC_USE_REAL___FLOAT128)
   return PetscComplex(x,y);
 #elif defined(_Imaginary_I)
   return x + y * _Imaginary_I;
@@ -402,23 +405,9 @@ PETSC_STATIC_INLINE PetscComplex PetscCMPLX(PetscReal x, PetscReal y)
 #endif
 }
 
-#if defined(PETSC_HAVE_MPI_C_DOUBLE_COMPLEX)
-#define MPIU_C_COMPLEX MPI_C_COMPLEX
-#define MPIU_C_DOUBLE_COMPLEX MPI_C_DOUBLE_COMPLEX
-#else
-# if defined(__cplusplus) && defined(PETSC_HAVE_CXX_COMPLEX) && !defined(PETSC_USE_REAL___FLOAT128)
-  typedef petsccomplexlib::complex<double> petsc_mpiu_c_double_complex;
-  typedef petsccomplexlib::complex<float> petsc_mpiu_c_complex;
-# elif !defined(__cplusplus) && defined(PETSC_HAVE_C99_COMPLEX)
-  typedef double _Complex petsc_mpiu_c_double_complex;
-  typedef float _Complex petsc_mpiu_c_complex;
-# else
-  typedef struct {double real,imag;} petsc_mpiu_c_double_complex;
-  typedef struct {float real,imag;} petsc_mpiu_c_complex;
-# endif
-PETSC_EXTERN MPI_Datatype MPIU_C_COMPLEX PetscAttrMPITypeTagLayoutCompatible(petsc_mpiu_c_complex);
-PETSC_EXTERN MPI_Datatype MPIU_C_DOUBLE_COMPLEX PetscAttrMPITypeTagLayoutCompatible(petsc_mpiu_c_double_complex);
-#endif /* PETSC_HAVE_MPI_C_DOUBLE_COMPLEX */
+#define MPIU_C_COMPLEX MPI_C_COMPLEX PETSC_DEPRECATED_MACRO("GCC warning \"MPIU_C_COMPLEX macro is deprecated use MPI_C_COMPLEX (since version 3.15)\"")
+#define MPIU_C_DOUBLE_COMPLEX MPI_C_DOUBLE_COMPLEX PETSC_DEPRECATED_MACRO("GCC warning \"MPIU_C_DOUBLE_COMPLEX macro is deprecated use MPI_C_DOUBLE_COMPLEX (since version 3.15)\"")
+
 #if defined(PETSC_USE_REAL___FLOAT128)
 PETSC_EXTERN MPI_Datatype MPIU___COMPLEX128 PetscAttrMPITypeTag(__complex128);
 #endif /* PETSC_USE_REAL___FLOAT128 */
@@ -434,13 +423,13 @@ PETSC_EXTERN MPI_Datatype MPIU___COMPLEX128 PetscAttrMPITypeTag(__complex128);
 .seealso: PetscReal, PetscScalar, PetscComplex, PetscInt, MPIU_REAL, MPIU_SCALAR, MPIU_COMPLEX, MPIU_INT, PETSC_i
 M*/
 #if defined(PETSC_USE_REAL_SINGLE)
-#  define MPIU_COMPLEX MPIU_C_COMPLEX
+#  define MPIU_COMPLEX MPI_C_COMPLEX
 #elif defined(PETSC_USE_REAL_DOUBLE)
-#  define MPIU_COMPLEX MPIU_C_DOUBLE_COMPLEX
+#  define MPIU_COMPLEX MPI_C_DOUBLE_COMPLEX
 #elif defined(PETSC_USE_REAL___FLOAT128)
 #  define MPIU_COMPLEX MPIU___COMPLEX128
 #elif defined(PETSC_USE_REAL___FP16)
-#  define MPIU_COMPLEX MPIU_C_COMPLEX
+#  define MPIU_COMPLEX MPI_C_COMPLEX
 #endif /* PETSC_USE_REAL_* */
 
 #endif /* PETSC_HAVE_COMPLEX */
@@ -448,7 +437,7 @@ M*/
 /*
     Scalar number definitions
  */
-#if defined(PETSC_USE_COMPLEX) && !defined(PETSC_SKIP_COMPLEX)
+#if defined(PETSC_USE_COMPLEX) && defined(PETSC_HAVE_COMPLEX)
 /*MC
    MPIU_SCALAR - MPI datatype corresponding to PetscScalar
 
@@ -699,7 +688,6 @@ M*/
    Input Parameter:
 .   v1 - the double
 
-
    Level: beginner
 
 .seealso: PetscMax(), PetscMin(), PetscAbsInt(), PetscSqr()
@@ -818,12 +806,22 @@ typedef PetscReal MatReal;
 struct petsc_mpiu_2scalar {PetscScalar a,b;};
 PETSC_EXTERN MPI_Datatype MPIU_2SCALAR PetscAttrMPITypeTagLayoutCompatible(struct petsc_mpiu_2scalar);
 
+/*
+   MPI Datatypes for composite reductions:
+   MPIU_REAL_INT -> struct { PetscReal; PetscInt; }
+   MPIU_SCALAR_INT -> struct { PetscScalar; PetscInt; }
+*/
+PETSC_EXTERN MPI_Datatype MPIU_REAL_INT;
+PETSC_EXTERN MPI_Datatype MPIU_SCALAR_INT;
+
 #if defined(PETSC_USE_64BIT_INDICES)
 struct petsc_mpiu_2int {PetscInt a,b;};
 PETSC_EXTERN MPI_Datatype MPIU_2INT PetscAttrMPITypeTagLayoutCompatible(struct petsc_mpiu_2int);
 #else
 #define MPIU_2INT MPI_2INT
 #endif
+PETSC_EXTERN MPI_Datatype MPI_4INT;
+PETSC_EXTERN MPI_Datatype MPIU_4INT;
 
 PETSC_STATIC_INLINE PetscInt PetscPowInt(PetscInt base,PetscInt power)
 {
@@ -882,6 +880,62 @@ PETSC_STATIC_INLINE PetscScalar PetscPowScalarReal(PetscScalar base,PetscReal po
   PetscScalar cpower = power;
   return PetscPowScalar(base,cpower);
 }
+
+/*MC
+    PetscLTE - Performs a less than or equal to on a given constant with a fudge for floating point numbers
+
+   Synopsis:
+   #include <petscmath.h>
+   bool PetscLTE(PetscReal x,constant float)
+
+   Not Collective
+
+   Input Parameters:
++   x - the variable
+-   b - the constant float it is checking if x is less than or equal to
+
+   Notes:
+     The fudge factor is the value PETSC_SMALL
+
+     The constant numerical value is automatically set to the appropriate precision of PETSc so can just be provided as, for example, 3.2
+
+     This is used in several examples for setting initial conditions based on coordinate values that are computed with i*h that produces inexact
+     floating point results.
+
+   Level: advanced
+
+.seealso: PetscMax(), PetscMin(), PetscAbsInt(), PetscAbsReal(), PetscGTE()
+
+M*/
+#define PetscLTE(x,b)  ((x) <= (PetscRealConstant(b)+PETSC_SMALL))
+
+/*MC
+    PetscGTE - Performs a greater than or equal to on a given constant with a fudge for floating point numbers
+
+   Synopsis:
+   #include <petscmath.h>
+   bool PetscGTE(PetscReal x,constant float)
+
+   Not Collective
+
+   Input Parameters:
++   x - the variable
+-   b - the constant float it is checking if x is greater than or equal to
+
+   Notes:
+     The fudge factor is the value PETSC_SMALL
+
+     The constant numerical value is automatically set to the appropriate precision of PETSc so can just be provided as, for example, 3.2
+
+     This is used in several examples for setting initial conditions based on coordinate values that are computed with i*h that produces inexact
+     floating point results.
+
+   Level: advanced
+
+.seealso: PetscMax(), PetscMin(), PetscAbsInt(), PetscAbsReal(), PetscLTE()
+
+M*/
+#define PetscGTE(x,b)  ((x) >= (PetscRealConstant(b)-PETSC_SMALL))
 
 PETSC_EXTERN PetscErrorCode PetscLinearRegression(PetscInt,const PetscReal[],const PetscReal[],PetscReal*,PetscReal*);
 #endif

@@ -10,10 +10,11 @@ class Configure(config.base.Configure):
     self.substPrefix  = ''
     self.version = {}
     self.rejected = {}
+    self.text = ''
     return
 
   def __str__(self):
-    return ''
+    return self.text
 
   def setupHelp(self, help):
     import nargs
@@ -96,7 +97,7 @@ class Configure(config.base.Configure):
     if not options:
       return
     options.saveLog()
-    for language, compiler in [('C', 'CC'), ('Cxx', 'CXX'), ('FC', 'FC'), ('CUDA', 'CUDAC'), ('HIP', 'HIPCC'), ('SYCL', 'SYCLCXX')]:
+    for language, compiler in [('C', 'CC'), ('Cxx', 'CXX'), ('FC', 'FC'), ('CUDA', 'CUDAC'), ('HIP', 'HIPC'), ('SYCL', 'SYCLCXX')]:
       if not hasattr(self.setCompilers, compiler):
         continue
       self.setCompilers.pushLanguage(language)
@@ -107,38 +108,86 @@ class Configure(config.base.Configure):
           self.version[language] = options.getCompilerVersion(language, self.setCompilers.getCompiler())
       except RuntimeError:
         pass
-      try:
-        self.rejected[language] = []
-        for bopt in bopts:
-          if bopt in ['g','O'] and self.getOptionalFlagsName(language) in self.argDB: # check --COPTFLAGS etc
-            # treat user supplied options as single option - as it could include options separated by spaces '-tp k8-64'
-            flags = [self.argDB[self.getOptionalFlagsName(language)]]
-          elif bopt in ['g','O'] and self.hasOptFlags(getattr(self.setCompilers,flagsName)): # check --CFLAGS etc
-            self.logPrint('Optimization options found in '+flagsName+ '. Skipping setting defaults')
-            flags = []
-          elif bopt == '' and flagsName in self.argDB:
-            self.logPrint('Ignoring default options which were overridden using --'+flagsName+ ' ' + self.argDB[flagsName])
-            flags = []
-          else:
-            flags = options.getCompilerFlags(language, self.setCompilers.getCompiler(), bopt)
+      self.rejected[language] = []
+      for bopt in bopts:
+        userflags = 0
+        if bopt in ['g','O'] and self.getOptionalFlagsName(language) in self.argDB: # check --COPTFLAGS etc
+          # treat user supplied options as single option - as it could include options separated by spaces '-tp k8-64'
+          flags = [self.argDB[self.getOptionalFlagsName(language)]]
+          userflags = 1
+        elif bopt in ['g','O'] and self.hasOptFlags(getattr(self.setCompilers,flagsName)): # check --CFLAGS etc
+          self.logPrint('Optimization options found in '+flagsName+ '. Skipping setting defaults')
+          flags = []
+        elif bopt == '' and flagsName in self.argDB:
+          self.logPrint('Ignoring default options which were overridden using --'+flagsName+ ' ' + self.argDB[flagsName])
+          flags = []
+        else:
+          flags = options.getCompilerFlags(language, self.setCompilers.getCompiler(), bopt)
 
-          for testFlag in flags:
-            if isinstance(testFlag,tuple):
-              testFlag = ' '.join(testFlag)
-            try:
-              self.logPrint('Trying '+language+' compiler flag '+testFlag)
-              self.setCompilers.saveLog()
-              self.setCompilers.addCompilerFlag(testFlag)
-              self.logWrite(self.setCompilers.restoreLog())
-            except RuntimeError:
-              self.logWrite(self.setCompilers.restoreLog())
-              self.logPrint('Rejected '+language+' compiler flag '+testFlag)
-              self.rejected[language].append(testFlag)
-      except RuntimeError:
-        pass
+        for testFlag in flags:
+          if isinstance(testFlag,tuple):
+            testFlag = ' '.join(testFlag)
+          try:
+            self.logPrint('Trying '+language+' compiler flag '+testFlag)
+            self.setCompilers.addCompilerFlag(testFlag)
+          except RuntimeError:
+            if userflags:
+              raise RuntimeError('User provided flags for language '+language+' with '+self.getOptionalFlagsName(language)+': '+self.argDB[self.getOptionalFlagsName(language)]+' are not correct for the compiler')
+            self.logPrint('Rejected '+language+' compiler flag '+testFlag)
+            self.rejected[language].append(testFlag)
       self.setCompilers.popLanguage()
+    return
+
+  def outputCompilerMacros(self):
+    '''Cannot use the regular outputCompile because it swallows the output into the -o file'''
+    command = self.getCompilerCmd()
+    if self.compilerDefines: self.framework.outputHeader(self.compilerDefines)
+    self.framework.outputCHeader(self.compilerFixes)
+    f = open(self.compilerSource, 'w')
+    f.close()
+    try:
+      command = command + ' -E -dM '
+      start = command.find('-o ')
+      end = start + 3 + command[start+3:].find(' ')
+      command = command[:start-1]+command[end:]
+      (out, err, ret) = Configure.executeShellCommand(command, log = self.log)
+      if out.find('__AVX2__') > -1 and out.find('__FMA__') > -1:
+        self.text = self.text + 'Intel instruction sets utilizable by compiler:\n'
+        self.text = self.text + '  AVX2\n'
+      if out.find('__AVX512__') > -1:
+        self.text = self.text + '  AVX512\n'
+    except:
+      pass
+    for filename in [self.compilerDefines, self.compilerFixes, self.compilerSource, self.compilerObj]:
+      if os.path.isfile(filename): os.remove(filename)
+
+  def checkCompilerMacros(self):
+    '''Save the list of CPP macros defined by the C and C++ compiler, does not work for all compilers'''
+    '''The values will depends on the flags passed to the compiler'''
+    self.outputCompilerMacros()
+    if hasattr(self.setCompilers, 'CXX'):
+      self.pushLanguage('Cxx')
+      self.outputCompilerMacros()
+    return
+
+  def checkIntelHardwareSupport(self):
+    '''Use Linux/MacOS commands to determine what operations the hardware supports'''
+    try:
+      (out, err, ret) = Configure.executeShellCommand('lscpu', log = self.log)
+    except:
+      try:
+        (out, err, ret) = Configure.executeShellCommand('sysctl -a', log = self.log)
+        if out.find('hw.optional.avx2_0: 1') > -1 and out.find('hw.optional.fma: 1') > -1:
+          self.text = self.text + 'Intel instruction sets found on CPU:\n'
+          self.text = self.text + '  AVX2\n'
+        if out.find('hw.optional.avx512f: 1') > -1:
+          self.text = self.text + '  AVX512\n'
+      except:
+        pass
     return
 
   def configure(self):
     self.executeTest(self.configureCompilerFlags)
+    self.executeTest(self.checkIntelHardwareSupport)
+    self.executeTest(self.checkCompilerMacros)
     return

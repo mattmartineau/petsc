@@ -27,13 +27,13 @@ def inInstallDir():
   else:
     return False
 
-def summarize_results(directory,make,ntime,etime):
+def summarize_results(directory,make,ntime,etime,show_results):
   ''' Loop over all of the results files and summarize the results'''
   startdir = os.getcwd()
   try:
     os.chdir(directory)
   except OSError:
-    print('# No tests run')
+    print('# No test results in ', directory)
     return
   summary={'total':0,'success':0,'failed':0,'failures':[],'todo':0,'skip':0,
            'time':0, 'cputime':0}
@@ -60,18 +60,21 @@ def summarize_results(directory,make,ntime,etime):
            summary[l[0]] += int(l[1])
 
   failstr=' '.join(summary['failures'])
-  print("\n# -------------")
-  print("#   Summary    ")
-  print("# -------------")
-  if failstr.strip(): print("# FAILED " + failstr)
+  if show_results:
+    print("\n# -------------")
+    print("#   Summary    ")
+    print("# -------------")
+    if failstr.strip(): print("# FAILED " + failstr)
 
-  for t in "success failed todo skip".split():
-    percent=summary[t]/float(summary['total'])*100
-    print("# %s %d/%d tests (%3.1f%%)" % (t, summary[t], summary['total'], percent))
-  print("#")
-  if etime:
-    print("# Wall clock time for tests: %s sec"% etime)
-  print("# Approximate CPU time (not incl. build time): %s sec"% summary['cputime'])
+    for t in "success failed todo skip".split():
+      percent=summary[t]/float(summary['total'])*100
+      print("# %s %d/%d tests (%3.1f%%)" % (t, summary[t], summary['total'], percent))
+    print("#")
+    if etime:
+      print("# Wall clock time for tests: %s sec"% etime)
+    print("# Approximate CPU time (not incl. build time): %s sec"% summary['cputime'])
+  else:
+    if failstr.strip(): print("\n\n# FAILED " + failstr)
 
   if failstr.strip():
       fail_targets=(
@@ -98,7 +101,7 @@ def summarize_results(directory,make,ntime,etime):
       print("#\n# To rerun failed tests: ")
       print("#     "+make+" -f "+makefile+" test test-fail=1")
 
-  if ntime>0:
+  if ntime>0 and show_results:
       print("#\n# Timing summary (actual test time / total CPU time): ")
       timelist=list(set(timelist))
       timelist.sort(reverse=True)
@@ -110,7 +113,7 @@ def summarize_results(directory,make,ntime,etime):
             print("#   %s: %.2f sec / %.2f sec" % (re.sub('.counts','',cf), timesummary[cf], cputimesummary[cf]))
   os.chdir(startdir)
   return
-  
+
 def get_test_data(directory):
     """
     Create dictionary structure with test data
@@ -119,7 +122,6 @@ def get_test_data(directory):
     try:
         os.chdir(directory)
     except OSError:
-        print('# No tests run')
         return
     # loop over *.counts files for all the problems tested in the test suite
     testdata = {}
@@ -131,12 +133,12 @@ def get_test_data(directory):
         probname = ''
         for i in range(1,len(testname)):
             probname += testname[i]
-        # we split the package into its subcomponents of PETSc module (e.g.: snes) 
+        # we split the package into its subcomponents of PETSc module (e.g.: snes)
         # and test type (e.g.: tutorial)
         testname_list = testname[0].split('_')
         pkgname = testname_list[0]
         testtype = testname_list[-1]
-        # in order to correct assemble the folder path for problem outputs, we 
+        # in order to correct assemble the folder path for problem outputs, we
         # iterate over any possible subpackage names and test suffixes
         testname_short = testname_list[:-1]
         prob_subdir = os.path.join('', *testname_short)
@@ -257,7 +259,6 @@ def generate_xml(testdata,directory):
     try:
         os.chdir(directory)
     except OSError:
-        print('# No tests run')
         return
     junit = open('../testresults.xml', 'w')
     junit.write('<?xml version="1.0" ?>\n')
@@ -321,6 +322,8 @@ def main():
                       default=0)
     parser.add_option('-f', '--fail', dest='show_fail', action="store_true", 
                       help='Show the failed tests and how to run them')
+    parser.add_option('-s', '--show', dest='show_results', action="store_true",
+                      help='Summarize the test results')
     options, args = parser.parse_args()
 
     # Process arguments
@@ -328,14 +331,19 @@ def main():
       parser.print_usage()
       return
     
+    # gmakefile.test is invoked frequently for searches and in those
+    # cases we want to perform actions, but we don't want to
+    # generate_xml or show the summarized results.
 
     if not options.show_fail:
-      summarize_results(options.directory,options.make,int(options.time),options.elapsed_time)
+      summarize_results(options.directory,options.make,int(options.time),
+                        options.elapsed_time,options.show_results)
     testresults=get_test_data(options.directory)
 
     if options.show_fail:
       show_fail(testresults)
-    else:
+    # Don't generate xml if doing searches
+    elif options.show_results:
       generate_xml(testresults, options.directory)
 
 if __name__ == "__main__":

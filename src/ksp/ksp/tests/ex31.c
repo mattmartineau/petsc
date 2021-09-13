@@ -9,7 +9,6 @@ This   Input parameters include\n\
    Processors: n
 T*/
 
-
 #include <petscksp.h>
 
 int main(int argc,char **args)
@@ -27,8 +26,8 @@ int main(int argc,char **args)
   PetscScalar    one = 1.0;
 
   ierr = PetscInitialize(&argc,&args,(char*)0,help);if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
 
   ierr = PetscOptionsGetBool(NULL,NULL,"-partition",&partition,NULL);CHKERRQ(ierr);
   ierr = PetscOptionsGetBool(NULL,NULL,"-displayIS",&displayIS,NULL);CHKERRQ(ierr);
@@ -158,7 +157,7 @@ int main(int argc,char **args)
 
     test:
       args: -f ${DATAFILESPATH}/matrices/small -partition -mat_partitioning_type parmetis
-      requires: datafilespath !complex double !define(PETSC_USE_64BIT_INDICES) parmetis
+      requires: datafilespath !complex double !defined(PETSC_USE_64BIT_INDICES) parmetis
       output_file: output/ex31.out
       nsize: 3
 

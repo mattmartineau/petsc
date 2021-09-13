@@ -39,7 +39,7 @@
   PetscInt vecs_allocated;                              /*   total number of vecs available */ \
   /* Since we may call the user "obtain_work_vectors" several times, we have to keep track of the pointers that it has returned */ \
   Vec      **user_work;                                              \
-  PetscInt *mwork_alloc;       /* Number of work vectors allocated as part of  a work-vector chunck */ \
+  PetscInt *mwork_alloc;       /* Number of work vectors allocated as part of  a work-vector chunk */ \
   PetscInt nwork_alloc;        /* Number of work vector chunks allocated */ \
                                                                         \
   /* Information for building solution */                               \
@@ -47,7 +47,8 @@
   PetscInt    fullcycle;       /* Current number of complete cycle */ \
   PetscScalar *nrs;            /* temp that holds the coefficients of the Krylov vectors that form the minimum residual solution */ \
   Vec         sol_temp;        /* used to hold temporary solution */ \
-  PetscReal   rnorm0;          /* residual norm at beginning of the GMRESCycle */
+  PetscReal   rnorm0;          /* residual norm at beginning of the GMRESCycle */ \
+  PetscReal   breakdowntol;    /* A relative tolerance is used for breakdown check in GMRESCycle */
 
 typedef struct {
   KSPGMRESHEADER

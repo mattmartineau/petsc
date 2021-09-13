@@ -18,7 +18,7 @@
 
    Note:
    This routine sorts the contents of the index sets before
-   the comparision is made, so the order of the indices on a processor is immaterial.
+   the comparison is made, so the order of the indices on a processor is immaterial.
 
    Each processor has to have the same indices in the two sets, for example,
 $           Processor
@@ -26,7 +26,6 @@ $             0      1
 $    is1 = {0, 1} {2, 3}
 $    is2 = {2, 3} {0, 1}
    will return false.
-
 
 .seealso: ISEqualUnsorted()
 @*/
@@ -49,7 +48,7 @@ PetscErrorCode  ISEqual(IS is1,IS is2,PetscBool  *flg)
     PetscFunctionReturn(0);
   }
 
-  ierr = MPI_Comm_compare(PetscObjectComm((PetscObject)is1),PetscObjectComm((PetscObject)is2),&mflg);CHKERRQ(ierr);
+  ierr = MPI_Comm_compare(PetscObjectComm((PetscObject)is1),PetscObjectComm((PetscObject)is2),&mflg);CHKERRMPI(ierr);
   if (mflg != MPI_CONGRUENT && mflg != MPI_IDENT) {
     *flg = PETSC_FALSE;
     PetscFunctionReturn(0);
@@ -84,7 +83,7 @@ PetscErrorCode  ISEqual(IS is1,IS is2,PetscBool  *flg)
       ierr = PetscFree(a2);CHKERRQ(ierr);
     }
     ierr = PetscObjectGetComm((PetscObject)is1,&comm);CHKERRQ(ierr);
-    ierr = MPIU_Allreduce(&flag,flg,1,MPIU_BOOL,MPI_MIN,comm);CHKERRQ(ierr);
+    ierr = MPIU_Allreduce(&flag,flg,1,MPIU_BOOL,MPI_MIN,comm);CHKERRMPI(ierr);
   }
   PetscFunctionReturn(0);
 }
@@ -106,8 +105,7 @@ PetscErrorCode  ISEqual(IS is1,IS is2,PetscBool  *flg)
 
    Note:
    This routine does NOT sort the contents of the index sets before
-   the comparision is made.
-
+   the comparison is made.
 
 .seealso: ISEqual()
 @*/
@@ -130,7 +128,7 @@ PetscErrorCode  ISEqualUnsorted(IS is1,IS is2,PetscBool  *flg)
     PetscFunctionReturn(0);
   }
 
-  ierr = MPI_Comm_compare(PetscObjectComm((PetscObject)is1),PetscObjectComm((PetscObject)is2),&mflg);CHKERRQ(ierr);
+  ierr = MPI_Comm_compare(PetscObjectComm((PetscObject)is1),PetscObjectComm((PetscObject)is2),&mflg);CHKERRMPI(ierr);
   if (mflg != MPI_CONGRUENT && mflg != MPI_IDENT) {
     *flg = PETSC_FALSE;
     PetscFunctionReturn(0);
@@ -154,9 +152,8 @@ PetscErrorCode  ISEqualUnsorted(IS is1,IS is2,PetscBool  *flg)
       ierr = ISRestoreIndices(is2,&ptr2);CHKERRQ(ierr);
     }
     ierr = PetscObjectGetComm((PetscObject)is1,&comm);CHKERRQ(ierr);
-    ierr = MPIU_Allreduce(&flag,flg,1,MPIU_BOOL,MPI_MIN,comm);CHKERRQ(ierr);
+    ierr = MPIU_Allreduce(&flag,flg,1,MPIU_BOOL,MPI_MIN,comm);CHKERRMPI(ierr);
   }
   PetscFunctionReturn(0);
 }
-
 

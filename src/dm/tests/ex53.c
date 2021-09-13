@@ -36,8 +36,8 @@ int main(int argc,char **argv)
      Initialize program and set problem parameters
      - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
   ierr = PetscInitialize(&argc,&argv,(char*)0,help);if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
 
   ierr = PetscOptionsGetInt(NULL, NULL, "-mx", &mx, NULL);CHKERRQ(ierr);
   ierr = PetscOptionsGetInt(NULL, NULL, "-my", &my, NULL);CHKERRQ(ierr);
@@ -85,7 +85,7 @@ int main(int argc,char **argv)
   ierr = DMDAGetCorners(da, &ixs, &iys, &izs, &ixm, &iym, &izm);CHKERRQ(ierr);
   if (dim==3) {
     ierr = DMDAVecGetArray(da, vec_full, &vecdata3d);CHKERRQ(ierr);
-    for (k=izs; k<izs+izm; k++){
+    for (k=izs; k<izs+izm; k++) {
       for (j=iys; j<iys+iym; j++) {
         for (i=ixs; i<ixs+ixm; i++) {
           vecdata3d[k][j][i] = ((i-mx/2)*(j+mx/2))+k*100;

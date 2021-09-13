@@ -11,7 +11,6 @@ class Configure(config.package.CMakePackage):
     self.liblist          = [['libmstk.a']]
     self.functions        = []
     self.cxx              = 1
-    self.requirescxx11    = 0
     self.downloadonWindows= 0
     self.hastests         = 1
     return
@@ -36,10 +35,8 @@ class Configure(config.package.CMakePackage):
     args = config.package.CMakePackage.formCMakeConfigureArgs(self)
     args.append('-DUSE_XSDK_DEFAULTS=YES')
     if self.compilerFlags.debugging:
-      args.append('-DCMAKE_BUILD_TYPE=DEBUG')
       args.append('-DXSDK_ENABLE_DEBUG=YES')
     else:
-      args.append('-DCMAKE_BUILD_TYPE=RELEASE')
       args.append('-DXSDK_ENABLE_DEBUG=NO')
 
     args.append('-DENABLE_PARALLEL=yes')

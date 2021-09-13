@@ -35,12 +35,12 @@ int main(int argc, char *argv[])
   MatColoring    coloring;
 
   ierr = PetscInitialize(&argc,&argv,(char*)0,help);if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
 
-  ierr= MatCreate(PETSC_COMM_WORLD,&J);CHKERRQ(ierr);
-  ierr= MatSetSizes(J, PETSC_DECIDE, PETSC_DECIDE, M, M);CHKERRQ(ierr);
-  ierr= MatSetFromOptions(J);CHKERRQ(ierr);
-  ierr= MatSetUp(J);CHKERRQ(ierr);
+  ierr = MatCreate(PETSC_COMM_WORLD,&J);CHKERRQ(ierr);
+  ierr = MatSetSizes(J, PETSC_DECIDE, PETSC_DECIDE, M, M);CHKERRQ(ierr);
+  ierr = MatSetFromOptions(J);CHKERRQ(ierr);
+  ierr = MatSetUp(J);CHKERRQ(ierr);
 
   ierr = FormJacobian(J);CHKERRQ(ierr);
   ierr = MatView(J,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
@@ -69,19 +69,19 @@ int main(int argc, char *argv[])
 
    test:
       suffix: sl
-      requires: !complex double !define(PETSC_USE_64BIT_INDICES)
+      requires: !complex double !defined(PETSC_USE_64BIT_INDICES)
       args: -mat_coloring_type sl
       output_file: output/ex24_1.out
 
    test:
       suffix: lf
-      requires: !complex double !define(PETSC_USE_64BIT_INDICES)
+      requires: !complex double !defined(PETSC_USE_64BIT_INDICES)
       args: -mat_coloring_type lf
       output_file: output/ex24_1.out
 
    test:
       suffix: id
-      requires: !complex double !define(PETSC_USE_64BIT_INDICES)
+      requires: !complex double !defined(PETSC_USE_64BIT_INDICES)
       args: -mat_coloring_type id
       output_file: output/ex24_1.out
 

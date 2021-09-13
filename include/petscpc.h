@@ -79,7 +79,7 @@ PETSC_EXTERN PetscErrorCode PCModifySubMatrices(PC,PetscInt,const IS[],const IS[
 
 PETSC_EXTERN PetscErrorCode PCSetOperators(PC,Mat,Mat);
 PETSC_EXTERN PetscErrorCode PCGetOperators(PC,Mat*,Mat*);
-PETSC_EXTERN PetscErrorCode PCGetOperatorsSet(PC,PetscBool *,PetscBool *);
+PETSC_EXTERN PetscErrorCode PCGetOperatorsSet(PC,PetscBool*,PetscBool*);
 
 PETSC_EXTERN PetscErrorCode PCView(PC,PetscViewer);
 PETSC_EXTERN PetscErrorCode PCLoad(PC,PetscViewer);
@@ -118,6 +118,8 @@ PETSC_EXTERN PetscErrorCode PCJacobiSetType(PC,PCJacobiType);
 PETSC_EXTERN PetscErrorCode PCJacobiGetType(PC,PCJacobiType*);
 PETSC_EXTERN PetscErrorCode PCJacobiSetUseAbs(PC,PetscBool);
 PETSC_EXTERN PetscErrorCode PCJacobiGetUseAbs(PC,PetscBool*);
+PETSC_EXTERN PetscErrorCode PCJacobiSetFixDiagonal(PC,PetscBool);
+PETSC_EXTERN PetscErrorCode PCJacobiGetFixDiagonal(PC,PetscBool*);
 PETSC_EXTERN PetscErrorCode PCSORSetSymmetric(PC,MatSORType);
 PETSC_EXTERN PetscErrorCode PCSORGetSymmetric(PC,MatSORType*);
 PETSC_EXTERN PetscErrorCode PCSORSetOmega(PC,PetscReal);
@@ -146,7 +148,7 @@ PETSC_EXTERN PetscErrorCode PCShellSetApplyRichardson(PC,PetscErrorCode (*)(PC,V
 PETSC_EXTERN PetscErrorCode PCShellSetView(PC,PetscErrorCode (*)(PC,PetscViewer));
 PETSC_EXTERN PetscErrorCode PCShellSetDestroy(PC,PetscErrorCode (*)(PC));
 PETSC_EXTERN PetscErrorCode PCShellSetContext(PC,void*);
-PETSC_EXTERN PetscErrorCode PCShellGetContext(PC,void**);
+PETSC_EXTERN PetscErrorCode PCShellGetContext(PC,void*);
 PETSC_EXTERN PetscErrorCode PCShellSetName(PC,const char[]);
 PETSC_EXTERN PetscErrorCode PCShellGetName(PC,const char*[]);
 
@@ -217,7 +219,8 @@ PETSC_EXTERN PetscErrorCode PCGASMGetSubmatrices(PC,PetscInt*,Mat*[]);
 
 PETSC_EXTERN PetscErrorCode PCCompositeSetType(PC,PCCompositeType);
 PETSC_EXTERN PetscErrorCode PCCompositeGetType(PC,PCCompositeType*);
-PETSC_EXTERN PetscErrorCode PCCompositeAddPC(PC,PCType);
+PETSC_EXTERN PetscErrorCode PCCompositeAddPCType(PC,PCType);
+PETSC_EXTERN PetscErrorCode PCCompositeAddPC(PC,PC);
 PETSC_EXTERN PetscErrorCode PCCompositeGetNumberPC(PC,PetscInt *);
 PETSC_EXTERN PetscErrorCode PCCompositeGetPC(PC,PetscInt,PC *);
 PETSC_EXTERN PetscErrorCode PCCompositeSpecialSetAlpha(PC,PetscScalar);
@@ -363,6 +366,8 @@ PETSC_EXTERN PetscErrorCode PCMGSetGalerkin(PC,PCMGGalerkinType);
 PETSC_EXTERN PetscErrorCode PCMGGetGalerkin(PC,PCMGGalerkinType*);
 PETSC_EXTERN PetscErrorCode PCMGSetAdaptInterpolation(PC,PetscBool);
 PETSC_EXTERN PetscErrorCode PCMGGetAdaptInterpolation(PC,PetscBool*);
+PETSC_EXTERN PetscErrorCode PCMGSetAdaptCR(PC,PetscBool);
+PETSC_EXTERN PetscErrorCode PCMGGetAdaptCR(PC,PetscBool*);
 
 PETSC_EXTERN PetscErrorCode PCMGSetRhs(PC,PetscInt,Vec);
 PETSC_EXTERN PetscErrorCode PCMGSetX(PC,PetscInt,Vec);
@@ -378,7 +383,11 @@ PETSC_EXTERN PetscErrorCode PCMGGetInterpolation(PC,PetscInt,Mat*);
 PETSC_EXTERN PetscErrorCode PCMGSetRScale(PC,PetscInt,Vec);
 PETSC_EXTERN PetscErrorCode PCMGGetRScale(PC,PetscInt,Vec*);
 PETSC_EXTERN PetscErrorCode PCMGSetResidual(PC,PetscInt,PetscErrorCode (*)(Mat,Vec,Vec,Vec),Mat);
+PETSC_EXTERN PetscErrorCode PCMGSetResidualTranspose(PC,PetscInt,PetscErrorCode (*)(Mat,Vec,Vec,Vec),Mat);
 PETSC_EXTERN PetscErrorCode PCMGResidualDefault(Mat,Vec,Vec,Vec);
+PETSC_EXTERN PetscErrorCode PCMGResidualTransposeDefault(Mat,Vec,Vec,Vec);
+PETSC_EXTERN PetscErrorCode PCMGMatResidualDefault(Mat,Mat,Mat,Mat);
+PETSC_EXTERN PetscErrorCode PCMGMatResidualTransposeDefault(Mat,Mat,Mat,Mat);
 
 PETSC_EXTERN PetscErrorCode PCHMGSetReuseInterpolation(PC,PetscBool);
 PETSC_EXTERN PetscErrorCode PCHMGSetUseSubspaceCoarsening(PC,PetscBool);
@@ -438,6 +447,7 @@ PETSC_EXTERN PetscErrorCode PCHPDDMSetRHSMat(PC,Mat);
 PETSC_EXTERN PetscErrorCode PCHPDDMHasNeumannMat(PC,PetscBool);
 PETSC_EXTERN PetscErrorCode PCHPDDMSetCoarseCorrectionType(PC,PCHPDDMCoarseCorrectionType);
 PETSC_EXTERN PetscErrorCode PCHPDDMGetCoarseCorrectionType(PC,PCHPDDMCoarseCorrectionType*);
+PETSC_EXTERN PetscErrorCode PCHPDDMGetSTShareSubKSP(PC,PetscBool*);
 PETSC_EXTERN PetscErrorCode PCHPDDMFinalizePackage(void);
 PETSC_EXTERN PetscErrorCode PCHPDDMInitializePackage(void);
 

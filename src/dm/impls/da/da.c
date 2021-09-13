@@ -69,7 +69,7 @@ PetscErrorCode  DMDASetNumProcs(DM da, PetscInt m, PetscInt n, PetscInt p)
   dd->p = p;
   if (da->dim == 2) {
     PetscMPIInt size;
-    ierr = MPI_Comm_size(PetscObjectComm((PetscObject)da),&size);CHKERRQ(ierr);
+    ierr = MPI_Comm_size(PetscObjectComm((PetscObject)da),&size);CHKERRMPI(ierr);
     if ((dd->m > 0) && (dd->n < 0)) {
       dd->n = size/dd->m;
       if (dd->n*dd->m != size) SETERRQ2(PetscObjectComm((PetscObject)da),PETSC_ERR_ARG_OUTOFRANGE,"%D processes in X direction not divisible into comm size %d",m,size);
@@ -221,7 +221,6 @@ PetscErrorCode  DMDASetOverlap(DM da,PetscInt x,PetscInt y,PetscInt z)
   dd->zol = z;
   PetscFunctionReturn(0);
 }
-
 
 /*@
   DMDAGetNumLocalSubDomains - Gets the number of local subdomains created upon decomposition.
@@ -386,7 +385,6 @@ PetscErrorCode  DMDAGetNonOverlappingRegion(DM da, PetscInt *xs, PetscInt *ys, P
   if (zm) *zm = dd->nonzm;
   PetscFunctionReturn(0);
 }
-
 
 /*@
   DMDASetNonOverlappingRegion - Sets the indices of the nonoverlapping region of a subdomain DM.
@@ -733,9 +731,10 @@ PetscErrorCode  DMDAGetOwnershipRanges(DM da,const PetscInt *lx[],const PetscInt
 -    refine_z - ratio of fine grid to coarse in z direction (2 by default)
 
   Options Database:
-+  -da_refine_x - refinement ratio in x direction
-.  -da_refine_y - refinement ratio in y direction
--  -da_refine_z - refinement ratio in z direction
++  -da_refine_x refine_x - refinement ratio in x direction
+.  -da_refine_y rafine_y - refinement ratio in y direction
+.  -da_refine_z refine_z - refinement ratio in z direction
+-  -da_refine <n> - refine the DMDA object n times when it is created.
 
   Level: intermediate
 
@@ -1024,7 +1023,6 @@ PetscErrorCode  DMRefine_DA(DM da,MPI_Comm comm,DM *daref)
     ierr = PetscArraycpy(dd2->refine_x_hier,dd->refine_x_hier,dd2->refine_x_hier_n);CHKERRQ(ierr);
   }
 
-
   /* copy vector type information */
   ierr = DMSetVecType(da2,da->vectype);CHKERRQ(ierr);
 
@@ -1062,7 +1060,6 @@ PetscErrorCode  DMRefine_DA(DM da,MPI_Comm comm,DM *daref)
   *daref = da2;
   PetscFunctionReturn(0);
 }
-
 
 PetscErrorCode  DMCoarsen_DA(DM dmf, MPI_Comm comm,DM *dmc)
 {

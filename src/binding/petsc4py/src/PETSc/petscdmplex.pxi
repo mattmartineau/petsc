@@ -75,9 +75,8 @@ cdef extern from * nogil:
     int DMPlexTetgenSetOptions(PetscDM,const char*)
     #int DMPlexCopyCoordinates(PetscDM,PetscDM)
     #int DMPlexCreateDoublet(MPI_Comm,PetscInt,PetscBool,PetscBool,PetscBool,PetscReal,PetscDM*)
-    int DMPlexCreateSquareBoundary(PetscDM,const PetscReal[],const PetscReal[],const PetscInt[])
-    int DMPlexCreateCubeBoundary(PetscDM,const PetscReal[],const PetscReal[],const PetscInt[])
     int DMPlexCreateBoxMesh(MPI_Comm,PetscInt,PetscBool,PetscInt[],PetscReal[],PetscReal[],PetscDMBoundaryType[],PetscBool,PetscDM*)
+    int DMPlexCreateBoxSurfaceMesh(MPI_Comm,PetscInt,PetscInt[],PetscReal[],PetscReal[],PetscBool,PetscDM*)
     int DMPlexCreateFromFile(MPI_Comm,const char[],PetscBool,PetscDM*)
     int DMPlexCreateCGNS(MPI_Comm,PetscInt,PetscBool,PetscDM*)
     int DMPlexCreateCGNSFromFile(MPI_Comm,const char[],PetscBool,PetscDM*)
@@ -102,6 +101,7 @@ cdef extern from * nogil:
     int DMPlexGetPartitioner(PetscDM,PetscPartitioner*)
     int DMPlexDistributeField(PetscDM,PetscSF,PetscSection,PetscVec,PetscSection,PetscVec)
     #int DMPlexDistributeData(PetscDM,PetscSF,PetscSection,MPI_Datatype,void*,PetscSection,void**)
+    int DMPlexIsDistributed(PetscDM,PetscBool*)
 
     int DMPlexGetOrdering(PetscDM,PetscMatOrderingType,PetscDMLabel,PetscIS*)
     int DMPlexPermute(PetscDM,PetscIS,PetscDM*)
@@ -129,3 +129,17 @@ cdef extern from * nogil:
 
     int DMPlexComputeCellGeometryFVM(PetscDM,PetscInt,PetscReal*,PetscReal[],PetscReal[])
     int DMPlexConstructGhostCells(PetscDM,const char[],PetscInt*,PetscDM*)
+
+    int DMPlexTopologyView(PetscDM,PetscViewer)
+    int DMPlexCoordinatesView(PetscDM,PetscViewer)
+    int DMPlexLabelsView(PetscDM,PetscViewer)
+    int DMPlexSectionView(PetscDM,PetscViewer,PetscDM)
+    int DMPlexGlobalVectorView(PetscDM,PetscViewer,PetscDM,PetscVec)
+    int DMPlexLocalVectorView(PetscDM,PetscViewer,PetscDM,PetscVec)
+
+    int DMPlexTopologyLoad(PetscDM,PetscViewer,PetscSF*)
+    int DMPlexCoordinatesLoad(PetscDM,PetscViewer)
+    int DMPlexLabelsLoad(PetscDM,PetscViewer)
+    int DMPlexSectionLoad(PetscDM,PetscViewer,PetscDM,PetscSF,PetscSF*,PetscSF*)
+    int DMPlexGlobalVectorLoad(PetscDM,PetscViewer,PetscDM,PetscSF,PetscVec)
+    int DMPlexLocalVectorLoad(PetscDM,PetscViewer,PetscDM,PetscSF,PetscVec)

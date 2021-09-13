@@ -96,8 +96,8 @@ static PetscErrorCode MCJPGreatestWeight_Private(MatColoring mc,const PetscReal 
   /* get the off-diagonal weights */
   if (oG) {
     ierr = PetscLogEventBegin(MATCOLORING_Comm,mc,0,0,0);CHKERRQ(ierr);
-    ierr = PetscSFBcastBegin(sf,MPIU_REAL,dwts,owts);CHKERRQ(ierr);
-    ierr = PetscSFBcastEnd(sf,MPIU_REAL,dwts,owts);CHKERRQ(ierr);
+    ierr = PetscSFBcastBegin(sf,MPIU_REAL,dwts,owts,MPI_REPLACE);CHKERRQ(ierr);
+    ierr = PetscSFBcastEnd(sf,MPIU_REAL,dwts,owts,MPI_REPLACE);CHKERRQ(ierr);
     ierr = PetscLogEventEnd(MATCOLORING_Comm,mc,0,0,0);CHKERRQ(ierr);
   }
   /* check for the maximum out to the distance of the coloring */
@@ -124,8 +124,8 @@ static PetscErrorCode MCJPGreatestWeight_Private(MatColoring mc,const PetscReal 
       }
       if (oG) {
         ierr = PetscLogEventBegin(MATCOLORING_Comm,mc,0,0,0);CHKERRQ(ierr);
-        ierr = PetscSFBcastBegin(sf,MPIU_REAL,dwts,owts);CHKERRQ(ierr);
-        ierr = PetscSFBcastEnd(sf,MPIU_REAL,dwts,owts);CHKERRQ(ierr);
+        ierr = PetscSFBcastBegin(sf,MPIU_REAL,dwts,owts,MPI_REPLACE);CHKERRQ(ierr);
+        ierr = PetscSFBcastEnd(sf,MPIU_REAL,dwts,owts,MPI_REPLACE);CHKERRQ(ierr);
         ierr = PetscLogEventEnd(MATCOLORING_Comm,mc,0,0,0);CHKERRQ(ierr);
       }
     }
@@ -354,8 +354,8 @@ static PetscErrorCode MCJPMinColor_Private(MatColoring mc,ISColoringValue maxcol
     }
     if (oG) {
       ierr = PetscLogEventBegin(MATCOLORING_Comm,mc,0,0,0);CHKERRQ(ierr);
-      ierr = PetscSFBcastBegin(sf,MPIU_INT,dmask,omask);CHKERRQ(ierr);
-      ierr = PetscSFBcastEnd(sf,MPIU_INT,dmask,omask);CHKERRQ(ierr);
+      ierr = PetscSFBcastBegin(sf,MPIU_INT,dmask,omask,MPI_REPLACE);CHKERRQ(ierr);
+      ierr = PetscSFBcastEnd(sf,MPIU_INT,dmask,omask,MPI_REPLACE);CHKERRQ(ierr);
       ierr = PetscLogEventEnd(MATCOLORING_Comm,mc,0,0,0);CHKERRQ(ierr);
     }
     /* fill in the mask out to the distance of the coloring */
@@ -381,8 +381,8 @@ static PetscErrorCode MCJPMinColor_Private(MatColoring mc,ISColoringValue maxcol
       if (l < mc->dist-1) {
         if (oG) {
           ierr = PetscLogEventBegin(MATCOLORING_Comm,mc,0,0,0);CHKERRQ(ierr);
-          ierr = PetscSFBcastBegin(sf,MPIU_INT,dmask,omask);CHKERRQ(ierr);
-          ierr = PetscSFBcastEnd(sf,MPIU_INT,dmask,omask);CHKERRQ(ierr);
+          ierr = PetscSFBcastBegin(sf,MPIU_INT,dmask,omask,MPI_REPLACE);CHKERRQ(ierr);
+          ierr = PetscSFBcastEnd(sf,MPIU_INT,dmask,omask,MPI_REPLACE);CHKERRQ(ierr);
           ierr = PetscLogEventEnd(MATCOLORING_Comm,mc,0,0,0);CHKERRQ(ierr);
         }
       }
@@ -422,7 +422,7 @@ static PetscErrorCode MatColoringApply_JP(MatColoring mc,ISColoring *iscoloring)
   ISColoringValue  *color,*mincolor;
 
   PetscFunctionBegin;
-  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)mc),&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)mc),&rank);CHKERRMPI(ierr);
   ierr = PetscLogEventBegin(MATCOLORING_Weights,mc,0,0,0);CHKERRQ(ierr);
   ierr = MatColoringCreateWeights(mc,&weights,&lperm);CHKERRQ(ierr);
   ierr = PetscLogEventEnd(MATCOLORING_Weights,mc,0,0,0);CHKERRQ(ierr);
@@ -448,8 +448,8 @@ static PetscErrorCode MatColoringApply_JP(MatColoring mc,ISColoring *iscoloring)
         if (color[i] > maxcolor_local) maxcolor_local = color[i];
       }
     }
-    ierr = MPIU_Allreduce(&nadded,&nadded_total,1,MPIU_INT,MPI_SUM,PetscObjectComm((PetscObject)mc));CHKERRQ(ierr);
-    ierr = MPIU_Allreduce(&maxcolor_local,&maxcolor_global,1,MPIU_INT,MPI_MAX,PetscObjectComm((PetscObject)mc));CHKERRQ(ierr);
+    ierr = MPIU_Allreduce(&nadded,&nadded_total,1,MPIU_INT,MPI_SUM,PetscObjectComm((PetscObject)mc));CHKERRMPI(ierr);
+    ierr = MPIU_Allreduce(&maxcolor_local,&maxcolor_global,1,MPIU_INT,MPI_MAX,PetscObjectComm((PetscObject)mc));CHKERRMPI(ierr);
   }
   round = 0;
   while (nadded_total < ntotal) {
@@ -469,8 +469,8 @@ static PetscErrorCode MatColoringApply_JP(MatColoring mc,ISColoring *iscoloring)
         nadded++;
       }
     }
-    ierr = MPIU_Allreduce(&maxcolor_local,&maxcolor_global,1,MPIU_INT,MPI_MAX,PetscObjectComm((PetscObject)mc));CHKERRQ(ierr);
-    ierr = MPIU_Allreduce(&nadded,&nadded_total,1,MPIU_INT,MPI_SUM,PetscObjectComm((PetscObject)mc));CHKERRQ(ierr);
+    ierr = MPIU_Allreduce(&maxcolor_local,&maxcolor_global,1,MPIU_INT,MPI_MAX,PetscObjectComm((PetscObject)mc));CHKERRMPI(ierr);
+    ierr = MPIU_Allreduce(&nadded,&nadded_total,1,MPIU_INT,MPI_SUM,PetscObjectComm((PetscObject)mc));CHKERRMPI(ierr);
     if (nadded_total == nadded_total_old) SETERRQ(PetscObjectComm((PetscObject)mc),PETSC_ERR_NOT_CONVERGED,"JP didn't make progress");
     nadded_total_old = nadded_total;
     round++;

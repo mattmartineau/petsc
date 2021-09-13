@@ -41,7 +41,6 @@ static PetscErrorCode DMDAApplyBoundaryConditions(DM,Mat,Vec);
 #define P_DOFS         1 /* degrees of freedom per pressure node */
 #define GAUSS_POINTS   4
 
-
 static void EvaluateBasis_Q1(PetscScalar _xi[],PetscScalar N[])
 {
   PetscScalar xi  = _xi[0];
@@ -495,7 +494,7 @@ static PetscErrorCode AssembleStokes_RHS(Vec F,DM stokes_da,DM quadrature)
   /* setup for coefficients */
   ierr = DMSwarmGetField(quadrature,"rho_q",NULL,NULL,(void**)&q_rhs);CHKERRQ(ierr);
 
-  /* get acces to the vector */
+  /* get access to the vector */
   ierr = DMGetLocalVector(stokes_da,&local_F);CHKERRQ(ierr);
   ierr = VecZeroEntries(local_F);CHKERRQ(ierr);
   ierr = VecGetArray(local_F,&LA_F);CHKERRQ(ierr);
@@ -636,7 +635,7 @@ PetscErrorCode DMSwarmPICInsertPointsCellwise(DM dm,DM dmc,PetscInt e,PetscInt n
           min_sep = sep;
         }
       }
-      if (nearest_neighour == -1) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_USER,"Cell %D is empty - cannot initalize using nearest neighbours",e);
+      if (nearest_neighour == -1) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_USER,"Cell %D is empty - cannot initialize using nearest neighbours",e);
       nnlist[q] = nearest_neighour;
     }
     ierr = DMSwarmRestoreField(dm,DMSwarmPICField_cellid,NULL,NULL,(void**)&swarm_cellid);CHKERRQ(ierr);
@@ -717,7 +716,7 @@ PetscErrorCode MaterialPoint_PopulateCell(DM dm_vp,DM dm_mpoint)
       cnt++;
     }
   }
-  ierr = MPI_Allreduce(&cnt,&cnt_g,1,MPIU_INT,MPI_SUM,PETSC_COMM_WORLD);CHKERRQ(ierr);
+  ierr = MPI_Allreduce(&cnt,&cnt_g,1,MPIU_INT,MPI_SUM,PETSC_COMM_WORLD);CHKERRMPI(ierr);
   if (cnt_g > 0) {
     ierr = PetscPrintf(PETSC_COMM_WORLD,".... ....pop cont: adjusted %D cells\n",cnt_g);CHKERRQ(ierr);
   }
@@ -1034,7 +1033,7 @@ static PetscErrorCode SolveTimeDepStokes(PetscInt mx,PetscInt my)
     PetscRandom r;
     PetscMPIInt rank;
 
-    ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
+    ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
 
     ierr = PetscRandomCreate(PETSC_COMM_SELF,&r);CHKERRQ(ierr);
     ierr = PetscRandomSetInterval(r,-randomize_fac*dh,randomize_fac*dh);CHKERRQ(ierr);
@@ -1486,7 +1485,7 @@ static PetscErrorCode BCApplyZero_NORTH(DM da,PetscInt d_idx,Mat A,Vec b)
     ierr = VecAssemblyEnd(b);CHKERRQ(ierr);
   }
   if (A) {
-    ierr = MatZeroRowsColumns(A,nbcs,bc_global_ids,1.0,0,0);CHKERRQ(ierr);
+    ierr = MatZeroRowsColumns(A,nbcs,bc_global_ids,1.0,NULL,NULL);CHKERRQ(ierr);
   }
 
   ierr = PetscFree(bc_vals);CHKERRQ(ierr);

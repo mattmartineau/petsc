@@ -6,8 +6,6 @@ static char help[] = "Basic vector routines.\n\n";
    Processors: n
 T*/
 
-
-
 /*
   Include "petscvec.h" so that we can use vectors.  Note that this file
   automatically includes:
@@ -93,12 +91,10 @@ int main(int argc,char **argv)
   ierr = PetscPrintf(PETSC_COMM_WORLD,"VecMin %g, VecInd %D\n",(double)maxval,maxind);CHKERRQ(ierr);
   ierr = PetscPrintf(PETSC_COMM_WORLD,"All other values should be near zero\n");CHKERRQ(ierr);
 
-
   ierr = VecScale(x,two);CHKERRQ(ierr);
   ierr = VecNorm(x,NORM_2,&norm);CHKERRQ(ierr);
   v    = norm-2.0*PetscSqrtReal((PetscReal)n); if (v > -PETSC_SMALL && v < PETSC_SMALL) v = 0.0;
   ierr = PetscPrintf(PETSC_COMM_WORLD,"VecScale %g\n",(double)v);CHKERRQ(ierr);
-
 
   ierr = VecCopy(x,w);CHKERRQ(ierr);
   ierr = VecNorm(w,NORM_2,&norm);CHKERRQ(ierr);
@@ -166,8 +162,27 @@ int main(int argc,char **argv)
 
 /*TEST
 
-  test:
+  testset:
     output_file: output/ex1_1.out
+    # This is a test where the exact numbers are critical
+    diff_args: -j
+
+    test:
+
+    test:
+        suffix: cuda
+        args: -vec_type cuda
+        requires: cuda
+
+    test:
+        suffix: kokkos
+        args: -vec_type kokkos
+        requires: kokkos_kernels
+
+    test:
+        suffix: hip
+        args: -vec_type hip
+        requires: hip
 
     test:
         suffix: 2
@@ -180,14 +195,15 @@ int main(int argc,char **argv)
         requires: cuda
 
     test:
-        suffix: cuda
-        args: -vec_type cuda
-        requires: cuda
-
-    test:
-        suffix: kokkos
+        suffix: 2_kokkos
         nsize: 2
         args: -vec_type kokkos
         requires: kokkos_kernels
+
+    test:
+        suffix: 2_hip
+        nsize: 2
+        args: -vec_type hip
+        requires: hip
 
 TEST*/

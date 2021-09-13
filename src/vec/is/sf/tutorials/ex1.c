@@ -23,7 +23,7 @@ static PetscErrorCode PetscSFViewCustomLocals_Private(PetscSF sf,const PetscInt 
   PetscErrorCode    ierr;
 
   PetscFunctionBeginUser;
-  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)sf),&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)sf),&rank);CHKERRMPI(ierr);
   ierr = PetscSFGetGraph(sf,&nroots,&nleaves,NULL,&iremote);CHKERRQ(ierr);
   ierr = PetscSFGetRootRanks(sf,&nranks,NULL,NULL,NULL,NULL);CHKERRQ(ierr);
   ierr = PetscViewerASCIIPushTab(viewer);CHKERRQ(ierr);
@@ -51,8 +51,8 @@ int main(int argc,char **argv)
   PetscBool      strflg;
 
   ierr = PetscInitialize(&argc,&argv,(char*)0,help);if (ierr) return ierr;
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
 
   ierr            = PetscOptionsBegin(PETSC_COMM_WORLD,"","PetscSF Test Options","none");CHKERRQ(ierr);
   test_all        = PETSC_FALSE;
@@ -187,8 +187,8 @@ int main(int argc,char **argv)
     /* Initialize local buffer, these values are never used. */
     for (i=0; i<nleavesalloc; i++) leafdata[i] = -1;
     /* Broadcast entries from rootdata to leafdata. Computation or other communication can be performed between the begin and end calls. */
-    ierr = PetscSFBcastBegin(sf,MPIU_INT,rootdata,leafdata);CHKERRQ(ierr);
-    ierr = PetscSFBcastEnd(sf,MPIU_INT,rootdata,leafdata);CHKERRQ(ierr);
+    ierr = PetscSFBcastBegin(sf,MPIU_INT,rootdata,leafdata,MPI_REPLACE);CHKERRQ(ierr);
+    ierr = PetscSFBcastEnd(sf,MPIU_INT,rootdata,leafdata,MPI_REPLACE);CHKERRQ(ierr);
     ierr = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD,"## Bcast Rootdata\n");CHKERRQ(ierr);
     ierr = PetscIntView(nrootsalloc,rootdata,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
     ierr = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD,"## Bcast Leafdata\n");CHKERRQ(ierr);
@@ -207,8 +207,8 @@ int main(int argc,char **argv)
     /* Initialize local buffer, these values are never used. */
     for (i=0; i<nleavesalloc; i++) leafdata[i] = '?';
 
-    ierr = PetscSFBcastBegin(sf,MPI_CHAR,rootdata,leafdata);CHKERRQ(ierr);
-    ierr = PetscSFBcastEnd(sf,MPI_CHAR,rootdata,leafdata);CHKERRQ(ierr);
+    ierr = PetscSFBcastBegin(sf,MPI_CHAR,rootdata,leafdata,MPI_REPLACE);CHKERRQ(ierr);
+    ierr = PetscSFBcastEnd(sf,MPI_CHAR,rootdata,leafdata,MPI_REPLACE);CHKERRQ(ierr);
 
     ierr = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD,"## Bcast Rootdata in type of char\n");CHKERRQ(ierr);
     len  = 0; ierr = PetscSNPrintf(buf,256,"%4d:",rank);CHKERRQ(ierr); len += 5;
@@ -238,8 +238,8 @@ int main(int argc,char **argv)
     ierr = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD,"## Pre-BcastAndOp Leafdata\n");CHKERRQ(ierr);
     ierr = PetscIntView(nleavesalloc,leafdata,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
     /* Broadcast entries from rootdata to leafdata. Computation or other communication can be performed between the begin and end calls. */
-    ierr = PetscSFBcastAndOpBegin(sf,MPIU_INT,rootdata,leafdata,mop);CHKERRQ(ierr);
-    ierr = PetscSFBcastAndOpEnd(sf,MPIU_INT,rootdata,leafdata,mop);CHKERRQ(ierr);
+    ierr = PetscSFBcastBegin(sf,MPIU_INT,rootdata,leafdata,mop);CHKERRQ(ierr);
+    ierr = PetscSFBcastEnd(sf,MPIU_INT,rootdata,leafdata,mop);CHKERRQ(ierr);
     ierr = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD,"## BcastAndOp Rootdata\n");CHKERRQ(ierr);
     ierr = PetscIntView(nrootsalloc,rootdata,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
     ierr = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD,"## BcastAndOp Leafdata\n");CHKERRQ(ierr);
@@ -314,10 +314,10 @@ int main(int argc,char **argv)
     unsigned char *rootdata,*leafdata;
     ierr = PetscMalloc2(nrootsalloc,&rootdata,nleavesalloc,&leafdata);CHKERRQ(ierr);
     /* Initialize rootdata buffer in which the result of the reduction will appear. */
-    for (i=0; i<nrootsalloc; i++) rootdata[i] = -1;
+    for (i=0; i<nrootsalloc; i++) rootdata[i] = 0;
     for (i=0; i<nroots; i++) rootdata[i*stride] = 10*(rank+1) + i;
     /* Set leaf values to reduce. */
-    for (i=0; i<nleavesalloc; i++) leafdata[i] = -1;
+    for (i=0; i<nleavesalloc; i++) leafdata[i] = 0;
     for (i=0; i<nleaves; i++) leafdata[i*stride] = 50*(rank+1) + 10*i;
     ierr = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD,"## Pre-Reduce Rootdata in type of unsigned char\n");CHKERRQ(ierr);
 
@@ -416,7 +416,7 @@ int main(int argc,char **argv)
 
     selected[0] = stride;
     selected[1] = 2*stride;
-    ierr = PetscSFCreateEmbeddedSF(sf,nroots,selected,&esf);CHKERRQ(ierr);
+    ierr = PetscSFCreateEmbeddedRootSF(sf,nroots,selected,&esf);CHKERRQ(ierr);
     ierr = PetscSFSetUp(esf);CHKERRQ(ierr);
     ierr = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD,"## Embedded PetscSF\n");CHKERRQ(ierr);
     ierr = PetscViewerPushFormat(PETSC_VIEWER_STDOUT_WORLD,PETSC_VIEWER_ASCII_INFO_DETAIL);CHKERRQ(ierr);
@@ -462,15 +462,14 @@ int main(int argc,char **argv)
       nsize: 4
       filter: grep -v "type" | grep -v "sort"
       args: -test_bcast -sf_type window -sf_window_sync {{fence active lock}} -sf_window_flavor {{create dynamic allocate}}
-      requires: define(PETSC_HAVE_MPI_ONE_SIDED)
-
+      requires: defined(PETSC_HAVE_MPI_ONE_SIDED) defined(PETSC_HAVE_MPI_FEATURE_DYNAMIC_WINDOW)
 
    test:
       suffix: 2
       nsize: 4
       filter: grep -v "type" | grep -v "sort"
       args: -test_reduce -sf_type window -sf_window_sync {{fence active lock}} -sf_window_flavor {{create dynamic allocate}}
-      requires: define(PETSC_HAVE_MPI_ONE_SIDED)
+      requires: defined(PETSC_HAVE_MPI_ONE_SIDED) defined(PETSC_HAVE_MPI_FEATURE_DYNAMIC_WINDOW)
 
    test:
       suffix: 2_basic
@@ -482,7 +481,7 @@ int main(int argc,char **argv)
       nsize: 4
       filter: grep -v "type" | grep -v "sort"
       args: -test_degree -sf_type window -sf_window_sync {{fence active lock}} -sf_window_flavor {{create dynamic allocate}}
-      requires: define(PETSC_HAVE_MPI_ONE_SIDED)
+      requires: defined(PETSC_HAVE_MPI_ONE_SIDED) defined(PETSC_HAVE_MPI_FEATURE_DYNAMIC_WINDOW)
 
    test:
       suffix: 3_basic
@@ -494,7 +493,7 @@ int main(int argc,char **argv)
       nsize: 4
       filter: grep -v "type" | grep -v "sort"
       args: -test_gather -sf_type window -sf_window_sync {{fence active lock}} -sf_window_flavor {{create dynamic allocate}}
-      requires: define(PETSC_HAVE_MPI_ONE_SIDED)
+      requires: defined(PETSC_HAVE_MPI_ONE_SIDED) defined(PETSC_HAVE_MPI_FEATURE_DYNAMIC_WINDOW)
 
    test:
       suffix: 4_basic
@@ -511,7 +510,7 @@ int main(int argc,char **argv)
       nsize: 4
       filter: grep -v "type" | grep -v "sort"
       args: -test_scatter -sf_type window -sf_window_sync {{fence active lock}} -sf_window_flavor {{create dynamic allocate}}
-      requires: define(PETSC_HAVE_MPI_ONE_SIDED)
+      requires: defined(PETSC_HAVE_MPI_ONE_SIDED) defined(PETSC_HAVE_MPI_FEATURE_DYNAMIC_WINDOW)
 
    test:
       suffix: 5_basic
@@ -529,7 +528,7 @@ int main(int argc,char **argv)
       filter: grep -v "type" | grep -v "sort"
       # No -sf_window_flavor dynamic due to bug https://gitlab.com/petsc/petsc/issues/555
       args: -test_embed -sf_type window -sf_window_sync {{fence active lock}} -sf_window_flavor {{create allocate}}
-      requires: define(PETSC_HAVE_MPI_ONE_SIDED)
+      requires: defined(PETSC_HAVE_MPI_ONE_SIDED) defined(PETSC_HAVE_MPI_FEATURE_DYNAMIC_WINDOW)
 
    test:
       suffix: 6_basic
@@ -541,7 +540,7 @@ int main(int argc,char **argv)
       nsize: 4
       filter: grep -v "type" | grep -v "sort"
       args: -test_invert -sf_type window -sf_window_sync {{fence active lock}} -sf_window_flavor {{create dynamic allocate}}
-      requires: define(PETSC_HAVE_MPI_ONE_SIDED)
+      requires: defined(PETSC_HAVE_MPI_ONE_SIDED) defined(PETSC_HAVE_MPI_FEATURE_DYNAMIC_WINDOW)
 
    test:
       suffix: 7_basic
@@ -565,7 +564,7 @@ int main(int argc,char **argv)
       nsize: 3
       filter: grep -v "type" | grep -v "sort"
       args: -test_bcast -test_sf_distribute -sf_type window -sf_window_sync {{fence active lock}} -sf_window_flavor {{create dynamic allocate}}
-      requires: define(PETSC_HAVE_MPI_ONE_SIDED)
+      requires: defined(PETSC_HAVE_MPI_ONE_SIDED) defined(PETSC_HAVE_MPI_FEATURE_DYNAMIC_WINDOW)
 
    test:
       suffix: 8_basic
@@ -583,7 +582,7 @@ int main(int argc,char **argv)
       filter: grep -v "type" | grep -v "sort"
       nsize: 4
       args: -sf_type window -sf_window_sync {{fence active lock}} -sf_window_flavor {{create allocate}} -test_all -test_bcastop 0 -test_fetchandop 0
-      requires: define(PETSC_HAVE_MPI_ONE_SIDED)
+      requires: defined(PETSC_HAVE_MPI_ONE_SIDED) defined(PETSC_HAVE_MPI_FEATURE_DYNAMIC_WINDOW)
 
    # The nightly test suite with MPICH uses ch3:sock, which is broken when winsize == 0 in some of the processes
    test:
@@ -592,7 +591,7 @@ int main(int argc,char **argv)
       filter: grep -v "type" | grep -v "sort"
       nsize: 4
       args: -sf_type window -sf_window_sync {{fence active lock}} -sf_window_flavor shared -test_all -test_bcastop 0 -test_fetchandop 0
-      requires: define(PETSC_HAVE_MPI_PROCESS_SHARED_MEMORY) !define(PETSC_HAVE_MPICH_NUMVERSION) define(PETSC_HAVE_MPI_ONE_SIDED)
+      requires: defined(PETSC_HAVE_MPI_PROCESS_SHARED_MEMORY) !defined(PETSC_HAVE_MPICH_NUMVERSION) defined(PETSC_HAVE_MPI_ONE_SIDED) defined(PETSC_HAVE_MPI_FEATURE_DYNAMIC_WINDOW)
 
    test:
       suffix: 10_basic

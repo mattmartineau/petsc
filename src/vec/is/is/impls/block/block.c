@@ -118,7 +118,7 @@ static PetscErrorCode ISInvertPermutation_Block(IS is,PetscInt nlocal,IS *isout)
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
-  ierr = MPI_Comm_size(PetscObjectComm((PetscObject)is),&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PetscObjectComm((PetscObject)is),&size);CHKERRMPI(ierr);
   ierr = PetscLayoutGetBlockSize(is->map, &bs);CHKERRQ(ierr);
   ierr = PetscLayoutGetLocalSize(is->map, &n);CHKERRQ(ierr);
   n   /= bs;
@@ -392,7 +392,6 @@ static PetscErrorCode ISToGeneral_Block(IS inis)
   PetscFunctionReturn(0);
 }
 
-
 static struct _ISOps myops = { ISGetIndices_Block,
                                ISRestoreIndices_Block,
                                ISInvertPermutation_Block,
@@ -423,17 +422,16 @@ static struct _ISOps myops = { ISGetIndices_Block,
                                NULL};
 
 /*@
-   ISBlockSetIndices - The indices are relative to entries, not blocks.
+   ISBlockSetIndices - Set integers representing blocks of indices in an index set.
 
    Collective on IS
 
    Input Parameters:
 +  is - the index set
-.  bs - number of elements in each block, one for each block and count of block not indices
+.  bs - number of elements in each block
 .   n - the length of the index set (the number of blocks)
-.  idx - the list of integers, these are by block, not by location
+.  idx - the list of integers, one for each block, the integers contain the index of the first index of each block divided by the block size
 -  mode - see PetscCopyMode, only PETSC_COPY_VALUES and PETSC_OWN_POINTER are supported
-
 
    Notes:
    When the communicator is not MPI_COMM_SELF, the operations on the
@@ -447,7 +445,7 @@ static struct _ISOps myops = { ISGetIndices_Block,
 
    Level: beginner
 
-.seealso: ISCreateStride(), ISCreateGeneral(), ISAllGather()
+.seealso: ISCreateStride(), ISCreateGeneral(), ISAllGather(), ISCreateBlock(), ISBLOCK, ISGeneralSetIndices()
 @*/
 PetscErrorCode  ISBlockSetIndices(IS is,PetscInt bs,PetscInt n,const PetscInt idx[],PetscCopyMode mode)
 {
@@ -469,7 +467,7 @@ static PetscErrorCode  ISBlockSetIndices_Block(IS is,PetscInt bs,PetscInt n,cons
   PetscFunctionBegin;
   if (bs < 1) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"block size < 1");
   if (n < 0) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"length < 0");
-  if (n) PetscValidIntPointer(idx,3);
+  if (n) PetscValidIntPointer(idx,4);
 
   ierr = PetscLayoutCreateFromSizes(PetscObjectComm((PetscObject)is),n*bs,is->map->N,bs,&map);CHKERRQ(ierr);
   ierr = PetscLayoutDestroy(&is->map);CHKERRQ(ierr);
@@ -507,7 +505,7 @@ static PetscErrorCode  ISBlockSetIndices_Block(IS is,PetscInt bs,PetscInt n,cons
 
 /*@
    ISCreateBlock - Creates a data structure for an index set containing
-   a list of integers. The indices are relative to entries, not blocks.
+   a list of integers. Each integer represents a fixed block size set of indices.
 
    Collective
 
@@ -515,7 +513,7 @@ static PetscErrorCode  ISBlockSetIndices_Block(IS is,PetscInt bs,PetscInt n,cons
 +  comm - the MPI communicator
 .  bs - number of elements in each block
 .  n - the length of the index set (the number of blocks)
-.  idx - the list of integers, one for each block and count of block not indices
+.  idx - the list of integers, one for each block, the integers contain the index of the first entry of each block divided by the block size
 -  mode - see PetscCopyMode, only PETSC_COPY_VALUES and PETSC_OWN_POINTER are supported in this routine
 
    Output Parameter:
@@ -533,14 +531,14 @@ static PetscErrorCode  ISBlockSetIndices_Block(IS is,PetscInt bs,PetscInt n,cons
 
    Level: beginner
 
-.seealso: ISCreateStride(), ISCreateGeneral(), ISAllGather()
+.seealso: ISCreateStride(), ISCreateGeneral(), ISAllGather(), ISBlockSetIndices(), ISBLOCK, ISGENERAL
 @*/
 PetscErrorCode  ISCreateBlock(MPI_Comm comm,PetscInt bs,PetscInt n,const PetscInt idx[],PetscCopyMode mode,IS *is)
 {
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
-  PetscValidPointer(is,5);
+  PetscValidPointer(is,6);
   if (bs < 1) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"block size < 1");
   if (n < 0) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"length < 0");
   if (n) PetscValidIntPointer(idx,4);
@@ -579,7 +577,7 @@ static PetscErrorCode  ISBlockRestoreIndices_Block(IS is,const PetscInt *idx[])
 
    Level: intermediate
 
-.seealso: ISGetIndices(), ISBlockRestoreIndices()
+.seealso: ISGetIndices(), ISBlockRestoreIndices(), ISBLOCK, ISBlockSetIndices(), ISCreateBlock()
 @*/
 PetscErrorCode  ISBlockGetIndices(IS is,const PetscInt *idx[])
 {
@@ -627,8 +625,7 @@ PetscErrorCode  ISBlockRestoreIndices(IS is,const PetscInt *idx[])
 
    Level: intermediate
 
-
-.seealso: ISGetBlockSize(), ISBlockGetSize(), ISGetSize(), ISCreateBlock()
+.seealso: ISGetBlockSize(), ISBlockGetSize(), ISGetSize(), ISCreateBlock(), ISBLOCK
 @*/
 PetscErrorCode  ISBlockGetLocalSize(IS is,PetscInt *size)
 {
@@ -664,8 +661,7 @@ static PetscErrorCode  ISBlockGetLocalSize_Block(IS is,PetscInt *size)
 
    Level: intermediate
 
-
-.seealso: ISGetBlockSize(), ISBlockGetLocalSize(), ISGetSize(), ISCreateBlock()
+.seealso: ISGetBlockSize(), ISBlockGetLocalSize(), ISGetSize(), ISCreateBlock(), ISBLOCK
 @*/
 PetscErrorCode  ISBlockGetSize(IS is,PetscInt *size)
 {

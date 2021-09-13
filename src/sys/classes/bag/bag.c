@@ -439,7 +439,6 @@ PetscErrorCode PetscBagRegisterReal(PetscBag bag,void *addr,PetscReal mdefault, 
 .  name - name of the variable
 -  help - longer string with more information about the value
 
-
    Level: beginner
 
 .seealso: PetscBag, PetscBagSetName(), PetscBagView(), PetscBagLoad(), PetscBagGetData()
@@ -486,7 +485,6 @@ PetscErrorCode PetscBagRegisterScalar(PetscBag bag,void *addr,PetscScalar mdefau
 .  mdefault - the initial value
 .  name - name of the variable
 -  help - longer string with more information about the value
-
 
    Level: beginner
 
@@ -831,7 +829,7 @@ PetscErrorCode  PetscBagLoad(PetscViewer view,PetscBag bag)
 
   PetscFunctionBegin;
   ierr = PetscObjectGetComm((PetscObject)view,&comm);CHKERRQ(ierr);
-  ierr = MPI_Comm_compare(comm,bag->bagcomm,&flag);CHKERRQ(ierr);
+  ierr = MPI_Comm_compare(comm,bag->bagcomm,&flag);CHKERRMPI(ierr);
   if (flag != MPI_CONGRUENT && flag != MPI_IDENT) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_NOTSAMECOMM,"Different communicators in the viewer and bag"); \
   ierr = PetscObjectTypeCompare((PetscObject)view,PETSCVIEWERBINARY,&isbinary);CHKERRQ(ierr);
   if (!isbinary) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SUP,"No support for this viewer type");
@@ -941,7 +939,6 @@ PetscErrorCode PetscBagSetName(PetscBag bag, const char *name, const char *help)
   PetscFunctionReturn(0);
 }
 
-
 /*@C
     PetscBagGetName - Gets the name of a bag of values
 
@@ -1017,7 +1014,7 @@ PetscErrorCode PetscBagSetOptionsPrefix(PetscBag bag, const char pre[])
   if (!pre) {
     ierr = PetscFree(bag->bagprefix);CHKERRQ(ierr);
   } else {
-    if (pre[0] == '-') SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Options prefix should not begin with a hypen");
+    if (pre[0] == '-') SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Options prefix should not begin with a hyphen");
     ierr = PetscFree(bag->bagprefix);CHKERRQ(ierr);
     ierr = PetscStrallocpy(pre,&(bag->bagprefix));CHKERRQ(ierr);
   }

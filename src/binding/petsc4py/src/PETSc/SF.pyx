@@ -121,12 +121,12 @@ cdef class SF(Object):
         degree = array_i(nroots, cdegree)
         return degree
 
-    def createEmbeddedSF(self, selected):
+    def createEmbeddedRootSF(self, selected):
         cdef PetscInt nroots = asInt(len(selected))
         cdef PetscInt *cselected = NULL
         selected = iarray_i(selected, &nroots, &cselected)
         cdef SF sf = SF()
-        CHKERR( PetscSFCreateEmbeddedSF(self.sf, nroots, cselected, &sf.sf) )
+        CHKERR( PetscSFCreateEmbeddedRootSF(self.sf, nroots, cselected, &sf.sf) )
         return sf
 
     def createEmbeddedLeafSF(self, selected):
@@ -137,15 +137,22 @@ cdef class SF(Object):
         CHKERR( PetscSFCreateEmbeddedLeafSF(self.sf, nleaves, cselected, &sf.sf) )
         return sf
 
-    def bcastBegin(self, unit, ndarray rootdata, ndarray leafdata):
-        cdef MPI_Datatype dtype = mpi4py_Datatype_Get(unit)
-        CHKERR( PetscSFBcastBegin(self.sf, dtype, <const void*>PyArray_DATA(rootdata),
-                                  <void*>PyArray_DATA(leafdata)) )
+    def compose(self, SF sf):
+        cdef SF csf = SF()
+        CHKERR( PetscSFCompose(self.sf, sf.sf, &csf.sf))
+        return csf
 
-    def bcastEnd(self, unit, ndarray rootdata, ndarray leafdata):
+    def bcastBegin(self, unit, ndarray rootdata, ndarray leafdata, op):
         cdef MPI_Datatype dtype = mpi4py_Datatype_Get(unit)
+        cdef MPI_Op cop = mpi4py_Op_Get(op)
+        CHKERR( PetscSFBcastBegin(self.sf, dtype, <const void*>PyArray_DATA(rootdata),
+                                  <void*>PyArray_DATA(leafdata), cop) )
+
+    def bcastEnd(self, unit, ndarray rootdata, ndarray leafdata, op):
+        cdef MPI_Datatype dtype = mpi4py_Datatype_Get(unit)
+        cdef MPI_Op cop = mpi4py_Op_Get(op)
         CHKERR( PetscSFBcastEnd(self.sf, dtype, <const void*>PyArray_DATA(rootdata),
-                                <void*>PyArray_DATA(leafdata)) )
+                                <void*>PyArray_DATA(leafdata), cop) )
 
     def reduceBegin(self, unit, ndarray leafdata, ndarray rootdata, op):
         cdef MPI_Datatype dtype = mpi4py_Datatype_Get(unit)

@@ -326,9 +326,9 @@ PetscErrorCode DMSwarmDataBucketGetGlobalSizes(MPI_Comm comm,DMSwarmDataBucket d
   PetscInt ierr;
 
   PetscFunctionBegin;
-  if (L) {         ierr = MPI_Allreduce(&db->L,L,1,MPIU_INT,MPI_SUM,comm);CHKERRQ(ierr); }
-  if (buffer) {    ierr = MPI_Allreduce(&db->buffer,buffer,1,MPIU_INT,MPI_SUM,comm);CHKERRQ(ierr); }
-  if (allocated) { ierr = MPI_Allreduce(&db->allocated,allocated,1,MPIU_INT,MPI_SUM,comm);CHKERRQ(ierr); }
+  if (L) {ierr = MPI_Allreduce(&db->L,L,1,MPIU_INT,MPI_SUM,comm);CHKERRMPI(ierr);}
+  if (buffer) {ierr = MPI_Allreduce(&db->buffer,buffer,1,MPIU_INT,MPI_SUM,comm);CHKERRMPI(ierr);}
+  if (allocated) {ierr = MPI_Allreduce(&db->allocated,allocated,1,MPIU_INT,MPI_SUM,comm);CHKERRMPI(ierr);}
   PetscFunctionReturn(0);
 }
 
@@ -461,7 +461,7 @@ PetscErrorCode DMSwarmDataBucketCreateFromSubset(DMSwarmDataBucket DBIn,const Pe
   ierr = DMSwarmDataBucketSetSizes(*DB,L,buffer);CHKERRQ(ierr);
   /* now copy the desired guys from DBIn => DB */
   for (p = 0; p < N; ++p) {
-    ierr = DMSwarmDataBucketCopyPoint(DBIn,list[p], *DB,p);CHKERRQ(ierr);
+    ierr = DMSwarmDataBucketCopyPoint(DBIn,list[p], *DB,list[p]);CHKERRQ(ierr);
   }
   PetscFunctionReturn(0);
 }
@@ -533,7 +533,6 @@ PetscErrorCode DMSwarmDataFieldCopyPoint(const PetscInt pid_x,const DMSwarmDataF
   PetscFunctionReturn(0);
 }
 
-
 /* zero only the datafield at this point */
 PetscErrorCode DMSwarmDataFieldZeroPoint(const DMSwarmDataField field,const PetscInt index)
 {
@@ -603,7 +602,7 @@ PetscErrorCode DMSwarmDataBucketView_stdout(MPI_Comm comm,DMSwarmDataBucket db)
     double memory_usage_f = (double)(db->field[f]->atomic_size * db->allocated) * 1.0e-6;
     memory_usage_total_local += memory_usage_f;
   }
-  ierr = MPI_Allreduce(&memory_usage_total_local,&memory_usage_total,1,MPI_DOUBLE,MPI_SUM,comm);CHKERRQ(ierr);
+  ierr = MPI_Allreduce(&memory_usage_total_local,&memory_usage_total,1,MPI_DOUBLE,MPI_SUM,comm);CHKERRMPI(ierr);
 
   for (f = 0; f < db->nfields; ++f) {
     double memory_usage_f = (double)(db->field[f]->atomic_size * db->allocated) * 1.0e-6;
@@ -631,13 +630,10 @@ PetscErrorCode DMSwarmDataBucketView_SEQ(MPI_Comm comm,DMSwarmDataBucket db,cons
     break;
   case DATABUCKET_VIEW_ASCII:
     SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SUP,"No support for ascii output");
-    break;
   case DATABUCKET_VIEW_BINARY:
     SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SUP,"No support for binary output");
-    break;
   case DATABUCKET_VIEW_HDF5:
     SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SUP,"No support for HDF5 output");
-    break;
   default: SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SUP,"Unknown viewer method requested");
   }
   PetscFunctionReturn(0);
@@ -654,13 +650,10 @@ PetscErrorCode DMSwarmDataBucketView_MPI(MPI_Comm comm,DMSwarmDataBucket db,cons
     break;
   case DATABUCKET_VIEW_ASCII:
     SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SUP,"No support for ascii output");
-    break;
   case DATABUCKET_VIEW_BINARY:
     SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SUP,"No support for binary output");
-    break;
   case DATABUCKET_VIEW_HDF5:
     SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SUP,"No support for HDF5 output");
-    break;
   default: SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SUP,"Unknown viewer method requested");
   }
   PetscFunctionReturn(0);
@@ -672,7 +665,7 @@ PetscErrorCode DMSwarmDataBucketView(MPI_Comm comm,DMSwarmDataBucket db,const ch
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
-  ierr = MPI_Comm_size(comm,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(comm,&size);CHKERRMPI(ierr);
   if (size == 1) {
     ierr = DMSwarmDataBucketView_SEQ(comm,db,filename,type);CHKERRQ(ierr);
   } else {

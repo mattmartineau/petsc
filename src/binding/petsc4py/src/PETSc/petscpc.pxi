@@ -5,6 +5,7 @@ cdef extern from * nogil:
     PetscPCType PCJACOBI
     PetscPCType PCSOR
     PetscPCType PCLU
+    PetscPCType PCQR
     PetscPCType PCSHELL
     PetscPCType PCBJACOBI
     PetscPCType PCMG
@@ -161,6 +162,7 @@ cdef extern from * nogil:
     int PCASMSetLocalSubdomains(PetscPC,PetscInt,PetscIS[],PetscIS[])
     int PCASMSetTotalSubdomains(PetscPC,PetscInt,PetscIS[],PetscIS[])
     int PCASMGetSubKSP(PetscPC,PetscInt*,PetscInt*,PetscKSP*[])
+    int PCASMSetSortIndices(PetscPC,PetscBool)
 
     int PCGASMSetType(PetscPC,PetscPCGASMType)
     int PCGASMSetOverlap(PetscPC,PetscInt)
@@ -208,7 +210,8 @@ cdef extern from * nogil:
 
     int PCCompositeSetType(PetscPC,PetscPCCompositeType)
     int PCCompositeGetPC(PetscPC,PetscInt,PetscPC*)
-    int PCCompositeAddPC(PetscPC,PetscPCType)
+    int PCCompositeAddPCType(PetscPC,PetscPCType)
+    int PCCompositeAddPC(PetscPC,PetscPC)
 
     int PCKSPGetKSP(PetscPC,PetscKSP*)
 
@@ -279,6 +282,16 @@ cdef extern from * nogil:
     int PCPatchSetComputeFunction(PetscPC, PetscPCPatchComputeFunction, void*)
     int PCPatchSetComputeFunctionInteriorFacets(PetscPC, PetscPCPatchComputeFunction, void*)
     int PCPatchSetConstructType(PetscPC, PetscPCPatchConstructType, PetscPCPatchConstructOperator, void*)
+
+    ctypedef int (*PetscPCHPDDMAuxiliaryMat)(PetscMat,
+                                             PetscReal,
+                                             PetscVec,
+                                             PetscVec,
+                                             PetscReal,
+                                             PetscIS,
+                                             void*) except PETSC_ERR_PYTHON
+    int PCHPDDMSetAuxiliaryMat(PetscPC, PetscIS, PetscMat, PetscPCHPDDMAuxiliaryMat, void*)
+    int PCHPDDMHasNeumannMat(PetscPC, PetscBool)
 
 # --------------------------------------------------------------------
 

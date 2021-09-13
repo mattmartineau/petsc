@@ -36,6 +36,7 @@ SNES Object: 7 MPI processes
         using PRECONDITIONED norm type for convergence test
       PC Object: (fas_coarse_) 7 MPI processes
         type: jacobi
+          type DIAGONAL
         linear system matrix = precond matrix:
         Mat Object: 7 MPI processes
           type: mpiaij
@@ -66,6 +67,7 @@ SNES Object: 7 MPI processes
         using PRECONDITIONED norm type for convergence test
       PC Object: (fas_levels_1_) 7 MPI processes
         type: jacobi
+          type DIAGONAL
         linear system matrix = precond matrix:
         Mat Object: 7 MPI processes
           type: mpiaij
@@ -97,6 +99,7 @@ SNES Object: 7 MPI processes
         using PRECONDITIONED norm type for convergence test
       PC Object: (fas_levels_2_) 7 MPI processes
         type: jacobi
+          type DIAGONAL
         linear system matrix = precond matrix:
         Mat Object: 7 MPI processes
           type: mpiaij

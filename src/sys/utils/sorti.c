@@ -244,7 +244,7 @@ PetscErrorCode  PetscSortedInt(PetscInt n,const PetscInt X[],PetscBool *sorted)
 
    Notes:
    This function serves as an alternative to PetscIntSortSemiOrdered(), and may perform faster especially if the array
-   is completely random. There are exceptions to this and so it is __highly__ recomended that the user benchmark their
+   is completely random. There are exceptions to this and so it is __highly__ recommended that the user benchmark their
    code to see which routine is fastest.
 
    Level: intermediate
@@ -384,7 +384,6 @@ PetscErrorCode PetscFindInt(PetscInt key, PetscInt n, const PetscInt X[], PetscI
    Input Parameters:
 +  n  - number of values in the array
 -  X  - array of integers
-
 
    Output Parameter:
 .  dups - True if the array has dups, otherwise false
@@ -537,7 +536,7 @@ PetscErrorCode  PetscSortedMPIInt(PetscInt n,const PetscMPIInt X[],PetscBool *so
 
    Notes:
    This function serves as an alternative to PetscMPIIntSortSemiOrdered(), and may perform faster especially if the array
-   is completely random. There are exceptions to this and so it is __highly__ recomended that the user benchmark their
+   is completely random. There are exceptions to this and so it is __highly__ recommended that the user benchmark their
    code to see which routine is fastest.
 
 .seealso: PetscMPIIntSortSemiOrdered(), PetscSortReal(), PetscSortIntWithPermutation()
@@ -742,6 +741,7 @@ PetscErrorCode  PetscMergeIntArray(PetscInt an,const PetscInt aI[], PetscInt bn,
   PetscErrorCode ierr;
   PetscInt       *L_ = *L, ak, bk, k;
 
+  PetscFunctionBegin;
   if (!L_) {
     ierr = PetscMalloc1(an+bn, L);CHKERRQ(ierr);
     L_   = *L;
@@ -1027,10 +1027,10 @@ PetscErrorCode PetscParallelSortedInt(MPI_Comm comm, PetscInt n, const PetscInt 
   }
   if (i < n) sorted = PETSC_FALSE;
   prevmax = PETSC_MIN_INT;
-  ierr = MPI_Exscan(&max, &prevmax, 1, MPIU_INT, MPI_MAX, comm);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(comm, &rank);CHKERRQ(ierr);
+  ierr = MPI_Exscan(&max, &prevmax, 1, MPIU_INT, MPI_MAX, comm);CHKERRMPI(ierr);
+  ierr = MPI_Comm_rank(comm, &rank);CHKERRMPI(ierr);
   if (!rank) prevmax = PETSC_MIN_INT;
   if (prevmax > min) sorted = PETSC_FALSE;
-  ierr = MPI_Allreduce(&sorted, is_sorted, 1, MPIU_BOOL, MPI_LAND, comm);CHKERRQ(ierr);
+  ierr = MPI_Allreduce(&sorted, is_sorted, 1, MPIU_BOOL, MPI_LAND, comm);CHKERRMPI(ierr);
   PetscFunctionReturn(0);
 }

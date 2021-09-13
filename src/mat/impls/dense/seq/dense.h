@@ -17,7 +17,10 @@ typedef struct {
   PetscBLASInt *pivots;           /* pivots in LU factorization */
   PetscBLASInt lfwork;            /* length of work array in factorization */
   PetscScalar  *fwork;            /* work array in factorization */
+  PetscScalar  *tau;              /* scalar factors of QR factorization */
+  Vec          qrrhs;            /* RHS for solving with QR (solution vector can't hold copy of RHS) */
   PetscBLASInt lda;               /* Lapack leading dimension of data */
+  PetscBLASInt rank;              /* numerical rank (of a QR factorized matrix) */
   PetscBool    user_alloc;        /* true if the user provided the dense data */
   PetscBool    unplaced_user_alloc;
   Mat          ptapwork;          /* workspace (SeqDense matrix) for PtAP */
@@ -68,8 +71,10 @@ PETSC_INTERN PetscErrorCode MatDuplicate_SeqDense(Mat,MatDuplicateOption,Mat*);
 PETSC_INTERN PetscErrorCode MatSeqDenseSetPreallocation_SeqDense(Mat,PetscScalar*);
 PETSC_INTERN PetscErrorCode MatCholeskyFactor_SeqDense(Mat,IS,const MatFactorInfo*);
 PETSC_INTERN PetscErrorCode MatLUFactor_SeqDense(Mat,IS,IS,const MatFactorInfo*);
+PETSC_INTERN PetscErrorCode MatQRFactor_SeqDense(Mat,IS,const MatFactorInfo*);
 PETSC_INTERN PetscErrorCode MatCholeskyFactorSymbolic_SeqDense(Mat,Mat,IS,const MatFactorInfo*);
 PETSC_INTERN PetscErrorCode MatLUFactorSymbolic_SeqDense(Mat,Mat,IS,IS,const MatFactorInfo*);
+PETSC_INTERN PetscErrorCode MatQRFactorSymbolic_SeqDense(Mat,Mat,IS,const MatFactorInfo*);
 PETSC_INTERN PetscErrorCode MatSeqDenseSymmetrize_Private(Mat,PetscBool);
 PETSC_INTERN PetscErrorCode MatGetColumnVector_SeqDense(Mat,Vec,PetscInt);
 PETSC_INTERN PetscErrorCode MatScale_SeqDense(Mat,PetscScalar);
@@ -82,6 +87,8 @@ PETSC_INTERN PetscErrorCode MatDenseRestoreColumnVecWrite_SeqDense(Mat,PetscInt,
 PETSC_INTERN PetscErrorCode MatDenseGetSubMatrix_SeqDense(Mat,PetscInt,PetscInt,Mat*);
 PETSC_INTERN PetscErrorCode MatDenseRestoreSubMatrix_SeqDense(Mat,Mat*);
 PETSC_INTERN PetscErrorCode MatDenseSetLDA_SeqDense(Mat,PetscInt);
+PETSC_INTERN PetscErrorCode MatCopy_SeqDense(Mat,Mat,MatStructure);
+PETSC_INTERN PetscErrorCode MatZeroEntries_SeqDense(Mat);
 
 #if defined(PETSC_HAVE_CUDA)
 PETSC_EXTERN PetscErrorCode MatSeqDenseCUDAInvertFactors_Private(Mat);

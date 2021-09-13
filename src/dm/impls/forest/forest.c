@@ -174,7 +174,6 @@ PetscErrorCode DMForestTemplate(DM dm, MPI_Comm comm, DM *tdm)
     ierr = DMGetPeriodicity(dm,&isper,&maxCell,&L,&bd);CHKERRQ(ierr);
     ierr = DMSetPeriodicity(*tdm,isper,maxCell,L,bd);CHKERRQ(ierr);
   }
-  ierr = DMCopyBoundary(dm,*tdm);CHKERRQ(ierr);
   ierr = DMGetMatType(dm,&mtype);CHKERRQ(ierr);
   ierr = DMSetMatType(*tdm,mtype);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -801,7 +800,7 @@ PetscErrorCode DMForestSetInitialRefinement(DM dm, PetscInt initRefinement)
   Input Parameter:
 . dm - the forest
 
-  Output Paramater:
+  Output Parameter:
 . initRefinement - default PETSC_DEFAULT (interpreted by the subtype of DMForest)
 
   Level: intermediate
@@ -1218,7 +1217,7 @@ PetscErrorCode DMForestGetCellChart(DM dm, PetscInt *cStart, PetscInt *cEnd)
   PetscFunctionBegin;
   PetscValidHeaderSpecific(dm, DM_CLASSID, 1);
   PetscValidIntPointer(cStart,2);
-  PetscValidIntPointer(cEnd,2);
+  PetscValidIntPointer(cEnd,3);
   if (((forest->cStart == PETSC_DETERMINE) || (forest->cEnd == PETSC_DETERMINE)) && forest->createcellchart) {
     ierr = forest->createcellchart(dm,&forest->cStart,&forest->cEnd);CHKERRQ(ierr);
   }
@@ -1615,7 +1614,7 @@ PetscErrorCode DMCoarsen_Forest(DM dm, MPI_Comm comm, DM *dmCoarsened)
     PetscMPIInt mpiComparison;
     MPI_Comm    dmcomm = PetscObjectComm((PetscObject)dm);
 
-    ierr = MPI_Comm_compare(comm, dmcomm, &mpiComparison);CHKERRQ(ierr);
+    ierr = MPI_Comm_compare(comm, dmcomm, &mpiComparison);CHKERRMPI(ierr);
     if (mpiComparison != MPI_IDENT && mpiComparison != MPI_CONGRUENT) SETERRQ(dmcomm,PETSC_ERR_SUP,"No support for different communicators yet");
   }
   ierr = DMGetCoarseDM(dm,&coarseDM);CHKERRQ(ierr);

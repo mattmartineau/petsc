@@ -1,8 +1,7 @@
 
 /*
-*   IEEE error handler for all machines. Since each OS has
-*   enough slight differences we have completely separate codes for each one.
-*
+   IEEE error handler for all machines. Since each OS has
+   enough slight differences we have completely separate codes for each one.
 */
 
 /*
@@ -154,7 +153,6 @@ sigfpe_handler_type PetscDefaultFPTrap(int sig,int code,struct sigcontext *scp,c
    Caution:
    On certain machines, in particular the IBM PowerPC, floating point
    trapping may be VERY slow!
-
 
 .seealso: PetscFPTrapPush(), PetscFPTrapPop(), PetscDetermineInitialFPTrap()
 @*/
@@ -535,8 +533,7 @@ void PetscDefaultFPTrap(int sig)
 
   (*PetscErrorPrintf)("Try option -start_in_debugger\n");
   if (PetscDefined(USE_DEBUG)) {
-    if (!PetscStackActive()) (*PetscErrorPrintf)("  or try option -log_stack\n");
-    else {
+    if (PetscStackActive()) {
       (*PetscErrorPrintf)("likely location of problem given in stack below\n");
       (*PetscErrorPrintf)("---------------------  Stack Frames ------------------------------------\n");
       PetscStackView(PETSC_STDOUT);
@@ -680,6 +677,4 @@ PetscErrorCode  PetscDetermineInitialFPTrap(void)
   PetscFunctionReturn(0);
 }
 #endif
-
-
 

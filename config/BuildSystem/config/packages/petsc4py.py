@@ -1,15 +1,22 @@
 import config.package
+import os
 
 class Configure(config.package.Package):
   def __init__(self, framework):
     config.package.Package.__init__(self, framework)
-    self.download               = ['link://src/binding/petsc4py']
     self.functions              = []
     self.includes               = []
     self.skippackagewithoptions = 1
     self.useddirectly           = 0
     self.linkedbypetsc          = 0
     self.builtafterpetsc        = 1
+    return
+
+  def setupHelp(self,help):
+    import nargs
+    help.addArgument('PETSc', '-with-petsc4py=<bool>', nargs.ArgBool(None, False, 'Build PETSc Python bindings (petsc4py)'))
+    help.addArgument('PETSc', '-with-petsc4py-test-np=<np>',nargs.ArgInt(None, None, min=1, help='Number of processes to use for petsc4py tests'))
+    help.addArgument('PETSc', '-with-numpy-include=<dir>', nargs.Arg(None, None, 'Path to numpy headers from numpy.get_include() (default: autodetect)'))
     return
 
   def setupDependencies(self, framework):
@@ -20,9 +27,12 @@ class Configure(config.package.Package):
     self.installdir      = framework.require('PETSc.options.installDir',self)
     return
 
+  def getDir(self):
+    return os.path.join('src','binding','petsc4py')
+
   def Install(self):
     import os
-    pp = os.path.join(self.installDir,'lib','python*','site-packages')
+    installLibPath = os.path.join(self.installDir, 'lib')
     if self.setCompilers.isDarwin(self.log):
       apple = 'You may need to\n (csh/tcsh) setenv MACOSX_DEPLOYMENT_TARGET 10.X\n (sh/bash) MACOSX_DEPLOYMENT_TARGET=10.X; export MACOSX_DEPLOYMENT_TARGET\nbefore running make on PETSc'
     else:
@@ -36,11 +46,21 @@ class Configure(config.package.Package):
       else:
         archflags = "ARCHFLAGS=\'-arch x86_64\' "
 
-    # if installing prefix location then need to set new value for PETSC_DIR/PETSC_ARCH
+    # Set PETSC_DIR/PETSC_ARCH to point at the dir with the PETSc installation:
+    # if DESTDIR is non-empty, then PETSc has been installed into staging dir
+    # if prefix has been specified at config time, path to PETSc includes that prefix
     if self.argDB['prefix'] and not 'package-prefix-hash' in self.argDB:
-       newdir = 'PETSC_DIR='+os.path.abspath(os.path.expanduser(self.argDB['prefix']))+' '+'PETSC_ARCH= MPICC=${PCC} '
+      newdir = 'PETSC_DIR=${DESTDIR}'+os.path.abspath(os.path.expanduser(self.argDB['prefix'])) + \
+              ' PETSC_ARCH= '
     else:
-       newdir = 'MPICC=${PCC} '
+      newdir = ''
+
+    newdir += 'MPICC=${PCC} '
+
+    # Pass to setup.py if given, otherwise setup.py will autodetect
+    numpy_include = self.argDB.get('with-numpy-include')
+    if numpy_include is not None:
+      newdir += 'NUMPY_INCLUDE="'+numpy_include+'" '
 
     #  if installing as Superuser than want to return to regular user for clean and build
     if self.installSudo:
@@ -55,7 +75,6 @@ class Configure(config.package.Package):
                        ['@echo "*** Building petsc4py ***"',\
                           '@${RM} -f ${PETSC_ARCH}/lib/petsc/conf/petsc4py.errorflg',\
                           '@(cd '+self.packageDir+' && \\\n\
-           '+newuser+newdir+self.python.pyexe+' setup.py clean --all && \\\n\
            '+newuser+newdir+archflags+self.python.pyexe+' setup.py build )  || \\\n\
              (echo "**************************ERROR*************************************" && \\\n\
              echo "Error building petsc4py." && \\\n\
@@ -65,18 +84,28 @@ class Configure(config.package.Package):
     self.addMakeRule('petsc4pyinstall','', \
                        ['@echo "*** Installing petsc4py ***"',\
                           '@(MPICC=${PCC} && export MPICC && cd '+self.packageDir+' && \\\n\
-           '+newdir+archflags+self.python.pyexe+' setup.py install --install-lib='+os.path.join(self.installDir,'lib')+')  || \\\n\
+           '+newdir+archflags+self.python.pyexe+' setup.py install --install-lib='+installLibPath+' \\\n\
+               $(if $(DESTDIR),--root=\'$(DESTDIR)\') ) || \\\n\
              (echo "**************************ERROR*************************************" && \\\n\
              echo "Error building petsc4py." && \\\n\
              echo "********************************************************************" && \\\n\
              exit 1)',\
                           '@echo "====================================="',\
-                          '@echo "To use petsc4py, add '+os.path.join(self.installDir,'lib')+' to PYTHONPATH"',\
+                          '@echo "To use petsc4py, add '+installLibPath+' to PYTHONPATH"',\
                           '@echo "====================================="'])
-    self.addMakeRule('petsc4pytest','', \
-                       ['@echo "*** Testing petsc4py ***"',\
-                        '@PYTHONPATH='+os.path.join(self.installDir,'lib')+':${PYTHONPATH} '+self.python.pyexe+' '+os.path.join(self.packageDir,'test','runtests.py'+' --verbose'),\
-                        '@echo "====================================="'])
+
+    np = self.make.make_test_np
+    # TODO: some tests currently have issues with np > 4, this should be fixed
+    np = min(np,4)
+    if 'with-petsc4py-test-np' in self.argDB and self.argDB['with-petsc4py-test-np']:
+      np = self.argDB['with-petsc4py-test-np']
+    self.addMakeMacro('PETSC4PY_NP',np)
+    self.addMakeRule('petsc4pytest', '',
+        ['@echo "*** Testing petsc4py on ${PETSC4PY_NP} processes ***"',
+         '@PYTHONPATH=%s:${PETSC_MPI4PY_PYTHONPATH}:${PYTHONPATH} ${MPIEXEC} -n ${PETSC4PY_NP} %s %s --verbose' % \
+             (installLibPath, self.python.pyexe, os.path.join(self.packageDir, 'test', 'runtests.py')),
+         '@echo "====================================="'])
+
     if self.argDB['prefix'] and not 'package-prefix-hash' in self.argDB:
       self.addMakeRule('petsc4py-build','')
       # the build must be done at install time because PETSc shared libraries must be in final location before building petsc4py
@@ -84,7 +113,6 @@ class Configure(config.package.Package):
     else:
       self.addMakeRule('petsc4py-build','petsc4pybuild petsc4pyinstall')
       self.addMakeRule('petsc4py-install','')
-
     return self.installDir
 
   def configureLibrary(self):
@@ -98,7 +126,7 @@ class Configure(config.package.Package):
       raise RuntimeError('PETSc4py requires Python with "%s" module(s) installed!\n'
                          'Please install using package managers - for ex: "apt" or "dnf" (on linux),\n'
                          'or with "pip" using: %s -m pip install %s' % (" ".join(npkgs), self.python.pyexe, " ".join(npkgs)))
-    self.checkDownload()
+    self.getInstallDir()
 
   def alternateConfigureLibrary(self):
     self.addMakeRule('petsc4py-build','')

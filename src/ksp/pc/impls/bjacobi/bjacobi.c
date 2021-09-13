@@ -18,11 +18,10 @@ static PetscErrorCode PCSetUp_BJacobi(PC pc)
   PetscInt       N,M,start,i,sum,end;
   PetscInt       bs,i_start=-1,i_end=-1;
   PetscMPIInt    rank,size;
-  const char     *pprefix,*mprefix;
 
   PetscFunctionBegin;
-  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)pc),&rank);CHKERRQ(ierr);
-  ierr = MPI_Comm_size(PetscObjectComm((PetscObject)pc),&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)pc),&rank);CHKERRMPI(ierr);
+  ierr = MPI_Comm_size(PetscObjectComm((PetscObject)pc),&size);CHKERRMPI(ierr);
   ierr = MatGetLocalSize(pc->pmat,&M,&N);CHKERRQ(ierr);
   ierr = MatGetBlockSize(pc->pmat,&bs);CHKERRQ(ierr);
 
@@ -37,7 +36,7 @@ static PetscErrorCode PCSetUp_BJacobi(PC pc)
 
   /*   local block count  given */
   if (jac->n_local > 0 && jac->n < 0) {
-    ierr = MPIU_Allreduce(&jac->n_local,&jac->n,1,MPIU_INT,MPI_SUM,PetscObjectComm((PetscObject)pc));CHKERRQ(ierr);
+    ierr = MPIU_Allreduce(&jac->n_local,&jac->n,1,MPIU_INT,MPI_SUM,PetscObjectComm((PetscObject)pc));CHKERRMPI(ierr);
     if (jac->l_lens) { /* check that user set these correctly */
       sum = 0;
       for (i=0; i<jac->n_local; i++) {
@@ -117,15 +116,9 @@ end_1:
     if (pc->useAmat) {
       /* use block from Amat matrix, not Pmat for local MatMult() */
       ierr = MatGetDiagonalBlock(pc->mat,&mat);CHKERRQ(ierr);
-      /* make submatrix have same prefix as entire matrix */
-      ierr = PetscObjectGetOptionsPrefix((PetscObject)pc->mat,&mprefix);CHKERRQ(ierr);
-      ierr = PetscObjectSetOptionsPrefix((PetscObject)mat,mprefix);CHKERRQ(ierr);
     }
     if (pc->pmat != pc->mat || !pc->useAmat) {
       ierr = MatGetDiagonalBlock(pc->pmat,&pmat);CHKERRQ(ierr);
-      /* make submatrix have same prefix as entire matrix */
-      ierr = PetscObjectGetOptionsPrefix((PetscObject)pc->pmat,&pprefix);CHKERRQ(ierr);
-      ierr = PetscObjectSetOptionsPrefix((PetscObject)pmat,pprefix);CHKERRQ(ierr);
     } else pmat = mat;
   }
 
@@ -152,7 +145,6 @@ static PetscErrorCode PCDestroy_BJacobi(PC pc)
   ierr = PetscFree(pc->data);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
-
 
 static PetscErrorCode PCSetFromOptions_BJacobi(PetscOptionItems *PetscOptionsObject,PC pc)
 {
@@ -188,6 +180,8 @@ static PetscErrorCode PCView_BJacobi(PC pc,PetscViewer viewer)
   PetscInt             i;
   PetscBool            iascii,isstring,isdraw;
   PetscViewer          sviewer;
+  PetscViewerFormat    format;
+  const char           *prefix;
 
   PetscFunctionBegin;
   ierr = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&iascii);CHKERRQ(ierr);
@@ -198,9 +192,12 @@ static PetscErrorCode PCView_BJacobi(PC pc,PetscViewer viewer)
       ierr = PetscViewerASCIIPrintf(viewer,"  using Amat local matrix, number of blocks = %D\n",jac->n);CHKERRQ(ierr);
     }
     ierr = PetscViewerASCIIPrintf(viewer,"  number of blocks = %D\n",jac->n);CHKERRQ(ierr);
-    ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)pc),&rank);CHKERRQ(ierr);
-    if (jac->same_local_solves) {
-      ierr = PetscViewerASCIIPrintf(viewer,"  Local solver is the same for all blocks, as in the following KSP and PC objects on rank 0:\n");CHKERRQ(ierr);
+    ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)pc),&rank);CHKERRMPI(ierr);
+    ierr = PetscViewerGetFormat(viewer,&format);CHKERRQ(ierr);
+    if (format != PETSC_VIEWER_ASCII_INFO_DETAIL) {
+      ierr = PetscViewerASCIIPrintf(viewer,"  Local solver information for first block is in the following KSP and PC objects on rank 0:\n");CHKERRQ(ierr);
+      ierr = PCGetOptionsPrefix(pc,&prefix);CHKERRQ(ierr);
+      ierr = PetscViewerASCIIPrintf(viewer,"  Use -%sksp_view ::ascii_info_detail to display information for all blocks\n",prefix?prefix:"");CHKERRQ(ierr);
       if (jac->ksp && !jac->psubcomm) {
         ierr = PetscViewerGetSubViewer(viewer,PETSC_COMM_SELF,&sviewer);CHKERRQ(ierr);
         if (!rank) {
@@ -208,7 +205,11 @@ static PetscErrorCode PCView_BJacobi(PC pc,PetscViewer viewer)
           ierr = KSPView(jac->ksp[0],sviewer);CHKERRQ(ierr);
           ierr = PetscViewerASCIIPopTab(viewer);CHKERRQ(ierr);
         }
+        ierr = PetscViewerFlush(sviewer);CHKERRQ(ierr);
         ierr = PetscViewerRestoreSubViewer(viewer,PETSC_COMM_SELF,&sviewer);CHKERRQ(ierr);
+        ierr = PetscViewerFlush(viewer);CHKERRQ(ierr);
+        /*  extra call needed because of the two calls to PetscViewerASCIIPushSynchronized() in PetscViewerGetSubViewer() */
+        ierr = PetscViewerASCIIPopSynchronized(viewer);CHKERRQ(ierr);
       } else if (mpjac && jac->ksp && mpjac->psubcomm) {
         ierr = PetscViewerGetSubViewer(viewer,mpjac->psubcomm->child,&sviewer);CHKERRQ(ierr);
         if (!mpjac->psubcomm->color) {
@@ -216,13 +217,19 @@ static PetscErrorCode PCView_BJacobi(PC pc,PetscViewer viewer)
           ierr = KSPView(*(jac->ksp),sviewer);CHKERRQ(ierr);
           ierr = PetscViewerASCIIPopTab(viewer);CHKERRQ(ierr);
         }
+        ierr = PetscViewerFlush(sviewer);CHKERRQ(ierr);
         ierr = PetscViewerRestoreSubViewer(viewer,mpjac->psubcomm->child,&sviewer);CHKERRQ(ierr);
+        ierr = PetscViewerFlush(viewer);CHKERRQ(ierr);
+        /*  extra call needed because of the two calls to PetscViewerASCIIPushSynchronized() in PetscViewerGetSubViewer() */
+        ierr = PetscViewerASCIIPopSynchronized(viewer);CHKERRQ(ierr);
+      } else {
+        ierr = PetscViewerFlush(viewer);CHKERRQ(ierr);
       }
     } else {
       PetscInt n_global;
-      ierr = MPIU_Allreduce(&jac->n_local,&n_global,1,MPIU_INT,MPI_MAX,PetscObjectComm((PetscObject)pc));CHKERRQ(ierr);
+      ierr = MPIU_Allreduce(&jac->n_local,&n_global,1,MPIU_INT,MPI_MAX,PetscObjectComm((PetscObject)pc));CHKERRMPI(ierr);
       ierr = PetscViewerASCIIPushSynchronized(viewer);CHKERRQ(ierr);
-      ierr = PetscViewerASCIIPrintf(viewer,"  Local solve info for each block is in the following KSP and PC objects:\n");CHKERRQ(ierr);
+      ierr = PetscViewerASCIIPrintf(viewer,"  Local solver information for each block is in the following KSP and PC objects:\n");CHKERRQ(ierr);
       ierr = PetscViewerASCIISynchronizedPrintf(viewer,"[%d] number of local blocks = %D, first local block number = %D\n",
                                                 rank,jac->n_local,jac->first_local);CHKERRQ(ierr);
       ierr = PetscViewerASCIIPushTab(viewer);CHKERRQ(ierr);
@@ -271,10 +278,7 @@ static PetscErrorCode  PCBJacobiGetSubKSP_BJacobi(PC pc,PetscInt *n_local,PetscI
 
   if (n_local) *n_local = jac->n_local;
   if (first_local) *first_local = jac->first_local;
-  *ksp                   = jac->ksp;
-  jac->same_local_solves = PETSC_FALSE;        /* Assume that local solves are now different;
-                                                  not necessarily true though!  This flag is
-                                                  used only for PCView_BJacobi() */
+  if (ksp) *ksp                 = jac->ksp;
   PetscFunctionReturn(0);
 }
 
@@ -363,7 +367,7 @@ static PetscErrorCode  PCBJacobiGetLocalBlocks_BJacobi(PC pc, PetscInt *blocks, 
 
    Level: advanced
 
-.seealso: PCBJacobiGetSubKSP()
+.seealso: PCASMGetSubKSP()
 @*/
 PetscErrorCode  PCBJacobiGetSubKSP(PC pc,PetscInt *n_local,PetscInt *first_local,KSP *ksp[])
 {
@@ -540,7 +544,7 @@ PETSC_EXTERN PetscErrorCode PCCreate_BJacobi(PC pc)
 
   PetscFunctionBegin;
   ierr = PetscNewLog(pc,&jac);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)pc),&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)pc),&rank);CHKERRMPI(ierr);
 
   pc->ops->apply           = NULL;
   pc->ops->matapply        = NULL;
@@ -556,7 +560,6 @@ PETSC_EXTERN PetscErrorCode PCCreate_BJacobi(PC pc)
   jac->n_local           = -1;
   jac->first_local       = rank;
   jac->ksp               = NULL;
-  jac->same_local_solves = PETSC_TRUE;
   jac->g_lens            = NULL;
   jac->l_lens            = NULL;
   jac->psubcomm          = NULL;
@@ -756,11 +759,10 @@ static PetscErrorCode PCSetUp_BJacobi_Singleblock(PC pc,Mat mat,Mat pmat)
   PC_BJacobi_Singleblock *bjac;
   PetscBool              wasSetup = PETSC_TRUE;
   VecType                vectype;
+  const char             *prefix;
 
   PetscFunctionBegin;
   if (!pc->setupcalled) {
-    const char *prefix;
-
     if (!jac->ksp) {
       wasSetup = PETSC_FALSE;
 
@@ -811,11 +813,14 @@ static PetscErrorCode PCSetUp_BJacobi_Singleblock(PC pc,Mat mat,Mat pmat)
     ksp  = jac->ksp[0];
     bjac = (PC_BJacobi_Singleblock*)jac->data;
   }
+  ierr = KSPGetOptionsPrefix(ksp,&prefix);CHKERRQ(ierr);
   if (pc->useAmat) {
     ierr = KSPSetOperators(ksp,mat,pmat);CHKERRQ(ierr);
+    ierr = MatSetOptionsPrefix(mat,prefix);CHKERRQ(ierr);
   } else {
     ierr = KSPSetOperators(ksp,pmat,pmat);CHKERRQ(ierr);
   }
+  ierr = MatSetOptionsPrefix(pmat,prefix);CHKERRQ(ierr);
   if (!wasSetup && pc->setfromoptionscalled) {
     /* If PCSetFromOptions_BJacobi is called later, KSPSetFromOptions will be called at that time. */
     ierr = KSPSetFromOptions(ksp);CHKERRQ(ierr);
@@ -972,7 +977,7 @@ static PetscErrorCode PCSetUp_BJacobi_Multiblock(PC pc,Mat mat,Mat pmat)
   PC_BJacobi            *jac = (PC_BJacobi*)pc->data;
   PetscErrorCode        ierr;
   PetscInt              m,n_local,N,M,start,i;
-  const char            *prefix,*pprefix,*mprefix;
+  const char            *prefix;
   KSP                   ksp;
   Vec                   x,y;
   PC_BJacobi_Multiblock *bjac = (PC_BJacobi_Multiblock*)jac->data;
@@ -1082,18 +1087,17 @@ static PetscErrorCode PCSetUp_BJacobi_Multiblock(PC pc,Mat mat,Mat pmat)
      different boundary conditions for the submatrices than for the global problem) */
   ierr = PCModifySubMatrices(pc,n_local,bjac->is,bjac->is,bjac->pmat,pc->modifysubmatricesP);CHKERRQ(ierr);
 
-  ierr = PetscObjectGetOptionsPrefix((PetscObject)pmat,&pprefix);CHKERRQ(ierr);
   for (i=0; i<n_local; i++) {
     ierr = PetscLogObjectParent((PetscObject)pc,(PetscObject)bjac->pmat[i]);CHKERRQ(ierr);
-    ierr = PetscObjectSetOptionsPrefix((PetscObject)bjac->pmat[i],pprefix);CHKERRQ(ierr);
+    ierr = KSPGetOptionsPrefix(jac->ksp[i],&prefix);CHKERRQ(ierr);
     if (pc->useAmat) {
       ierr = PetscLogObjectParent((PetscObject)pc,(PetscObject)bjac->mat[i]);CHKERRQ(ierr);
-      ierr = PetscObjectGetOptionsPrefix((PetscObject)mat,&mprefix);CHKERRQ(ierr);
-      ierr = PetscObjectSetOptionsPrefix((PetscObject)bjac->mat[i],mprefix);CHKERRQ(ierr);
       ierr = KSPSetOperators(jac->ksp[i],bjac->mat[i],bjac->pmat[i]);CHKERRQ(ierr);
+      ierr = MatSetOptionsPrefix(bjac->mat[i],prefix);CHKERRQ(ierr);
     } else {
       ierr = KSPSetOperators(jac->ksp[i],bjac->pmat[i],bjac->pmat[i]);CHKERRQ(ierr);
     }
+    ierr = MatSetOptionsPrefix(bjac->pmat[i],prefix);CHKERRQ(ierr);
     if (pc->setfromoptionscalled) {
       ierr = KSPSetFromOptions(jac->ksp[i]);CHKERRQ(ierr);
     }
@@ -1103,8 +1107,24 @@ static PetscErrorCode PCSetUp_BJacobi_Multiblock(PC pc,Mat mat,Mat pmat)
 
 /* ---------------------------------------------------------------------------------------------*/
 /*
-      These are for a single block with multiple processes;
+      These are for a single block with multiple processes
 */
+static PetscErrorCode PCSetUpOnBlocks_BJacobi_Multiproc(PC pc)
+{
+  PetscErrorCode     ierr;
+  PC_BJacobi         *jac = (PC_BJacobi*)pc->data;
+  KSP                subksp = jac->ksp[0];
+  KSPConvergedReason reason;
+
+  PetscFunctionBegin;
+  ierr = KSPSetUp(subksp);CHKERRQ(ierr);
+  ierr = KSPGetConvergedReason(subksp,&reason);CHKERRQ(ierr);
+  if (reason == KSP_DIVERGED_PC_FAILED) {
+    pc->failedreason = PC_SUBPC_ERROR;
+  }
+  PetscFunctionReturn(0);
+}
+
 static PetscErrorCode PCReset_BJacobi_Multiproc(PC pc)
 {
   PC_BJacobi           *jac   = (PC_BJacobi*)pc->data;
@@ -1217,7 +1237,6 @@ static PetscErrorCode PCSetUp_BJacobi_Multiproc(PC pc)
   PetscBool            wasSetup = PETSC_TRUE;
   VecType              vectype;
 
-
   PetscFunctionBegin;
   ierr = PetscObjectGetComm((PetscObject)pc,&comm);CHKERRQ(ierr);
   if (jac->n_local > 1) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Only a single block in a subcommunicator is supported");
@@ -1253,6 +1272,8 @@ static PetscErrorCode PCSetUp_BJacobi_Multiproc(PC pc)
     ierr = PCGetOptionsPrefix(pc,&prefix);CHKERRQ(ierr);
     ierr = KSPSetOptionsPrefix(jac->ksp[0],prefix);CHKERRQ(ierr);
     ierr = KSPAppendOptionsPrefix(jac->ksp[0],"sub_");CHKERRQ(ierr);
+    ierr = KSPGetOptionsPrefix(jac->ksp[0],&prefix);CHKERRQ(ierr);
+    ierr = MatSetOptionsPrefix(mpjac->submats,prefix);CHKERRQ(ierr);
 
     /* create dummy vectors xsub and ysub */
     ierr = MatGetLocalSize(mpjac->submats,&m,&n);CHKERRQ(ierr);
@@ -1264,10 +1285,11 @@ static PetscErrorCode PCSetUp_BJacobi_Multiproc(PC pc)
     ierr = PetscLogObjectParent((PetscObject)pc,(PetscObject)mpjac->xsub);CHKERRQ(ierr);
     ierr = PetscLogObjectParent((PetscObject)pc,(PetscObject)mpjac->ysub);CHKERRQ(ierr);
 
-    pc->ops->reset   = PCReset_BJacobi_Multiproc;
-    pc->ops->destroy = PCDestroy_BJacobi_Multiproc;
-    pc->ops->apply   = PCApply_BJacobi_Multiproc;
-    pc->ops->matapply= PCMatApply_BJacobi_Multiproc;
+    pc->ops->setuponblocks = PCSetUpOnBlocks_BJacobi_Multiproc;
+    pc->ops->reset         = PCReset_BJacobi_Multiproc;
+    pc->ops->destroy       = PCDestroy_BJacobi_Multiproc;
+    pc->ops->apply         = PCApply_BJacobi_Multiproc;
+    pc->ops->matapply      = PCMatApply_BJacobi_Multiproc;
   } else { /* pc->setupcalled */
     subcomm = PetscSubcommChild(mpjac->psubcomm);
     if (pc->flag == DIFFERENT_NONZERO_PATTERN) {

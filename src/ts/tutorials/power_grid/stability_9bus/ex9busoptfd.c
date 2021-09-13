@@ -95,7 +95,6 @@ typedef struct {
   Vec         vec_q;
 } Userctx;
 
-
 /* Converts from machine frame (dq) to network (phase a real,imag) reference frame */
 PetscErrorCode dq2ri(PetscScalar Fd,PetscScalar Fq,PetscScalar delta,PetscScalar *Fr, PetscScalar *Fi)
 {
@@ -580,7 +579,6 @@ PetscErrorCode ResidualJacobian(SNES snes,Vec X,Mat J,Mat B,void *ctx)
     idx        = idx + 9;
   }
 
-
   for (i=0; i<nbus; i++) {
     ierr   = MatGetRow(user->Ybus,2*i,&ncols,&cols,&yvals);CHKERRQ(ierr);
     row[0] = net_start + 2*i;
@@ -631,7 +629,6 @@ PetscErrorCode ResidualJacobian(SNES snes,Vec X,Mat J,Mat B,void *ctx)
 
     dIDi_dVr = (-dQD_dVr*Vr + dPD_dVr*Vi - QD)/Vm2 - ((-QD*Vr + PD*Vi)*2*Vr)/Vm4;
     dIDi_dVi = (-dQD_dVi*Vr + dPD_dVi*Vi + PD)/Vm2 - ((-QD*Vr + PD*Vi)*2*Vi)/Vm4;
-
 
     /*    fnet[2*lbus[i]]   += IDi; */
     row[0] = net_start + 2*lbus[i];
@@ -781,7 +778,7 @@ int main(int argc,char **argv)
 
   PetscFunctionBeginUser;
   ierr = PetscInitialize(&argc,&argv,"petscoptions",help);if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
   if (size > 1) SETERRQ(PETSC_COMM_WORLD,PETSC_ERR_SUP,"Only for sequential runs");
 
   ierr = VecCreateSeq(PETSC_COMM_WORLD,1,&user.vec_q);CHKERRQ(ierr);
@@ -1078,7 +1075,7 @@ PetscErrorCode FormFunction(Tao tao,Vec P,PetscReal *f,void *ctx0)
 /*TEST
 
   build:
-      requires: double !complex !define(USE_64BIT_INDICES)
+      requires: double !complex !defined(USE_64BIT_INDICES)
 
    test:
       args: -viewer_binary_skip_info -tao_monitor -tao_gttol .2

@@ -325,9 +325,9 @@ PetscErrorCode DMCreateInterpolation_DA_2D_Q1(DM dac,DM daf,Mat *A)
 
    In the standard case when size_f == size_c col_scale == 1 and col_shift == 0
    */
-  ierr      = MPI_Comm_size(PetscObjectComm((PetscObject)dac),&size_c);CHKERRQ(ierr);
-  ierr      = MPI_Comm_size(PetscObjectComm((PetscObject)daf),&size_f);CHKERRQ(ierr);
-  ierr      = MPI_Comm_rank(PetscObjectComm((PetscObject)daf),&rank_f);CHKERRQ(ierr);
+  ierr      = MPI_Comm_size(PetscObjectComm((PetscObject)dac),&size_c);CHKERRMPI(ierr);
+  ierr      = MPI_Comm_size(PetscObjectComm((PetscObject)daf),&size_f);CHKERRMPI(ierr);
+  ierr      = MPI_Comm_rank(PetscObjectComm((PetscObject)daf),&rank_f);CHKERRMPI(ierr);
   col_scale = size_f/size_c;
   col_shift = Mx*My*(rank_f/size_c);
 
@@ -553,9 +553,9 @@ PetscErrorCode DMCreateInterpolation_DA_2D_Q0(DM dac,DM daf,Mat *A)
 
      In the standard case when size_f == size_c col_scale == 1 and col_shift == 0
   */
-  ierr      = MPI_Comm_size(PetscObjectComm((PetscObject)dac),&size_c);CHKERRQ(ierr);
-  ierr      = MPI_Comm_size(PetscObjectComm((PetscObject)daf),&size_f);CHKERRQ(ierr);
-  ierr      = MPI_Comm_rank(PetscObjectComm((PetscObject)daf),&rank_f);CHKERRQ(ierr);
+  ierr      = MPI_Comm_size(PetscObjectComm((PetscObject)dac),&size_c);CHKERRMPI(ierr);
+  ierr      = MPI_Comm_size(PetscObjectComm((PetscObject)daf),&size_f);CHKERRMPI(ierr);
+  ierr      = MPI_Comm_rank(PetscObjectComm((PetscObject)daf),&rank_f);CHKERRMPI(ierr);
   col_scale = size_f/size_c;
   col_shift = Mx*My*(rank_f/size_c);
 
@@ -683,9 +683,9 @@ PetscErrorCode DMCreateInterpolation_DA_3D_Q0(DM dac,DM daf,Mat *A)
 
      In the standard case when size_f == size_c col_scale == 1 and col_shift == 0
   */
-  ierr      = MPI_Comm_size(PetscObjectComm((PetscObject)dac),&size_c);CHKERRQ(ierr);
-  ierr      = MPI_Comm_size(PetscObjectComm((PetscObject)daf),&size_f);CHKERRQ(ierr);
-  ierr      = MPI_Comm_rank(PetscObjectComm((PetscObject)daf),&rank_f);CHKERRQ(ierr);
+  ierr      = MPI_Comm_size(PetscObjectComm((PetscObject)dac),&size_c);CHKERRMPI(ierr);
+  ierr      = MPI_Comm_size(PetscObjectComm((PetscObject)daf),&size_f);CHKERRMPI(ierr);
+  ierr      = MPI_Comm_rank(PetscObjectComm((PetscObject)daf),&rank_f);CHKERRMPI(ierr);
   col_scale = size_f/size_c;
   col_shift = Mx*My*Mz*(rank_f/size_c);
 
@@ -1143,11 +1143,9 @@ PetscErrorCode DMCreateInjection_DA_1D(DM dac,DM daf,VecScatter *inject)
   ierr = DMDAGetCorners(dac,&i_start_c,NULL,NULL,&m_c,NULL,NULL);CHKERRQ(ierr);
   ierr = DMDAGetGhostCorners(dac,&i_start_ghost_c,NULL,NULL,&m_ghost_c,NULL,NULL);CHKERRQ(ierr);
 
-
   /* loop over local fine grid nodes setting interpolation for those*/
   nc   = 0;
   ierr = PetscMalloc1(m_f,&cols);CHKERRQ(ierr);
-
 
   for (i=i_start_c; i<i_start_c+m_c; i++) {
     PetscInt i_f = i*ratioi;
@@ -1291,7 +1289,6 @@ PetscErrorCode DMCreateInjection_DA_3D(DM dac,DM daf,VecScatter *inject)
   ierr = DMDAGetGhostCorners(dac,&i_start_ghost_c,&j_start_ghost_c,&k_start_ghost_c,&m_ghost_c,&n_ghost_c,&p_ghost_c);CHKERRQ(ierr);
   ierr = DMGetLocalToGlobalMapping(dac,&ltog_c);CHKERRQ(ierr);
   ierr = ISLocalToGlobalMappingGetBlockIndices(ltog_c,&idx_c);CHKERRQ(ierr);
-
 
   /* loop over local fine grid nodes setting interpolation for those*/
   nc   = 0;

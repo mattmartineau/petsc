@@ -9,7 +9,6 @@ static char help[] = "Solves DAE with integrator only on non-algebraic terms \n"
     Same as ex6.c and ex7.c except calls the ARKIMEX integrator on the entire DAE
 */
 
-
 /*
    f(U,V) = U + V
 
@@ -36,7 +35,6 @@ PetscErrorCode F(PetscReal t,Vec U,Vec V,Vec F)
   PetscFunctionReturn(0);
 }
 
-
 typedef struct {
   Vec            U,V;
   Vec            UF,VF;
@@ -58,9 +56,8 @@ int main(int argc,char **argv)
   PetscInt       I;
   PetscMPIInt    rank;
 
-
   ierr = PetscInitialize(&argc,&argv,(char*)0,help);if (ierr) return ierr;
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
   ierr = TSCreate(PETSC_COMM_WORLD,&ts);CHKERRQ(ierr);
   ierr = TSSetProblemType(ts,TS_NONLINEAR);CHKERRQ(ierr);
   ierr = TSSetType(ts,TSROSW);CHKERRQ(ierr);

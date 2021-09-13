@@ -5,7 +5,7 @@ class Configure(config.package.CMakePackage):
   def __init__(self, framework):
     config.package.CMakePackage.__init__(self, framework)
     self.minversion       = '6.1.1'
-    self.version          = '6.3.0'
+    self.version          = '6.4.0'
     self.versionname      = 'SUPERLU_DIST_MAJOR_VERSION.SUPERLU_DIST_MINOR_VERSION.SUPERLU_DIST_PATCH_VERSION'
     self.gitcommit        = 'v'+self.version
     self.download         = ['git://https://github.com/xiaoyeli/superlu_dist','https://github.com/xiaoyeli/superlu_dist/archive/'+self.gitcommit+'.tar.gz']
@@ -19,7 +19,7 @@ class Configure(config.package.CMakePackage):
     self.hastestsdatafiles= 1
     self.precisions       = ['double']
     self.cxx              = 1
-    self.requirescxx11    = 1
+    self.minCxxVersion    = 'c++11'
     return
 
   def setupDependencies(self, framework):
@@ -64,14 +64,10 @@ class Configure(config.package.CMakePackage):
 
     args.append('-Denable_tests=0')
     args.append('-Denable_examples=0')
-    #  CMake in SuperLU should set this; but like many other packages it does not
-    args.append('-DCMAKE_INSTALL_NAME_DIR:STRING="'+os.path.join(self.installDir,self.libdir)+'"')
-    args.append('-DMPI_C_COMPILER:STRING="'+self.getCompiler()+'"')
     args.append('-DMPI_C_COMPILE_FLAGS:STRING=""')
     args.append('-DMPI_C_INCLUDE_PATH:STRING=""')
     args.append('-DMPI_C_HEADER_DIR:STRING=""')
     args.append('-DMPI_C_LIBRARIES:STRING=""')
-    args.append('-DCMAKE_INSTALL_LIBDIR:STRING="'+os.path.join(self.installDir,self.libdir)+'"')
 
     # Add in fortran mangling flag
     if self.blasLapack.mangling == 'underscore':
@@ -83,8 +79,20 @@ class Configure(config.package.CMakePackage):
     for place,item in enumerate(args):
       if item.find('CMAKE_C_FLAGS') >= 0 or item.find('CMAKE_CXX_FLAGS') >= 0:
         args[place]=item[:-1]+' '+mangledef+'"'
-
     return args
 
-
-
+  def configureLibrary(self):
+    config.package.Package.configureLibrary(self)
+    self.pushLanguage('C')
+    oldFlags = self.compilers.CPPFLAGS # Disgusting save and restore
+    self.compilers.CPPFLAGS += ' '+self.headers.toString(self.include)
+    if self.defaultIndexSize == 64:
+      if not self.checkCompile('#include "superlu_ddefs.h"','#if !defined(_LONGINT)\n#error "No longint"\n#endif\n'):
+        raise RuntimeError('PETSc is being configured using --with-64-bit-indices but SuperLU_DIST library is built for 32 bit integers.\n\
+Suggest using --download-superlu_dist')
+    else:
+      if not self.checkCompile('#include "superlu_ddefs.h"','#if defined(_LONGINT)\n#error "longint is defined"\n#endif\n'):
+        raise RuntimeError('PETSc is being configured without using --with-64-bit-indices but SuperLU_DIST library is built for 64 bit integers.\n\
+Suggest using --download-superlu_dist')
+    self.compilers.CPPFLAGS = oldFlags
+    self.popLanguage()

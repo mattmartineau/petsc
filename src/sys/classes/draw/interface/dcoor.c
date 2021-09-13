@@ -17,7 +17,6 @@
 
    Level: advanced
 
-
 .seealso: PetscDrawGetCoordinates()
 
 @*/
@@ -46,10 +45,9 @@ PetscErrorCode  PetscDrawSetCoordinates(PetscDraw draw,PetscReal xl,PetscReal yl
 
    Level: advanced
 
-   Ouput Parameters:
+   Output Parameters:
 .  xl,yl,xr,yr - the coordinates of the lower left corner and upper
                  right corner of the drawing region.
-
 
 .seealso: PetscDrawSetCoordinates()
 

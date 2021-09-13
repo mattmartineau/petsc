@@ -39,6 +39,9 @@ typedef struct {
   PetscSegBuffer segrecvint;
   PetscSegBuffer segrecvscalar;
   PetscSegBuffer segrecvframe;
+ #if defined(PETSC_HAVE_NVSHMEM)
+  PetscBool      use_nvshmem; /* Try to use NVSHMEM in communication of, for example, VecNorm */
+ #endif
 } Vec_MPI;
 
 PETSC_INTERN PetscErrorCode VecDot_MPI(Vec,Vec,PetscScalar*);
@@ -54,7 +57,6 @@ PETSC_INTERN PetscErrorCode VecView_MPI_Draw_LG(Vec,PetscViewer);
 PETSC_INTERN PetscErrorCode VecView_MPI_Socket(Vec,PetscViewer);
 PETSC_INTERN PetscErrorCode VecView_MPI_HDF5(Vec,PetscViewer);
 PETSC_INTERN PetscErrorCode VecView_MPI_ADIOS(Vec,PetscViewer);
-PETSC_INTERN PetscErrorCode VecView_MPI_ADIOS2(Vec,PetscViewer);
 PETSC_EXTERN PetscErrorCode VecView_MPI(Vec,PetscViewer);
 PETSC_INTERN PetscErrorCode VecGetSize_MPI(Vec,PetscInt*);
 PETSC_INTERN PetscErrorCode VecGetValues_MPI(Vec,PetscInt,const PetscInt [], PetscScalar []);
@@ -68,6 +70,4 @@ PETSC_EXTERN PetscErrorCode VecCreate_MPI(Vec);
 PETSC_INTERN PetscErrorCode VecDuplicate_MPI(Vec,Vec*);
 
 #endif
-
-
 

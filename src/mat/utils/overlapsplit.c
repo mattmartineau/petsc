@@ -35,25 +35,25 @@ PetscErrorCode  MatIncreaseOverlapSplit_Single(Mat mat,IS *is,PetscInt ov)
   /* get a global communicator, where mat should be a global matrix  */
   ierr = PetscObjectGetComm((PetscObject)mat,&gcomm);CHKERRQ(ierr);
   ierr = (*mat->ops->increaseoverlap)(mat,1,is,ov);CHKERRQ(ierr);
-  ierr = MPI_Comm_compare(gcomm,scomm,&issamecomm);CHKERRQ(ierr);
+  ierr = MPI_Comm_compare(gcomm,scomm,&issamecomm);CHKERRMPI(ierr);
   /* if the sub-communicator is the same as the global communicator,
    * user does not want to use a sub-communicator
    * */
-  if (issamecomm == MPI_IDENT || issamecomm == MPI_CONGRUENT){
+  if (issamecomm == MPI_IDENT || issamecomm == MPI_CONGRUENT) {
         ierr = PetscCommDestroy(&scomm);CHKERRQ(ierr);
         PetscFunctionReturn(0);
   }
   /* if the sub-communicator is petsc_comm_self,
    * user also does not care the sub-communicator
    * */
-  ierr = MPI_Comm_compare(scomm,PETSC_COMM_SELF,&issamecomm);CHKERRQ(ierr);
-  if (issamecomm == MPI_IDENT || issamecomm == MPI_CONGRUENT){
+  ierr = MPI_Comm_compare(scomm,PETSC_COMM_SELF,&issamecomm);CHKERRMPI(ierr);
+  if (issamecomm == MPI_IDENT || issamecomm == MPI_CONGRUENT) {
     ierr = PetscCommDestroy(&scomm);CHKERRQ(ierr);
     PetscFunctionReturn(0);
   }
-  ierr = MPI_Comm_rank(scomm,&srank);CHKERRQ(ierr);
-  ierr = MPI_Comm_size(scomm,&ssize);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(gcomm,&grank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(scomm,&srank);CHKERRMPI(ierr);
+  ierr = MPI_Comm_size(scomm,&ssize);CHKERRMPI(ierr);
+  ierr = MPI_Comm_rank(gcomm,&grank);CHKERRMPI(ierr);
   /* create a new IS based on sub-communicator
    * since the old IS is often based on petsc_comm_self
    * */
@@ -72,9 +72,9 @@ PetscErrorCode  MatIncreaseOverlapSplit_Single(Mat mat,IS *is,PetscInt ov)
   /* gather local sizes */
   ierr = PetscMalloc1(ssize,&localsizes_sc);CHKERRQ(ierr);
   /* get individual local sizes for all index sets */
-  ierr = MPI_Gather(&nindx,1,MPIU_INT,localsizes_sc,1,MPIU_INT,0,scomm);CHKERRQ(ierr);
+  ierr = MPI_Gather(&nindx,1,MPIU_INT,localsizes_sc,1,MPIU_INT,0,scomm);CHKERRMPI(ierr);
   /* only root does these computations */
-  if (!srank){
+  if (!srank) {
    /* get local size for the big index set */
    ierr = ISGetLocalSize(allis_sc,&localsize);CHKERRQ(ierr);
    ierr = PetscCalloc2(localsize,&indices_ov,localsize,&sources_sc);CHKERRQ(ierr);
@@ -85,8 +85,8 @@ PetscErrorCode  MatIncreaseOverlapSplit_Single(Mat mat,IS *is,PetscInt ov)
    ierr = ISDestroy(&allis_sc);CHKERRQ(ierr);
    /* assign corresponding sources */
    localsize_tmp = 0;
-   for (k=0; k<ssize; k++){
-     for (i=0; i<localsizes_sc[k]; i++){
+   for (k=0; k<ssize; k++) {
+     for (i=0; i<localsizes_sc[k]; i++) {
        sources_sc[localsize_tmp++] = k;
      }
    }
@@ -95,15 +95,15 @@ PetscErrorCode  MatIncreaseOverlapSplit_Single(Mat mat,IS *is,PetscInt ov)
    /* count local sizes for reduced indices */
    ierr = PetscArrayzero(localsizes_sc,ssize);CHKERRQ(ierr);
    /* initialize the first entity */
-   if (localsize){
+   if (localsize) {
      indices_ov_rd[0] = indices_ov[0];
      sources_sc_rd[0] = sources_sc[0];
      localsizes_sc[sources_sc[0]]++;
    }
    localsize_tmp = 1;
    /* remove duplicate integers */
-   for (i=1; i<localsize; i++){
-     if (indices_ov[i] != indices_ov[i-1]){
+   for (i=1; i<localsize; i++) {
+     if (indices_ov[i] != indices_ov[i-1]) {
        indices_ov_rd[localsize_tmp]   = indices_ov[i];
        sources_sc_rd[localsize_tmp++] = sources_sc[i];
        localsizes_sc[sources_sc[i]]++;
@@ -111,14 +111,14 @@ PetscErrorCode  MatIncreaseOverlapSplit_Single(Mat mat,IS *is,PetscInt ov)
    }
    ierr = PetscFree2(indices_ov,sources_sc);CHKERRQ(ierr);
    ierr = PetscCalloc1(ssize+1,&localoffsets);CHKERRQ(ierr);
-   for (k=0; k<ssize; k++){
+   for (k=0; k<ssize; k++) {
      localoffsets[k+1] = localoffsets[k] + localsizes_sc[k];
    }
    nleaves = localoffsets[ssize];
    ierr    = PetscArrayzero(localoffsets,ssize+1);CHKERRQ(ierr);
    nroots  = localsizes_sc[srank];
    ierr    = PetscMalloc1(nleaves,&remote);CHKERRQ(ierr);
-   for (i=0; i<nleaves; i++){
+   for (i=0; i<nleaves; i++) {
      remote[i].rank  = sources_sc_rd[i];
      remote[i].index = localoffsets[sources_sc_rd[i]]++;
    }
@@ -132,7 +132,7 @@ PetscErrorCode  MatIncreaseOverlapSplit_Single(Mat mat,IS *is,PetscInt ov)
    sources_sc_rd = NULL;
   }
   /* scatter sizes to everybody */
-  ierr = MPI_Scatter(localsizes_sc,1, MPIU_INT,&nroots,1, MPIU_INT,0,scomm);CHKERRQ(ierr);
+  ierr = MPI_Scatter(localsizes_sc,1, MPIU_INT,&nroots,1, MPIU_INT,0,scomm);CHKERRMPI(ierr);
   ierr = PetscFree(localsizes_sc);CHKERRQ(ierr);
   ierr = PetscCalloc1(nroots,&indices_recv);CHKERRQ(ierr);
   /* set data back to every body */
@@ -140,8 +140,8 @@ PetscErrorCode  MatIncreaseOverlapSplit_Single(Mat mat,IS *is,PetscInt ov)
   ierr = PetscSFSetType(sf,PETSCSFBASIC);CHKERRQ(ierr);
   ierr = PetscSFSetFromOptions(sf);CHKERRQ(ierr);
   ierr = PetscSFSetGraph(sf,nroots,nleaves,NULL,PETSC_OWN_POINTER,remote,PETSC_OWN_POINTER);CHKERRQ(ierr);
-  ierr = PetscSFReduceBegin(sf,MPIU_INT,indices_ov_rd,indices_recv,MPIU_REPLACE);CHKERRQ(ierr);
-  ierr = PetscSFReduceEnd(sf,MPIU_INT,indices_ov_rd,indices_recv,MPIU_REPLACE);CHKERRQ(ierr);
+  ierr = PetscSFReduceBegin(sf,MPIU_INT,indices_ov_rd,indices_recv,MPI_REPLACE);CHKERRQ(ierr);
+  ierr = PetscSFReduceEnd(sf,MPIU_INT,indices_ov_rd,indices_recv,MPI_REPLACE);CHKERRQ(ierr);
   ierr = PetscSFDestroy(&sf);CHKERRQ(ierr);
   ierr = PetscFree2(indices_ov_rd,sources_sc_rd);CHKERRQ(ierr);
   ierr = ISCreateGeneral(scomm,nroots,indices_recv,PETSC_OWN_POINTER,&is_sc);CHKERRQ(ierr);
@@ -174,5 +174,4 @@ PetscErrorCode  MatIncreaseOverlapSplit_Single(Mat mat,IS *is,PetscInt ov)
   ierr = PetscCommDestroy(&scomm);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
-
 

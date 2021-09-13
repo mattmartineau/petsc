@@ -18,8 +18,8 @@ int main(int argc, char **argv)
   PetscBool        pwgts = PETSC_FALSE;
 
   ierr = PetscInitialize(&argc, &argv, NULL, help);if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
   nparts = size;
   ierr = PetscOptionsGetInt(NULL,NULL,"-nparts",&nparts,NULL);CHKERRQ(ierr);
   ierr = PetscOptionsGetBool(NULL,NULL,"-vwgts",&vwgts,NULL);CHKERRQ(ierr);
@@ -73,10 +73,10 @@ int main(int argc, char **argv)
 
   /* test partitioning an empty graph */
   ierr = PetscPartitionerPartition(p,nparts,0,NULL,NULL,vertexSection,targetSection,partSection,&partition);CHKERRQ(ierr);
-  ierr = PetscObjectSetName((PetscObject)partSection,"NULL SECTION");
+  ierr = PetscObjectSetName((PetscObject)partSection,"NULL SECTION");CHKERRQ(ierr);
   ierr = PetscSectionView(partSection,NULL);CHKERRQ(ierr);
   ierr = ISOnComm(partition,PETSC_COMM_WORLD,PETSC_USE_POINTER,&is);CHKERRQ(ierr);
-  ierr = PetscObjectSetName((PetscObject)is,"NULL PARTITION");
+  ierr = PetscObjectSetName((PetscObject)is,"NULL PARTITION");CHKERRQ(ierr);
   ierr = ISView(is,NULL);CHKERRQ(ierr);
   ierr = ISDestroy(&is);CHKERRQ(ierr);
   ierr = ISDestroy(&partition);CHKERRQ(ierr);
@@ -84,16 +84,16 @@ int main(int argc, char **argv)
   /* test view from options */
   ierr = PetscPartitionerViewFromOptions(p,NULL,"-part_view");CHKERRQ(ierr);
 
-  /* test partitioning a graph on one process only (not master) */
+  /* test partitioning a graph on one process only (not main) */
   if (rank == size - 1) {
     ierr = PetscPartitionerPartition(p,nparts,nv,vv,vadj,vertexSection,targetSection,partSection,&partition);CHKERRQ(ierr);
   } else {
     ierr = PetscPartitionerPartition(p,nparts,0,NULL,NULL,vertexSection,targetSection,partSection,&partition);CHKERRQ(ierr);
   }
-  ierr = PetscObjectSetName((PetscObject)partSection,"SEQ SECTION");
+  ierr = PetscObjectSetName((PetscObject)partSection,"SEQ SECTION");CHKERRQ(ierr);
   ierr = PetscSectionView(partSection,NULL);CHKERRQ(ierr);
   ierr = ISOnComm(partition,PETSC_COMM_WORLD,PETSC_USE_POINTER,&is);CHKERRQ(ierr);
-  ierr = PetscObjectSetName((PetscObject)is,"SEQ PARTITION");
+  ierr = PetscObjectSetName((PetscObject)is,"SEQ PARTITION");CHKERRQ(ierr);
   ierr = ISView(is,NULL);CHKERRQ(ierr);
   ierr = ISDestroy(&is);CHKERRQ(ierr);
   ierr = ISDestroy(&partition);CHKERRQ(ierr);
@@ -115,10 +115,10 @@ int main(int argc, char **argv)
     ierr = PetscPartitionerPartition(p,nparts,nv,vv,pvadj,NULL,targetSection,partSection,&partition);CHKERRQ(ierr);
     ierr = PetscFree(pvadj);CHKERRQ(ierr);
   }
-  ierr = PetscObjectSetName((PetscObject)partSection,"PARVOID SECTION");
+  ierr = PetscObjectSetName((PetscObject)partSection,"PARVOID SECTION");CHKERRQ(ierr);
   ierr = PetscSectionView(partSection,NULL);CHKERRQ(ierr);
   ierr = ISOnComm(partition,PETSC_COMM_WORLD,PETSC_USE_POINTER,&is);CHKERRQ(ierr);
-  ierr = PetscObjectSetName((PetscObject)is,"PARVOID PARTITION");
+  ierr = PetscObjectSetName((PetscObject)is,"PARVOID PARTITION");CHKERRQ(ierr);
   ierr = ISView(is,NULL);CHKERRQ(ierr);
   ierr = ISDestroy(&is);CHKERRQ(ierr);
   ierr = ISDestroy(&partition);CHKERRQ(ierr);
@@ -138,7 +138,7 @@ finally:
     suffix: default
 
   testset:
-    requires: define(PETSC_USE_LOG)
+    requires: defined(PETSC_USE_LOG)
     args: -petscpartitioner_type simple -log_summary
     filter: grep MyPartitionerEvent | cut -d " " -f 1
     test:

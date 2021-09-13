@@ -7,7 +7,13 @@ from __future__ import print_function
 import os
 import os.path, time,sys
 import re
-from distutils.version import LooseVersion as Version
+try:
+  from packaging.version import Version
+except ImportError:
+  try:
+    from distutils.version import LooseVersion as Version
+  except ImportError:
+    sys.exit()
 
 def naggedtoday(file):
   if not os.path.exists(file): return 0
@@ -25,17 +31,19 @@ def parse_version_h(pv):
 
 def currentversion(petscdir):
   try:
-    fd  = open(os.path.join(petscdir, 'include', 'petscversion.h'))
-    pv = fd.read()
-    fd.close()
+    with open(os.path.join(petscdir, 'include', 'petscversion.h')) as fd:
+      pv = fd.read()
     version = parse_version_h(pv)
   except:
     return
   try:
-    import urllib2
-    fd = urllib2.urlopen("https://gitlab.com/petsc/petsc/raw/release/include/petscversion.h",timeout = 2)
-    #fd = urllib2.urlopen("https://www.mcs.anl.gov/petsc/petsc-current/include/petscversion.h",timeout = 2)
-    pv = fd.read()
+    try:
+      from urllib.request import urlopen
+    except ImportError:
+      from urllib2 import urlopen
+    # with context manager not support in Python-2; would be preferred in Python-3
+    fd = urlopen("https://gitlab.com/petsc/petsc/raw/release/include/petscversion.h",timeout = 2)
+    pv = fd.read().decode('utf-8')
     fd.close()
     aversion = parse_version_h(pv)
   except:
@@ -44,7 +52,7 @@ def currentversion(petscdir):
     print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
     print("The version of PETSc you are using is out-of-date, we recommend updating to the new release")
     print(" Available Version: "+str(aversion)+"   Installed Version: "+str(version))
-    print("https://www.mcs.anl.gov/petsc/download/index.html")
+    print("https://petsc.org/release/download/")
     print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
   try:
     fd = open(os.path.join(petscdir,'.nagged'),"w")
@@ -65,5 +73,3 @@ if __name__ ==  '__main__':
   file     = os.path.join(petscdir,'.nagged')
   if not naggedtoday(file):
     currentversion(petscdir)
-
-

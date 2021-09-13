@@ -9,7 +9,6 @@ static char help[] = "A test for MatAssembly that heavily relies on PetscSortInt
 
    Contributed-by: Fande Kong <fdkong.jd@gmail.com>, John Peterson <jwpeterson@gmail.com>
  */
-#define PETSC_SKIP_CXX_COMPLEX_FIX
 
 // PETSc includes
 #include <petscmat.h>
@@ -34,8 +33,8 @@ int main (int argc, char** argv)
   unsigned int   last_local_index;
 
   ierr = PetscInitialize(&argc,&argv,(char*)0,help);if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
   if (size > 2) SETERRQ(PETSC_COMM_WORLD,PETSC_ERR_SUP,"This example is for <=2 procs");
 
   ierr = PetscOptionsGetString(NULL,NULL,"-f0",file[0],sizeof(file[0]),&flg);CHKERRQ(ierr);
@@ -157,7 +156,7 @@ int main (int argc, char** argv)
 }
 /*TEST
    build:
-      requires: !define(PETSC_HAVE_SUN_CXX)
+      requires: !defined(PETSC_HAVE_SUN_CXX)
 
    test:
       nsize: 2

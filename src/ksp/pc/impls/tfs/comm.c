@@ -15,7 +15,6 @@ Last Modification:
 ***********************************comm.c*************************************/
 #include <../src/ksp/pc/impls/tfs/tfs.h>
 
-
 /* global program control variables - explicitly exported */
 PetscMPIInt PCTFS_my_id            = 0;
 PetscMPIInt PCTFS_num_nodes        = 1;
@@ -32,7 +31,7 @@ static PetscInt edge_node[sizeof(PetscInt)*32];
 /***********************************comm.c*************************************/
 PetscErrorCode PCTFS_comm_init(void)
 {
-
+  PetscFunctionBegin;
   if (p_init++) PetscFunctionReturn(0);
 
   MPI_Comm_size(MPI_COMM_WORLD,&PCTFS_num_nodes);
@@ -95,9 +94,9 @@ PetscErrorCode PCTFS_giop(PetscInt *vals, PetscInt *work, PetscInt n, PetscInt *
   /* if not a hypercube must colapse partial dim */
   if (edge_not_pow_2) {
     if (PCTFS_my_id >= PCTFS_floor_num_nodes) {
-      ierr = MPI_Send(vals,n,MPIU_INT,edge_not_pow_2,MSGTAG0+PCTFS_my_id,MPI_COMM_WORLD);CHKERRQ(ierr);
+      ierr = MPI_Send(vals,n,MPIU_INT,edge_not_pow_2,MSGTAG0+PCTFS_my_id,MPI_COMM_WORLD);CHKERRMPI(ierr);
     } else {
-      ierr = MPI_Recv(work,n,MPIU_INT,MPI_ANY_SOURCE,MSGTAG0+edge_not_pow_2, MPI_COMM_WORLD,&status);CHKERRQ(ierr);
+      ierr = MPI_Recv(work,n,MPIU_INT,MPI_ANY_SOURCE,MSGTAG0+edge_not_pow_2, MPI_COMM_WORLD,&status);CHKERRMPI(ierr);
       (*fp)(vals,work,n,oprs);
     }
   }
@@ -107,9 +106,9 @@ PetscErrorCode PCTFS_giop(PetscInt *vals, PetscInt *work, PetscInt n, PetscInt *
     for (mask=1,edge=0; edge<PCTFS_i_log2_num_nodes; edge++,mask<<=1) {
       dest = PCTFS_my_id^mask;
       if (PCTFS_my_id > dest) {
-        ierr = MPI_Send(vals,n,MPIU_INT,dest,MSGTAG2+PCTFS_my_id,MPI_COMM_WORLD);CHKERRQ(ierr);
+        ierr = MPI_Send(vals,n,MPIU_INT,dest,MSGTAG2+PCTFS_my_id,MPI_COMM_WORLD);CHKERRMPI(ierr);
       } else {
-        ierr = MPI_Recv(work,n,MPIU_INT,MPI_ANY_SOURCE,MSGTAG2+dest,MPI_COMM_WORLD, &status);CHKERRQ(ierr);
+        ierr = MPI_Recv(work,n,MPIU_INT,MPI_ANY_SOURCE,MSGTAG2+dest,MPI_COMM_WORLD, &status);CHKERRMPI(ierr);
         (*fp)(vals, work, n, oprs);
       }
     }
@@ -120,9 +119,9 @@ PetscErrorCode PCTFS_giop(PetscInt *vals, PetscInt *work, PetscInt n, PetscInt *
 
       dest = PCTFS_my_id^mask;
       if (PCTFS_my_id < dest) {
-        ierr = MPI_Send(vals,n,MPIU_INT,dest,MSGTAG4+PCTFS_my_id,MPI_COMM_WORLD);CHKERRQ(ierr);
+        ierr = MPI_Send(vals,n,MPIU_INT,dest,MSGTAG4+PCTFS_my_id,MPI_COMM_WORLD);CHKERRMPI(ierr);
       } else {
-        ierr = MPI_Recv(vals,n,MPIU_INT,MPI_ANY_SOURCE,MSGTAG4+dest,MPI_COMM_WORLD, &status);CHKERRQ(ierr);
+        ierr = MPI_Recv(vals,n,MPIU_INT,MPI_ANY_SOURCE,MSGTAG4+dest,MPI_COMM_WORLD, &status);CHKERRMPI(ierr);
       }
     }
   }
@@ -130,9 +129,9 @@ PetscErrorCode PCTFS_giop(PetscInt *vals, PetscInt *work, PetscInt n, PetscInt *
   /* if not a hypercube must expand to partial dim */
   if (edge_not_pow_2) {
     if (PCTFS_my_id >= PCTFS_floor_num_nodes) {
-      ierr = MPI_Recv(vals,n,MPIU_INT,MPI_ANY_SOURCE,MSGTAG5+edge_not_pow_2,MPI_COMM_WORLD,&status);CHKERRQ(ierr);
+      ierr = MPI_Recv(vals,n,MPIU_INT,MPI_ANY_SOURCE,MSGTAG5+edge_not_pow_2,MPI_COMM_WORLD,&status);CHKERRMPI(ierr);
     } else {
-      ierr = MPI_Send(vals,n,MPIU_INT,edge_not_pow_2,MSGTAG5+PCTFS_my_id,MPI_COMM_WORLD);CHKERRQ(ierr);
+      ierr = MPI_Send(vals,n,MPIU_INT,edge_not_pow_2,MSGTAG5+PCTFS_my_id,MPI_COMM_WORLD);CHKERRMPI(ierr);
     }
   }
   PetscFunctionReturn(0);
@@ -172,9 +171,9 @@ PetscErrorCode PCTFS_grop(PetscScalar *vals, PetscScalar *work, PetscInt n, Pets
   /* if not a hypercube must colapse partial dim */
   if (edge_not_pow_2) {
     if (PCTFS_my_id >= PCTFS_floor_num_nodes) {
-      ierr = MPI_Send(vals,n,MPIU_SCALAR,edge_not_pow_2,MSGTAG0+PCTFS_my_id,MPI_COMM_WORLD);CHKERRQ(ierr);
+      ierr = MPI_Send(vals,n,MPIU_SCALAR,edge_not_pow_2,MSGTAG0+PCTFS_my_id,MPI_COMM_WORLD);CHKERRMPI(ierr);
     } else {
-      ierr = MPI_Recv(work,n,MPIU_SCALAR,MPI_ANY_SOURCE,MSGTAG0+edge_not_pow_2,MPI_COMM_WORLD,&status);CHKERRQ(ierr);
+      ierr = MPI_Recv(work,n,MPIU_SCALAR,MPI_ANY_SOURCE,MSGTAG0+edge_not_pow_2,MPI_COMM_WORLD,&status);CHKERRMPI(ierr);
       (*fp)(vals,work,n,oprs);
     }
   }
@@ -184,9 +183,9 @@ PetscErrorCode PCTFS_grop(PetscScalar *vals, PetscScalar *work, PetscInt n, Pets
     for (mask=1,edge=0; edge<PCTFS_i_log2_num_nodes; edge++,mask<<=1) {
       dest = PCTFS_my_id^mask;
       if (PCTFS_my_id > dest) {
-        ierr = MPI_Send(vals,n,MPIU_SCALAR,dest,MSGTAG2+PCTFS_my_id,MPI_COMM_WORLD);CHKERRQ(ierr);
+        ierr = MPI_Send(vals,n,MPIU_SCALAR,dest,MSGTAG2+PCTFS_my_id,MPI_COMM_WORLD);CHKERRMPI(ierr);
       } else {
-        ierr = MPI_Recv(work,n,MPIU_SCALAR,MPI_ANY_SOURCE,MSGTAG2+dest,MPI_COMM_WORLD, &status);CHKERRQ(ierr);
+        ierr = MPI_Recv(work,n,MPIU_SCALAR,MPI_ANY_SOURCE,MSGTAG2+dest,MPI_COMM_WORLD, &status);CHKERRMPI(ierr);
         (*fp)(vals, work, n, oprs);
       }
     }
@@ -197,9 +196,9 @@ PetscErrorCode PCTFS_grop(PetscScalar *vals, PetscScalar *work, PetscInt n, Pets
 
       dest = PCTFS_my_id^mask;
       if (PCTFS_my_id < dest) {
-        ierr = MPI_Send(vals,n,MPIU_SCALAR,dest,MSGTAG4+PCTFS_my_id,MPI_COMM_WORLD);CHKERRQ(ierr);
+        ierr = MPI_Send(vals,n,MPIU_SCALAR,dest,MSGTAG4+PCTFS_my_id,MPI_COMM_WORLD);CHKERRMPI(ierr);
       } else {
-        ierr = MPI_Recv(vals,n,MPIU_SCALAR,MPI_ANY_SOURCE,MSGTAG4+dest,MPI_COMM_WORLD, &status);CHKERRQ(ierr);
+        ierr = MPI_Recv(vals,n,MPIU_SCALAR,MPI_ANY_SOURCE,MSGTAG4+dest,MPI_COMM_WORLD, &status);CHKERRMPI(ierr);
       }
     }
   }
@@ -207,9 +206,9 @@ PetscErrorCode PCTFS_grop(PetscScalar *vals, PetscScalar *work, PetscInt n, Pets
   /* if not a hypercube must expand to partial dim */
   if (edge_not_pow_2) {
     if (PCTFS_my_id >= PCTFS_floor_num_nodes) {
-      ierr = MPI_Recv(vals,n,MPIU_SCALAR,MPI_ANY_SOURCE,MSGTAG5+edge_not_pow_2, MPI_COMM_WORLD,&status);CHKERRQ(ierr);
+      ierr = MPI_Recv(vals,n,MPIU_SCALAR,MPI_ANY_SOURCE,MSGTAG5+edge_not_pow_2, MPI_COMM_WORLD,&status);CHKERRMPI(ierr);
     } else {
-      ierr = MPI_Send(vals,n,MPIU_SCALAR,edge_not_pow_2,MSGTAG5+PCTFS_my_id,MPI_COMM_WORLD);CHKERRQ(ierr);
+      ierr = MPI_Send(vals,n,MPIU_SCALAR,edge_not_pow_2,MSGTAG5+PCTFS_my_id,MPI_COMM_WORLD);CHKERRMPI(ierr);
     }
   }
   PetscFunctionReturn(0);
@@ -254,9 +253,9 @@ PetscErrorCode PCTFS_grop_hc(PetscScalar *vals, PetscScalar *work, PetscInt n, P
   for (mask=1,edge=0; edge<dim; edge++,mask<<=1) {
     dest = PCTFS_my_id^mask;
     if (PCTFS_my_id > dest) {
-      ierr = MPI_Send(vals,n,MPIU_SCALAR,dest,MSGTAG2+PCTFS_my_id,MPI_COMM_WORLD);CHKERRQ(ierr);
+      ierr = MPI_Send(vals,n,MPIU_SCALAR,dest,MSGTAG2+PCTFS_my_id,MPI_COMM_WORLD);CHKERRMPI(ierr);
     } else {
-      ierr = MPI_Recv(work,n,MPIU_SCALAR,MPI_ANY_SOURCE,MSGTAG2+dest,MPI_COMM_WORLD,&status);CHKERRQ(ierr);
+      ierr = MPI_Recv(work,n,MPIU_SCALAR,MPI_ANY_SOURCE,MSGTAG2+dest,MPI_COMM_WORLD,&status);CHKERRMPI(ierr);
       (*fp)(vals, work, n, oprs);
     }
   }
@@ -271,9 +270,9 @@ PetscErrorCode PCTFS_grop_hc(PetscScalar *vals, PetscScalar *work, PetscInt n, P
 
     dest = PCTFS_my_id^mask;
     if (PCTFS_my_id < dest) {
-      ierr = MPI_Send(vals,n,MPIU_SCALAR,dest,MSGTAG4+PCTFS_my_id,MPI_COMM_WORLD);CHKERRQ(ierr);
+      ierr = MPI_Send(vals,n,MPIU_SCALAR,dest,MSGTAG4+PCTFS_my_id,MPI_COMM_WORLD);CHKERRMPI(ierr);
     } else {
-      ierr = MPI_Recv(vals,n,MPIU_SCALAR,MPI_ANY_SOURCE,MSGTAG4+dest,MPI_COMM_WORLD,&status);CHKERRQ(ierr);
+      ierr = MPI_Recv(vals,n,MPIU_SCALAR,MPI_ANY_SOURCE,MSGTAG4+dest,MPI_COMM_WORLD,&status);CHKERRMPI(ierr);
     }
   }
   PetscFunctionReturn(0);
@@ -299,10 +298,10 @@ PetscErrorCode PCTFS_ssgl_radd(PetscScalar *vals,  PetscScalar *work,  PetscInt 
       dest = edge_node[edge];
       type = MSGTAG3 + PCTFS_my_id + (PCTFS_num_nodes*edge);
       if (PCTFS_my_id>dest) {
-        ierr = MPI_Send(vals+segs[edge],stage_n,MPIU_SCALAR,dest,type, MPI_COMM_WORLD);CHKERRQ(ierr);
+        ierr = MPI_Send(vals+segs[edge],stage_n,MPIU_SCALAR,dest,type, MPI_COMM_WORLD);CHKERRMPI(ierr);
       } else {
         type =  type - PCTFS_my_id + dest;
-        ierr = MPI_Recv(work,stage_n,MPIU_SCALAR,MPI_ANY_SOURCE,type,MPI_COMM_WORLD,&status);CHKERRQ(ierr);
+        ierr = MPI_Recv(work,stage_n,MPIU_SCALAR,MPI_ANY_SOURCE,type,MPI_COMM_WORLD,&status);CHKERRMPI(ierr);
         PCTFS_rvec_add(vals+segs[edge], work, stage_n);
       }
     }
@@ -315,10 +314,10 @@ PetscErrorCode PCTFS_ssgl_radd(PetscScalar *vals,  PetscScalar *work,  PetscInt 
       dest = edge_node[level-edge-1];
       type = MSGTAG6 + PCTFS_my_id + (PCTFS_num_nodes*edge);
       if (PCTFS_my_id<dest) {
-        ierr = MPI_Send(vals+segs[level-1-edge],stage_n,MPIU_SCALAR,dest,type,MPI_COMM_WORLD);CHKERRQ(ierr);
+        ierr = MPI_Send(vals+segs[level-1-edge],stage_n,MPIU_SCALAR,dest,type,MPI_COMM_WORLD);CHKERRMPI(ierr);
       } else {
         type =  type - PCTFS_my_id + dest;
-        ierr = MPI_Recv(vals+segs[level-1-edge],stage_n,MPIU_SCALAR, MPI_ANY_SOURCE,type,MPI_COMM_WORLD,&status);CHKERRQ(ierr);
+        ierr = MPI_Recv(vals+segs[level-1-edge],stage_n,MPIU_SCALAR, MPI_ANY_SOURCE,type,MPI_COMM_WORLD,&status);CHKERRMPI(ierr);
       }
     }
     mask >>= 1;
@@ -365,9 +364,9 @@ PetscErrorCode PCTFS_giop_hc(PetscInt *vals, PetscInt *work, PetscInt n, PetscIn
   for (mask=1,edge=0; edge<dim; edge++,mask<<=1) {
     dest = PCTFS_my_id^mask;
     if (PCTFS_my_id > dest) {
-      ierr = MPI_Send(vals,n,MPIU_INT,dest,MSGTAG2+PCTFS_my_id,MPI_COMM_WORLD);CHKERRQ(ierr);
+      ierr = MPI_Send(vals,n,MPIU_INT,dest,MSGTAG2+PCTFS_my_id,MPI_COMM_WORLD);CHKERRMPI(ierr);
     } else {
-      ierr = MPI_Recv(work,n,MPIU_INT,MPI_ANY_SOURCE,MSGTAG2+dest,MPI_COMM_WORLD, &status);CHKERRQ(ierr);
+      ierr = MPI_Recv(work,n,MPIU_INT,MPI_ANY_SOURCE,MSGTAG2+dest,MPI_COMM_WORLD, &status);CHKERRMPI(ierr);
       (*fp)(vals, work, n, oprs);
     }
   }
@@ -382,9 +381,9 @@ PetscErrorCode PCTFS_giop_hc(PetscInt *vals, PetscInt *work, PetscInt n, PetscIn
 
     dest = PCTFS_my_id^mask;
     if (PCTFS_my_id < dest) {
-      ierr = MPI_Send(vals,n,MPIU_INT,dest,MSGTAG4+PCTFS_my_id,MPI_COMM_WORLD);CHKERRQ(ierr);
+      ierr = MPI_Send(vals,n,MPIU_INT,dest,MSGTAG4+PCTFS_my_id,MPI_COMM_WORLD);CHKERRMPI(ierr);
     } else {
-      ierr = MPI_Recv(vals,n,MPIU_INT,MPI_ANY_SOURCE,MSGTAG4+dest,MPI_COMM_WORLD,&status);CHKERRQ(ierr);
+      ierr = MPI_Recv(vals,n,MPIU_INT,MPI_ANY_SOURCE,MSGTAG4+dest,MPI_COMM_WORLD,&status);CHKERRMPI(ierr);
     }
   }
   PetscFunctionReturn(0);

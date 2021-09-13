@@ -3,7 +3,7 @@
 #include <petscmatlab.h>   /*I  "petscmatlab.h"  I*/
 
 /*
-        Ths PF generates a MATLAB function on the fly
+        This PF generates a MATLAB function on the fly
 */
 typedef struct {
   PetscInt          dimin,dimout;
@@ -87,8 +87,4 @@ PETSC_EXTERN PetscErrorCode PFCreate_Matlab(PF pf,void *value)
   pf->ops->setfromoptions = PFSetFromOptions_Matlab;
   PetscFunctionReturn(0);
 }
-
-
-
-
 

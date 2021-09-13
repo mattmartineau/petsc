@@ -286,7 +286,7 @@ PetscErrorCode MatDestroy_HYPREStruct(Mat mat)
   PetscStackCallStandard(HYPRE_StructVectorDestroy,(ex->hx));
   PetscStackCallStandard(HYPRE_StructVectorDestroy,(ex->hb));
   ierr = PetscObjectDereference((PetscObject)ex->da);CHKERRQ(ierr);
-  ierr = MPI_Comm_free(&(ex->hcomm));CHKERRQ(ierr);
+  ierr = MPI_Comm_free(&(ex->hcomm));CHKERRMPI(ierr);
   ierr = PetscFree(ex);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -312,7 +312,7 @@ PETSC_EXTERN PetscErrorCode MatCreate_HYPREStruct(Mat B)
 
   ex->needsinitialization = PETSC_TRUE;
 
-  ierr = MPI_Comm_dup(PetscObjectComm((PetscObject)B),&(ex->hcomm));CHKERRQ(ierr);
+  ierr = MPI_Comm_dup(PetscObjectComm((PetscObject)B),&(ex->hcomm));CHKERRMPI(ierr);
   ierr = PetscObjectChangeTypeName((PetscObject)B,MATHYPRESTRUCT);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -320,7 +320,6 @@ PETSC_EXTERN PetscErrorCode MatCreate_HYPREStruct(Mat B)
 /*MC
    MATHYPRESSTRUCT - MATHYPRESSTRUCT = "hypresstruct" - A matrix type to be used for parallel sparse matrices
           based on the hypre HYPRE_SStructMatrix.
-
 
    Level: intermediate
 
@@ -521,7 +520,6 @@ PetscErrorCode MatZeroEntries_HYPRESStruct_3d(Mat mat)
     HYPRE_Int     i,*entries,iupper[3],ilower[3];
     HYPRE_Complex *values;
 
-
     for (i= 0; i< 3; i++) {
       ilower[i] = ex->hbox.imin[i];
       iupper[i] = ex->hbox.imax[i];
@@ -539,7 +537,6 @@ PetscErrorCode MatZeroEntries_HYPRESStruct_3d(Mat mat)
   PetscStackCallStandard(HYPRE_SStructMatrixAssemble,(ex->ss_mat));
   PetscFunctionReturn(0);
 }
-
 
 static PetscErrorCode  MatSetUp_HYPRESStruct(Mat mat)
 {
@@ -813,7 +810,7 @@ PetscErrorCode MatDestroy_HYPRESStruct(Mat mat)
   PetscStackCallStandard(HYPRE_SStructVectorDestroy,(ex->ss_x));
   PetscStackCallStandard(HYPRE_SStructVectorDestroy,(ex->ss_b));
   ierr = PetscObjectDereference((PetscObject)ex->da);CHKERRQ(ierr);
-  ierr = MPI_Comm_free(&(ex->hcomm));CHKERRQ(ierr);
+  ierr = MPI_Comm_free(&(ex->hcomm));CHKERRMPI(ierr);
   ierr = PetscFree(ex);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -839,7 +836,7 @@ PETSC_EXTERN PetscErrorCode MatCreate_HYPRESStruct(Mat B)
 
   ex->needsinitialization = PETSC_TRUE;
 
-  ierr = MPI_Comm_dup(PetscObjectComm((PetscObject)B),&(ex->hcomm));CHKERRQ(ierr);
+  ierr = MPI_Comm_dup(PetscObjectComm((PetscObject)B),&(ex->hcomm));CHKERRMPI(ierr);
   ierr = PetscObjectChangeTypeName((PetscObject)B,MATHYPRESSTRUCT);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }

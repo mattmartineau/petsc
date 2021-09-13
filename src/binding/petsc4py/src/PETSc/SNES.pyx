@@ -493,9 +493,11 @@ cdef class SNES(Object):
     def getMonitor(self):
         return self.get_attr('__monitor__')
 
-    def cancelMonitor(self):
+    def monitorCancel(self):
         CHKERR( SNESMonitorCancel(self.snes) )
         self.set_attr('__monitor__', None)
+
+    cancelMonitor = monitorCancel
 
     def monitor(self, its, rnorm):
         cdef PetscInt  ival = asInt(its)
@@ -587,6 +589,10 @@ cdef class SNES(Object):
         cdef PetscInt ival = 0
         CHKERR( SNESGetIterationNumber(self.snes, &ival) )
         return toInt(ival)
+
+    def setForceIteration(self, force):
+        cdef PetscBool bval = asBool(force)
+        CHKERR( SNESSetForceIteration(self.snes, bval) )
 
     def setFunctionNorm(self, norm):
         cdef PetscReal rval = asReal(norm)
@@ -682,7 +688,7 @@ cdef class SNES(Object):
                 'alpha2'    : toReal(alpha2),
                 'threshold' : toReal(threshold),}
 
-    # --- matrix free / finite diferences ---
+    # --- matrix free / finite differences ---
 
     def setUseMF(self, flag=True):
         cdef PetscBool bval = flag
@@ -963,7 +969,7 @@ cdef class SNES(Object):
         def __get__(self):
             return self.reason < 0
 
-    # --- matrix free / finite diferences ---
+    # --- matrix free / finite differences ---
 
     property use_mf:
         def __get__(self):

@@ -14,8 +14,8 @@ int main(int argc,char **argv)
   VecScatter     ctx = 0;
 
   ierr = PetscInitialize(&argc,&argv,(char*)0,help);if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
 
   /* create two vectors */
   N    = size*n;
@@ -57,14 +57,13 @@ int main(int argc,char **argv)
   return ierr;
 }
 
-
-
 /*TEST
 
    testset:
       nsize: 4
       output_file: output/ex22_1.out
       filter: grep -v "  type:"
+      diff_args: -j
       test:
         suffix: standard
         args: -vec_type standard
@@ -80,5 +79,9 @@ int main(int argc,char **argv)
         requires: kokkos_kernels
         suffix: kokkos
         args: -vec_type kokkos
+      test:
+        requires: hip
+        suffix: hip
+        args: -vec_type hip
 
 TEST*/

@@ -46,7 +46,7 @@ PetscErrorCode  PetscDLLibraryPrintPath(PetscDLLibrary libs)
    [[<http,ftp>://hostname]/directoryname/]filename[.so.1.0]
 
    ${PETSC_ARCH}, ${PETSC_DIR}, ${PETSC_LIB_DIR}, or ${any environmental variable}
-   occuring in directoryname and filename will be replaced with appropriate values.
+   occurring in directoryname and filename will be replaced with appropriate values.
 @*/
 PetscErrorCode  PetscDLLibraryRetrieve(MPI_Comm comm,const char libname[],char *lname,size_t llen,PetscBool  *found)
 {
@@ -96,13 +96,6 @@ PetscErrorCode  PetscDLLibraryRetrieve(MPI_Comm comm,const char libname[],char *
   PetscFunctionReturn(0);
 }
 
-  /*
-     Some compilers when used with -std=c89 don't produce a usable PETSC_FUNCTION_NAME. Since this name is needed in PetscMallocDump()
-     to avoid reporting the memory allocations in the function as not freed we hardwire the value here.
-  */
-#undef    PETSC_FUNCTION_NAME
-#define   PETSC_FUNCTION_NAME "PetscDLLibraryOpen"
-
 /*@C
    PetscDLLibraryOpen - Opens a PETSc dynamic link library
 
@@ -123,7 +116,7 @@ PetscErrorCode  PetscDLLibraryRetrieve(MPI_Comm comm,const char libname[],char *
    If the library has the symbol PetscDLLibraryRegister_basename() in it then that function is automatically run
    when the library is opened.
 
-   ${PETSC_ARCH} occuring in directoryname and filename
+   ${PETSC_ARCH} occurring in directoryname and filename
    will be replaced with the appropriate value.
 
 .seealso: PetscLoadDynamicLibrary(), PetscDLLibraryAppend()
@@ -197,13 +190,6 @@ PetscErrorCode  PetscDLLibraryOpen(MPI_Comm comm,const char path[],PetscDLLibrar
   PetscFunctionReturn(0);
 }
 
-#undef    PETSC_FUNCTION_NAME
-#if defined(__cplusplus)
-#  define PETSC_FUNCTION_NAME PETSC_FUNCTION_NAME_CXX
-#else
-#  define PETSC_FUNCTION_NAME PETSC_FUNCTION_NAME_C
-#endif
-
 /*@C
    PetscDLLibrarySym - Load a symbol from the dynamic link libraries.
 
@@ -241,7 +227,6 @@ PetscErrorCode  PetscDLLibrarySym(MPI_Comm comm,PetscDLLibrary *outlist,const ch
 
   if (outlist) list = *outlist;
   *value = NULL;
-
 
   ierr = PetscStrchr(insymbol,'(',&s);CHKERRQ(ierr);
   if (s) {

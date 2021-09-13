@@ -28,8 +28,8 @@ int main(int argc,char **args)
 
   ierr = PetscInitialize(&argc,&args,(char*)0,help);if (ierr) return ierr;
   comm = PETSC_COMM_WORLD;
-  ierr  = MPI_Comm_rank(comm, &mype);CHKERRQ(ierr);
-  ierr  = MPI_Comm_size(comm, &npe);CHKERRQ(ierr);
+  ierr  = MPI_Comm_rank(comm, &mype);CHKERRMPI(ierr);
+  ierr  = MPI_Comm_size(comm, &npe);CHKERRMPI(ierr);
   ierr  = PetscOptionsGetInt(NULL,NULL,"-ne",&ne,NULL);CHKERRQ(ierr);
   h     = 1./ne;
   /* ne*ne; number of global elements */
@@ -148,7 +148,7 @@ int main(int argc,char **args)
     ierr = PetscViewerPushFormat(viewer, PETSC_VIEWER_ASCII_MATLAB);CHKERRQ(ierr);
     ierr = MatView(Amat,viewer);CHKERRQ(ierr);
     ierr = PetscViewerPopFormat(viewer);CHKERRQ(ierr);
-    ierr = PetscViewerDestroy(&viewer);
+    ierr = PetscViewerDestroy(&viewer);CHKERRQ(ierr);
   }
 
   /* solve */
@@ -176,14 +176,14 @@ int main(int argc,char **args)
     ierr = PetscViewerPushFormat(viewer, PETSC_VIEWER_ASCII_MATLAB);CHKERRQ(ierr);
     ierr = VecView(bb,viewer);CHKERRQ(ierr);
     ierr = PetscViewerPopFormat(viewer);CHKERRQ(ierr);
-    ierr = PetscViewerDestroy(&viewer);
+    ierr = PetscViewerDestroy(&viewer);CHKERRQ(ierr);
     ierr = VecNorm(bb, NORM_2, &norm2);CHKERRQ(ierr);
 
     ierr = PetscViewerASCIIOpen(comm, "solution.m", &viewer);CHKERRQ(ierr);
     ierr = PetscViewerPushFormat(viewer, PETSC_VIEWER_ASCII_MATLAB);CHKERRQ(ierr);
     ierr = VecView(xx,viewer);CHKERRQ(ierr);
     ierr = PetscViewerPopFormat(viewer);CHKERRQ(ierr);
-    ierr = PetscViewerDestroy(&viewer);
+    ierr = PetscViewerDestroy(&viewer);CHKERRQ(ierr);
 
     ierr = VecDuplicate(xx, &res);CHKERRQ(ierr);
     ierr = MatMult(Amat, xx, res);CHKERRQ(ierr);
@@ -196,7 +196,7 @@ int main(int argc,char **args)
     ierr = PetscViewerPushFormat(viewer, PETSC_VIEWER_ASCII_MATLAB);CHKERRQ(ierr);
     ierr = VecView(bb,viewer);CHKERRQ(ierr);
     ierr = PetscViewerPopFormat(viewer);CHKERRQ(ierr);
-    ierr = PetscViewerDestroy(&viewer);
+    ierr = PetscViewerDestroy(&viewer);CHKERRQ(ierr);
   }
 
   /* Free work space */
@@ -209,8 +209,6 @@ int main(int argc,char **args)
   ierr = PetscFinalize();
   return ierr;
 }
-
-
 
 /*TEST
 

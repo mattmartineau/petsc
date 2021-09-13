@@ -3,7 +3,7 @@ This example is based on the 9-bus (node) example given in the book Power\n\
 Systems Dynamics and Stability (Chapter 7) by P. Sauer and M. A. Pai.\n\
 The power grid in this example consists of 9 buses (nodes), 3 generators,\n\
 3 loads, and 9 transmission lines. The network equations are written\n\
-in current balance form using rectangular coordiantes.\n\n";
+in current balance form using rectangular coordinates.\n\n";
 
 /*
   This code demonstrates how to solve a DAE-constrained optimization problem with TAO, TSAdjoint and TS.
@@ -106,7 +106,6 @@ typedef struct {
   Mat         J,Jacp;
   Mat         DRDU,DRDP;
 } Userctx;
-
 
 /* Converts from machine frame (dq) to network (phase a real,imag) reference frame */
 PetscErrorCode dq2ri(PetscScalar Fd,PetscScalar Fq,PetscScalar delta,PetscScalar *Fr, PetscScalar *Fi)
@@ -323,6 +322,7 @@ PetscErrorCode DICDPFiniteDifference(Vec X,Vec *DICDP, Userctx *user)
   PetscErrorCode ierr;
   PetscInt       i,j;
 
+  PetscFunctionBegin;
   eps = 1.e-7;
   ierr = VecDuplicate(X,&Y);CHKERRQ(ierr);
 
@@ -339,7 +339,6 @@ PetscErrorCode DICDPFiniteDifference(Vec X,Vec *DICDP, Userctx *user)
   ierr = VecDestroy(&Y);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
-
 
 /* Computes F = [-f(x,y);g(x,y)] */
 PetscErrorCode ResidualFunction(SNES snes,Vec X, Vec F, Userctx *user)
@@ -720,7 +719,6 @@ PetscErrorCode ResidualJacobian(SNES snes,Vec X,Mat J,Mat B,void *ctx)
     idx        = idx + 9;
   }
 
-
   for (i=0; i<nbus; i++) {
     ierr   = MatGetRow(user->Ybus,2*i,&ncols,&cols,&yvals);CHKERRQ(ierr);
     row[0] = net_start + 2*i;
@@ -743,7 +741,6 @@ PetscErrorCode ResidualJacobian(SNES snes,Vec X,Mat J,Mat B,void *ctx)
 
   ierr = MatAssemblyBegin(J,MAT_FLUSH_ASSEMBLY);CHKERRQ(ierr);
   ierr = MatAssemblyEnd(J,MAT_FLUSH_ASSEMBLY);CHKERRQ(ierr);
-
 
   ierr = VecGetArray(user->V0,&v0);CHKERRQ(ierr);
   for (i=0; i < nload; i++) {
@@ -772,7 +769,6 @@ PetscErrorCode ResidualJacobian(SNES snes,Vec X,Mat J,Mat B,void *ctx)
 
     dIDi_dVr = (-dQD_dVr*Vr + dPD_dVr*Vi - QD)/Vm2 - ((-QD*Vr + PD*Vi)*2*Vr)/Vm4;
     dIDi_dVi = (-dQD_dVi*Vr + dPD_dVi*Vi + PD)/Vm2 - ((-QD*Vr + PD*Vi)*2*Vi)/Vm4;
-
 
     /*    fnet[2*lbus[i]]   += IDi; */
     row[0] = net_start + 2*lbus[i];
@@ -990,7 +986,7 @@ int main(int argc,char **argv)
   Vec                lowerb,upperb;
 
   ierr = PetscInitialize(&argc,&argv,"petscoptions",help);if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
   if (size > 1) SETERRQ(PETSC_COMM_WORLD,PETSC_ERR_SUP,"Only for sequential runs");
 
   user.jacp_flg   = PETSC_TRUE;
@@ -1244,7 +1240,6 @@ PetscErrorCode FormFunctionGradient(Tao tao,Vec P,PetscReal *f,Vec G,void *ctx0)
   ierr = TSSetFromOptions(ts);CHKERRQ(ierr);
   /* ierr = TSSetPostStep(ts,SaveSolution);CHKERRQ(ierr); */
 
-
   /* Prefault period */
   ctx->alg_flg = PETSC_FALSE;
   ierr = TSSetTime(ts,0.0);CHKERRQ(ierr);
@@ -1345,7 +1340,6 @@ PetscErrorCode FormFunctionGradient(Tao tao,Vec P,PetscReal *f,Vec G,void *ctx0)
   ierr = MatAssemblyBegin(ctx->Ybus,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
   ierr = MatAssemblyEnd(ctx->Ybus,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
 
-
   /*   Set number of steps for the adjoint integration */
   ierr = TSAdjointSetSteps(ts,steps2);CHKERRQ(ierr);
   ierr = TSAdjointSolve(ts);CHKERRQ(ierr);
@@ -1392,7 +1386,7 @@ PetscErrorCode FormFunctionGradient(Tao tao,Vec P,PetscReal *f,Vec G,void *ctx0)
 /*TEST
 
    build:
-      requires: double !complex !define(PETSC_USE_64BIT_INDICES)
+      requires: double !complex !defined(PETSC_USE_64BIT_INDICES)
 
    test:
       args: -viewer_binary_skip_info -tao_monitor -tao_gttol .2

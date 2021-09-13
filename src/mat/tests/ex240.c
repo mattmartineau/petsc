@@ -1,9 +1,7 @@
 static char help[] ="Tests MatFDColoringSetValues()\n\n";
 
-
 #include <petscdm.h>
 #include <petscdmda.h>
-
 
 int main(int argc,char **argv)
 {
@@ -23,7 +21,7 @@ int main(int argc,char **argv)
   PetscBool              single,two;
 
   ierr = PetscInitialize(&argc,&argv,NULL,help);if (ierr) return ierr;
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
   ierr = DMDACreate2d(PETSC_COMM_WORLD, DM_BOUNDARY_NONE, DM_BOUNDARY_NONE,DMDA_STENCIL_STAR,mx,my,PETSC_DECIDE,PETSC_DECIDE,1,1,NULL,NULL,&da);CHKERRQ(ierr);
   ierr = DMSetUp(da);CHKERRQ(ierr);
   ierr = DMCreateMatrix(da,&A);CHKERRQ(ierr);
@@ -41,7 +39,7 @@ int main(int argc,char **argv)
   for (i=0; i<N; i++) colors[i] = -1;
   for (i=0; i<n; i++) colors[map[i]]= icolors[i];
   ierr = PetscFree(map);CHKERRQ(ierr);
-  ierr = PetscSynchronizedPrintf(MPI_COMM_WORLD,"[%d]Global colors \n",rank);
+  ierr = PetscSynchronizedPrintf(MPI_COMM_WORLD,"[%d]Global colors \n",rank);CHKERRQ(ierr);
   for (i=0; i<N; i++) {ierr = PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%D %D\n",i,colors[i]);CHKERRQ(ierr);}
   ierr = PetscSynchronizedFlush(PETSC_COMM_WORLD,stdout);CHKERRQ(ierr);
 
@@ -61,12 +59,12 @@ int main(int argc,char **argv)
   }
 
   /* print compressed matrix */
-  ierr = PetscSynchronizedPrintf(MPI_COMM_WORLD,"[%d] Compressed matrix \n",rank);
+  ierr = PetscSynchronizedPrintf(MPI_COMM_WORLD,"[%d] Compressed matrix \n",rank);CHKERRQ(ierr);
   for (i=0; i<nrow; i++) {
     for (j=0; j<nc; j++) {
       ierr = PetscSynchronizedPrintf(MPI_COMM_WORLD,"%12.4e  ",cm[i+nrow*j]);CHKERRQ(ierr);
     }
-    ierr = PetscSynchronizedPrintf(MPI_COMM_WORLD,"\n");
+    ierr = PetscSynchronizedPrintf(MPI_COMM_WORLD,"\n");CHKERRQ(ierr);
   }
   ierr = PetscSynchronizedFlush(PETSC_COMM_WORLD,stdout);CHKERRQ(ierr);
 
@@ -94,12 +92,12 @@ int main(int argc,char **argv)
   ierr = MatView(A,NULL);CHKERRQ(ierr);
   ierr = MatNorm(A,NORM_FROBENIUS,&norm);CHKERRQ(ierr);
   if (norm > PETSC_MACHINE_EPSILON) {
-    ierr = PetscPrintf(PETSC_COMM_WORLD,"Matrix is not identical, problem with MatFDColoringSetValues()\n");
+    ierr = PetscPrintf(PETSC_COMM_WORLD,"Matrix is not identical, problem with MatFDColoringSetValues()\n");CHKERRQ(ierr);
   }
   ierr = PetscFree(colors);CHKERRQ(ierr);
   ierr = PetscFree(cm);CHKERRQ(ierr);
   ierr = ISColoringDestroy(&iscoloring);CHKERRQ(ierr);
-  ierr = MatFDColoringDestroy(&fdcoloring);
+  ierr = MatFDColoringDestroy(&fdcoloring);CHKERRQ(ierr);
   ierr = MatDestroy(&A);CHKERRQ(ierr);
   ierr = MatDestroy(&B);CHKERRQ(ierr);
   ierr = DMDestroy(&da);CHKERRQ(ierr);

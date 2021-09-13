@@ -100,7 +100,7 @@ def make_tarball(gcov_dir,petsc_dir,petsc_arch):
     os.chdir(gcov_dir)
     os.system("tar -czf "+petsc_dir+os.sep+"gcov.tar.gz *.tested *.code")
     os.chdir(petsc_dir)
-    # Copy file so artifacts in CI propogate without overwriting
+    # Copy file so artifacts in CI propagate without overwriting
     shutil.copyfile('gcov.tar.gz',os.path.join(petsc_arch,'gcov.tar.gz'))
     print("""Tarball created in %s"""%(petsc_dir))
     os.chdir(curdir)
@@ -399,7 +399,7 @@ def main():
 
         print('options.merge_branch:',options.merge_branch)
         if options.merge_branch: destBranch = options.merge_branch
-        else: destBranch = 'origin/master'
+        else: destBranch = 'origin/main'
         print('destBranch:',destBranch)
         gcov_dir = tempfile.mkdtemp()
         make_htmlpage(gcov_dir,petsc_dir,petsc_arch,tarballs,isCI,destBranch)

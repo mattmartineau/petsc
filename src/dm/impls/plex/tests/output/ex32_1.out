@@ -1,6 +1,6 @@
-DM Object: Mesh 2 MPI processes
+DM Object: box 2 MPI processes
   type: plex
-Mesh in 2 dimensions:
+box in 2 dimensions:
 Supports:
 [0] Max support size: 3
 [0]: 2 ----> 8
@@ -42,12 +42,12 @@ Cones:
 [0] Max cone size: 4
 [0]: 0 <---- 8 (0)
 [0]: 0 <---- 13 (0)
-[0]: 0 <---- 10 (-2)
-[0]: 0 <---- 12 (-2)
+[0]: 0 <---- 10 (-1)
+[0]: 0 <---- 12 (-1)
 [0]: 1 <---- 9 (0)
 [0]: 1 <---- 14 (0)
-[0]: 1 <---- 11 (-2)
-[0]: 1 <---- 13 (-2)
+[0]: 1 <---- 11 (-1)
+[0]: 1 <---- 13 (-1)
 [0]: 8 <---- 2 (0)
 [0]: 8 <---- 3 (0)
 [0]: 9 <---- 3 (0)
@@ -65,8 +65,8 @@ Cones:
 [1] Max cone size: 4
 [1]: 0 <---- 5 (0)
 [1]: 0 <---- 7 (0)
-[1]: 0 <---- 6 (-2)
-[1]: 0 <---- 8 (-2)
+[1]: 0 <---- 6 (-1)
+[1]: 0 <---- 8 (-1)
 [1]: 5 <---- 2 (0)
 [1]: 5 <---- 1 (0)
 [1]: 6 <---- 4 (0)
@@ -92,6 +92,7 @@ Process 1:
   (   2) dim  2 offset  10 0.666667 0.
   (   3) dim  2 offset  12 0. 1.
   (   4) dim  2 offset  14 0.666667 1.
+Labels:
 Label 'marker':
 [0]: 2 (1)
 [0]: 3 (1)
@@ -109,6 +110,13 @@ Label 'marker':
 [1]: 4 (1)
 [1]: 5 (1)
 [1]: 6 (1)
+Label 'Face Sets':
+[0]: 8 (1)
+[0]: 9 (1)
+[0]: 10 (3)
+[0]: 11 (3)
+[1]: 5 (1)
+[1]: 6 (3)
 Label 'celltype':
 [0]: 2 (0)
 [0]: 3 (0)
@@ -136,7 +144,6 @@ Label 'celltype':
 [1]: 0 (4)
 PetscSF Object: 2 MPI processes
   type: basic
-    sort=rank-order
   [0] Number of roots=15, leaves=6, remote ranks=1
   [0] 2 <- (1,1)
   [0] 4 <- (1,2)
@@ -154,3 +161,4 @@ PetscSF Object: 2 MPI processes
   [0]    12 <- 7
   [0]    14 <- 8
   [1] Roots referenced by my leaves, by rank
+  MultiSF sort=rank-order

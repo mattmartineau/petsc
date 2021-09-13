@@ -18,8 +18,8 @@ int main(int argc, char **argv)
   ierr = PetscInitialize(&argc,&argv,NULL,help);if (ierr) return ierr;
   ierr = PetscOptionsGetInt(NULL,NULL,"-nl",&nl,NULL);CHKERRQ(ierr);
   ierr = PetscOptionsGetBool(NULL,NULL,"-explicit_inverse",&inverse,NULL);CHKERRQ(ierr);
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
 
   ierr = PetscSFCreate(PETSC_COMM_WORLD, &sfA);CHKERRQ(ierr);
   ierr = PetscSFCreate(PETSC_COMM_WORLD, &sfB);CHKERRQ(ierr);
@@ -79,12 +79,12 @@ int main(int argc, char **argv)
   ierr = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD, "BcastB(BcastA)\n");CHKERRQ(ierr);
   ierr = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD, "A: root data\n");CHKERRQ(ierr);
   ierr = PetscIntView(nrootsA, rdA, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
-  ierr = PetscSFBcastBegin(sfA, MPIU_INT, rdA, ldA);CHKERRQ(ierr);
-  ierr = PetscSFBcastEnd(sfA, MPIU_INT, rdA, ldA);CHKERRQ(ierr);
+  ierr = PetscSFBcastBegin(sfA, MPIU_INT, rdA, ldA,MPI_REPLACE);CHKERRQ(ierr);
+  ierr = PetscSFBcastEnd(sfA, MPIU_INT, rdA, ldA,MPI_REPLACE);CHKERRQ(ierr);
   ierr = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD, "A: leaf data (all)\n");CHKERRQ(ierr);
   ierr = PetscIntView(nldataA, ldA, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
-  ierr = PetscSFBcastBegin(sfB, MPIU_INT, ldA, ldB);CHKERRQ(ierr);
-  ierr = PetscSFBcastEnd(sfB, MPIU_INT, ldA, ldB);CHKERRQ(ierr);
+  ierr = PetscSFBcastBegin(sfB, MPIU_INT, ldA, ldB,MPI_REPLACE);CHKERRQ(ierr);
+  ierr = PetscSFBcastEnd(sfB, MPIU_INT, ldA, ldB,MPI_REPLACE);CHKERRQ(ierr);
   ierr = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD, "B: leaf data (all)\n");CHKERRQ(ierr);
   ierr = PetscIntView(nldataB, ldB, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
 
@@ -98,8 +98,8 @@ int main(int argc, char **argv)
   ierr = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD, "BcastBA\n");CHKERRQ(ierr);
   ierr = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD, "BA: root data\n");CHKERRQ(ierr);
   ierr = PetscIntView(nrootsA, rdA, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
-  ierr = PetscSFBcastBegin(sfBA, MPIU_INT, rdA, ldB);CHKERRQ(ierr);
-  ierr = PetscSFBcastEnd(sfBA, MPIU_INT, rdA, ldB);CHKERRQ(ierr);
+  ierr = PetscSFBcastBegin(sfBA, MPIU_INT, rdA, ldB,MPI_REPLACE);CHKERRQ(ierr);
+  ierr = PetscSFBcastEnd(sfBA, MPIU_INT, rdA, ldB,MPI_REPLACE);CHKERRQ(ierr);
   ierr = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD, "BA: leaf data (all)\n");CHKERRQ(ierr);
   ierr = PetscIntView(nldataB, ldB, PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
 
@@ -168,7 +168,7 @@ int main(int argc, char **argv)
      filter: grep -v "type" | grep -v "sort"
      output_file: output/ex5_2.out
      args: -view -nl 5 -explicit_inverse {{0 1}} -sf_type window -sf_window_sync {{fence lock active}} -sf_window_flavor {{create allocate}}
-     requires: define(PETSC_HAVE_MPI_ONE_SIDED)
+     requires: defined(PETSC_HAVE_MPI_ONE_SIDED) defined(PETSC_HAVE_MPI_FEATURE_DYNAMIC_WINDOW)
 
    # The nightly test suite with MPICH uses ch3:sock, which is broken when winsize == 0 in some of the processes
    test:
@@ -177,6 +177,6 @@ int main(int argc, char **argv)
      filter: grep -v "type" | grep -v "sort"
      output_file: output/ex5_2.out
      args: -view -nl 5 -explicit_inverse {{0 1}} -sf_type window -sf_window_sync {{fence lock active}} -sf_window_flavor shared
-     requires: define(PETSC_HAVE_MPI_PROCESS_SHARED_MEMORY) !define(PETSC_HAVE_MPICH_NUMVERSION) define(PETSC_HAVE_MPI_ONE_SIDED)
+     requires: defined(PETSC_HAVE_MPI_PROCESS_SHARED_MEMORY) !defined(PETSC_HAVE_MPICH_NUMVERSION) defined(PETSC_HAVE_MPI_ONE_SIDED)
 
 TEST*/

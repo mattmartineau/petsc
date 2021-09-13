@@ -136,7 +136,6 @@ int main(int argc,char **argv)
   }
   ierr = SNESSolve(user.snes,NULL,x);CHKERRQ(ierr);
 
-
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Free work space.  All PETSc objects should be destroyed when they
      are no longer needed.
@@ -151,7 +150,6 @@ int main(int argc,char **argv)
 }
 
 /* ------------------------------------------------------------------- */
-
 
 /*
    FormInitialGuess - Forms initial approximation.
@@ -223,9 +221,9 @@ PetscErrorCode FormFunctionLocal(DMDALocalInfo *info,Field **x,Field **f,void *p
   static PetscInt fail = 0;
 
   PetscFunctionBeginUser;
-  if ((fail++ > 7 && user->errorindomainmf) || (fail++ > 36 && user->errorindomain)){
+  if ((fail++ > 7 && user->errorindomainmf) || (fail++ > 36 && user->errorindomain)) {
     PetscMPIInt rank;
-    ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)user->snes),&rank);CHKERRQ(ierr);
+    ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)user->snes),&rank);CHKERRMPI(ierr);
     if (!rank) {
       ierr = SNESSetFunctionDomainError(user->snes);CHKERRQ(ierr);
     }
@@ -239,7 +237,6 @@ PetscErrorCode FormFunctionLocal(DMDALocalInfo *info,Field **x,Field **f,void *p
 
      Note: FD formulae below are normalized by multiplying through by
      local volume element (i.e. hx*hy) to obtain coefficients O(1) in two dimensions.
-
 
   */
   dhx   = (PetscReal)(info->mx-1);  dhy = (PetscReal)(info->my-1);
@@ -359,7 +356,7 @@ PetscErrorCode MatMult_MyShell(Mat A,Vec x,Vec y)
   ierr = MatMult(matshellctx->Jmf,x,y);CHKERRQ(ierr);
   if (fail++ > 5) {
     PetscMPIInt rank;
-    ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)A),&rank);CHKERRQ(ierr);
+    ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)A),&rank);CHKERRMPI(ierr);
     if (!rank) {ierr = VecSetInf(y);CHKERRQ(ierr);}
   }
   PetscFunctionReturn(0);
@@ -385,7 +382,7 @@ PetscErrorCode PCApply_MyShell(PC pc,Vec x,Vec y)
   ierr = VecCopy(x,y);CHKERRQ(ierr);
   if (fail++ > 3) {
     PetscMPIInt rank;
-    ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)pc),&rank);CHKERRQ(ierr);
+    ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)pc),&rank);CHKERRMPI(ierr);
     if (!rank) {ierr = VecSetInf(y);CHKERRQ(ierr);}
   }
   PetscFunctionReturn(0);
@@ -405,7 +402,6 @@ PetscErrorCode SNESComputeJacobian_MyShell(SNES snes,Vec X,Mat A,Mat B,void *ctx
   }
   PetscFunctionReturn(0);
 }
-
 
 /*TEST
 

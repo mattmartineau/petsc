@@ -5,7 +5,7 @@ CPPFLAGS         =
 FPPFLAGS         =
 LOCDIR		 = src/snes/tutorials/
 MANSEC           = SNES
-EXAMPLESC	 = ex1.c ex2.c ex3.c  ex5.c ex9.c \
+EXAMPLESC	 = ex1.c ex2.c ex3.c  ex5.c ex6.c ex9.c \
                    ex12.c ex14.c ex15.c ex17.c ex18.c ex19.c ex21.c ex22.c \
                    ex25.c ex28.c ex30.c ex33.c \
                    ex35.c ex42.c ex46.c ex48.c \
@@ -17,6 +17,7 @@ EXAMPLESCH	 =
 EXAMPLESFH       = ex5f.h
 EXAMPLESMATLAB   = ex5m.m  ex61genm.m ex61m.m
 DIRS		 = ex10d network
+CLEANFILES       = ex5f90t
 
 include ${PETSC_DIR}/lib/petsc/conf/variables
 include ${PETSC_DIR}/lib/petsc/conf/rules
@@ -61,10 +62,23 @@ testex19: ex19.PETSc
            echo "See http://www.mcs.anl.gov/petsc/documentation/faq.html";\
            cat ex19_1.tmp; fi; fi; \
         ${RM} -f ex19_1.tmp; fi
+#use unpreconditioned norm because HYPRE device installations use different AMG parameters
 runex19_hypre:
-	-@${MPIEXEC} -n 2 ./ex19 -da_refine 3 -snes_monitor_short -pc_type hypre > ex19_1.tmp 2>&1; \
+	-@${MPIEXEC} -n 2 ./ex19 -da_refine 3 -snes_monitor_short -ksp_norm_type unpreconditioned -pc_type hypre > ex19_1.tmp 2>&1; \
 	   if (${DIFF} output/ex19_hypre.out ex19_1.tmp) then \
            echo "C/C++ example src/snes/tutorials/ex19 run successfully with hypre"; \
+           else  printf "${PWD}\nPossible problem with ex19 running with hypre, diffs above\n=========================================\n"; fi; \
+	   ${RM} -f ex19_1.tmp
+runex19_hypre_cuda:
+	-@${MPIEXEC} -n 2 ./ex19 -dm_vec_type cuda -dm_mat_type aijcusparse -da_refine 3 -snes_monitor_short -ksp_norm_type unpreconditioned -pc_type hypre > ex19_1.tmp 2>&1; \
+	   if (${DIFF} output/ex19_hypre.out ex19_1.tmp) then \
+           echo "C/C++ example src/snes/tutorials/ex19 run successfully with hypre/cuda"; \
+           else  printf "${PWD}\nPossible problem with ex19 running with hypre, diffs above\n=========================================\n"; fi; \
+	   ${RM} -f ex19_1.tmp
+runex19_hypre_hip:
+	-@${MPIEXEC} -n 2 ./ex19 -dm_vec_type hip -da_refine 3 -snes_monitor_short -ksp_norm_type unpreconditioned -pc_type hypre > ex19_1.tmp 2>&1; \
+	   if (${DIFF} output/ex19_hypre.out ex19_1.tmp) then \
+           echo "C/C++ example src/snes/tutorials/ex19 run successfully with hypre/hip"; \
            else  printf "${PWD}\nPossible problem with ex19 running with hypre, diffs above\n=========================================\n"; fi; \
 	   ${RM} -f ex19_1.tmp
 runex19_cuda:
@@ -97,15 +111,11 @@ runex19_suitesparse:
            echo "C/C++ example src/snes/tutorials/ex19 run successfully with suitesparse"; \
            else  printf "${PWD}\nPossible problem with ex19 running with suitesparse, diffs above\n=========================================\n"; fi; \
 	   ${RM} -f ex19_1.tmp
-runex3_kokkos: ex3k.PETSc
-ifneq ($(KOKKOS_BIN),)
-	-@${MPIEXEC} -n 1 ./ex3k -view_initial -view_kokkos_configuration false -dm_vec_type cuda -vec_pinned_memory_min 0 -use_gpu_aware_mpi 0 -snes_monitor | grep -v "type:" > ex3k_1.tmp 2>&1
-else
-	-@${MPIEXEC} -n 1 ./ex3k -view_initial -view_kokkos_configuration false -snes_monitor | grep -v "type:"  > ex3k_1.tmp 2>&1
-endif
+runex3k_kokkos: ex3k.PETSc
+	-@export OMP_PROC_BIND=false && ${MPIEXEC} -n 2 ./ex3k -view_initial -dm_vec_type kokkos -dm_mat_type aijkokkos -use_gpu_aware_mpi 0 -snes_monitor > ex3k_1.tmp 2>&1
 	-@if (${DIFF} output/ex3k_1.out ex3k_1.tmp) then \
-           echo "C/C++ example src/snes/tutorials/ex3k run successfully with kokkos"; \
-           else  printf "${PWD}\nPossible problem with ex3k running with kokkos, diffs above\n=========================================\n"; \
+           echo "C/C++ example src/snes/tutorials/ex3k run successfully with kokkos-kernels"; \
+           else  printf "${PWD}\nPossible problem with ex3k running with kokkos-kernels, diffs above\n=========================================\n"; \
         fi; \
 	${RM} -f ex3k_1.tm
 

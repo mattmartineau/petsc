@@ -62,7 +62,6 @@ typedef struct {
   void *ctx;
 } Mat_Shell;
 
-
 /*
      Store and scale values on zeroed rows
      xx = [x_1, 0], 0 on zeroed columns
@@ -701,7 +700,7 @@ static PetscErrorCode MatProductNumeric_Shell_X(Mat D)
         PetscObjectState axpy_state;
         MatStructure     str = DIFFERENT_NONZERO_PATTERN; /* not sure it is safe to ever use SUBSET_NONZERO_PATTERN */
 
-        ierr = MatShellGetContext(shell->axpy,(void *)&X);CHKERRQ(ierr);
+        ierr = MatShellGetContext(shell->axpy,&X);CHKERRQ(ierr);
         ierr = PetscObjectStateGet((PetscObject)X,&axpy_state);CHKERRQ(ierr);
         if (shell->axpy_state != axpy_state) SETERRQ(PetscObjectComm((PetscObject)A),PETSC_ERR_ORDER,"Invalid AXPY state: cannot modify the X matrix passed to MatAXPY(Y,a,X,...)");
         if (!mdata->axpy) {
@@ -856,16 +855,15 @@ static PetscErrorCode MatShellSetMatProductOperation_Private(Mat A,MatProductTyp
     while (entry) {
       ierr = PetscStrcmp(composedname,entry->composedname,&flg);CHKERRQ(ierr);
       flg  = (PetscBool)(flg && (entry->ptype == ptype));
-      if (flg) break;
+      if (flg) goto set;
       matmat = entry;
       entry = entry->next;
     }
-    if (!flg) {
-      ierr = PetscNew(&matmat->next);CHKERRQ(ierr);
-      matmat = matmat->next;
-    } else SETERRQ(PetscObjectComm((PetscObject)A),PETSC_ERR_PLIB,"This should not happen");
+    ierr = PetscNew(&matmat->next);CHKERRQ(ierr);
+    matmat = matmat->next;
   }
 
+set:
   matmat->symbolic = symbolic;
   matmat->numeric  = numeric;
   matmat->destroy  = destroy;
@@ -954,7 +952,7 @@ PetscErrorCode MatShellSetMatProductOperation_Shell(Mat A,MatProductType ptype,P
     if (flg) break;
     Cnames = Cnames->next;
   }
-  ierr = MPI_Comm_size(PetscObjectComm((PetscObject)A),&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PetscObjectComm((PetscObject)A),&size);CHKERRMPI(ierr);
   Btype = Bnames ? (size > 1 ? Bnames->mname : Bnames->sname) : Btype;
   Ctype = Cnames ? (size > 1 ? Cnames->mname : Cnames->sname) : Ctype;
   ierr = PetscSNPrintf(composedname,sizeof(composedname),"MatProductSetFromOptions_%s_%s_C",((PetscObject)A)->type_name,Btype);CHKERRQ(ierr);
@@ -1079,7 +1077,7 @@ PetscErrorCode MatMult_Shell(Mat A,Vec x,Vec y)
     Mat              X;
     PetscObjectState axpy_state;
 
-    ierr = MatShellGetContext(shell->axpy,(void *)&X);CHKERRQ(ierr);
+    ierr = MatShellGetContext(shell->axpy,&X);CHKERRQ(ierr);
     ierr = PetscObjectStateGet((PetscObject)X,&axpy_state);CHKERRQ(ierr);
     if (shell->axpy_state != axpy_state) SETERRQ(PetscObjectComm((PetscObject)A),PETSC_ERR_ORDER,"Invalid AXPY state: cannot modify the X matrix passed to MatAXPY(Y,a,X,...)");
 
@@ -1134,7 +1132,7 @@ PetscErrorCode MatMultTranspose_Shell(Mat A,Vec x,Vec y)
     Mat              X;
     PetscObjectState axpy_state;
 
-    ierr = MatShellGetContext(shell->axpy,(void *)&X);CHKERRQ(ierr);
+    ierr = MatShellGetContext(shell->axpy,&X);CHKERRQ(ierr);
     ierr = PetscObjectStateGet((PetscObject)X,&axpy_state);CHKERRQ(ierr);
     if (shell->axpy_state != axpy_state) SETERRQ(PetscObjectComm((PetscObject)A),PETSC_ERR_ORDER,"Invalid AXPY state: cannot modify the X matrix passed to MatAXPY(Y,a,X,...)");
     ierr = MatCreateVecs(shell->axpy,shell->axpy_right ? NULL : &shell->axpy_right,shell->axpy_left ? NULL : &shell->axpy_left);CHKERRQ(ierr);
@@ -1189,7 +1187,7 @@ PetscErrorCode MatGetDiagonal_Shell(Mat A,Vec v)
     Mat              X;
     PetscObjectState axpy_state;
 
-    ierr = MatShellGetContext(shell->axpy,(void *)&X);CHKERRQ(ierr);
+    ierr = MatShellGetContext(shell->axpy,&X);CHKERRQ(ierr);
     ierr = PetscObjectStateGet((PetscObject)X,&axpy_state);CHKERRQ(ierr);
     if (shell->axpy_state != axpy_state) SETERRQ(PetscObjectComm((PetscObject)A),PETSC_ERR_ORDER,"Invalid AXPY state: cannot modify the X matrix passed to MatAXPY(Y,a,X,...)");
     ierr = MatCreateVecs(shell->axpy,NULL,shell->axpy_left ? NULL : &shell->axpy_left);CHKERRQ(ierr);
@@ -1695,9 +1693,6 @@ PETSC_EXTERN PetscErrorCode MatCreate_Shell(Mat A)
   ierr    = PetscNewLog(A,&b);CHKERRQ(ierr);
   A->data = (void*)b;
 
-  ierr = PetscLayoutSetUp(A->rmap);CHKERRQ(ierr);
-  ierr = PetscLayoutSetUp(A->cmap);CHKERRQ(ierr);
-
   b->ctx                 = NULL;
   b->vshift              = 0.0;
   b->vscale              = 1.0;
@@ -1779,10 +1774,8 @@ $     VecDestroy(&y);
 $     VecDestroy(&x);
 $
 
-
    MATSHELL handles MatShift(), MatDiagonalSet(), MatDiagonalScale(), MatAXPY(), MatScale(), MatZeroRows() and MatZeroRowsColumns() internally, so these
    operations cannot be overwritten unless MatShellSetManageScalingShifts() is called.
-
 
     For rectangular matrices do all the scalings and shifts make sense?
 

@@ -475,7 +475,6 @@ static void FormStressOperatorQ13D(PetscScalar Ke[],PetscScalar coords[],PetscSc
       B[5][3*i] = 0.0;    B[5][3*i+1] = d_dz_i;  B[5][3*i+2] = d_dy_i; /* e_yz */
     }
 
-
     tildeD[0] = 2.0*gp_weight[p]*J_p*eta[p];
     tildeD[1] = 2.0*gp_weight[p]*J_p*eta[p];
     tildeD[2] = 2.0*gp_weight[p]*J_p*eta[p];
@@ -944,7 +943,7 @@ static PetscErrorCode AssembleF_Stokes(Vec F,DM stokes_da,CellProperties cell_pr
   ierr = DMGetCoordinatesLocal(stokes_da,&coords);CHKERRQ(ierr);
   ierr = DMDAVecGetArray(cda,coords,&_coords);CHKERRQ(ierr);
 
-  /* get acces to the vector */
+  /* get access to the vector */
   ierr = DMGetLocalVector(stokes_da,&local_F);CHKERRQ(ierr);
   ierr = VecZeroEntries(local_F);CHKERRQ(ierr);
   ierr = DMDAVecGetArray(stokes_da,local_F,&ff);CHKERRQ(ierr);
@@ -1028,7 +1027,7 @@ static void evaluate_MS_FrankKamentski(PetscReal pos[],PetscReal v[],PetscReal *
   }
   if (p) *p = PetscPowRealInt(x,2) + PetscPowRealInt(y,2) + PetscPowRealInt(z,2);
   if (eta) {
-    /**eta = PetscExpReal(-theta*(1.0 - y - 0.1*PetscCosReal(MX*x)*PetscCosReal(MZ*z)*PetscSinReal(MY*y)));*/
+    /* eta = PetscExpReal(-theta*(1.0 - y - 0.1*PetscCosReal(MX*x)*PetscCosReal(MZ*z)*PetscSinReal(MY*y)));*/
     *eta = 1.0;
   }
   if (Fm) {
@@ -1052,9 +1051,9 @@ static void evaluate_MS_FrankKamentski(PetscReal pos[],PetscReal v[],PetscReal *
     Fm[2] = -2*z + PetscPowRealInt(z,2)*(-2.0*PetscPowRealInt(PETSC_PI,2)*PetscCosReal(2.0*PETSC_PI*x)*PetscExpReal(-y)*PetscSinReal(PETSC_PI*y) + 2.0*PetscPowRealInt(PETSC_PI,3)*PetscCosReal(PETSC_PI*y)*PetscCosReal(2.0*PETSC_PI*x)*PetscExpReal(-y)) + PetscPowRealInt(z,2)*(PetscCosReal(2.0*PETSC_PI*x)*PetscExpReal(-y)*PetscSinReal(PETSC_PI*y)/2 - 3*PetscPowRealInt(PETSC_PI,2)*PetscCosReal(2.0*PETSC_PI*x)*PetscExpReal(-y)*PetscSinReal(PETSC_PI*y)/2 + PetscPowRealInt(PETSC_PI,3)*PetscCosReal(PETSC_PI*y)*PetscCosReal(2.0*PETSC_PI*x)*PetscExpReal(-y)/2 - 3*PETSC_PI*PetscCosReal(PETSC_PI*y)*PetscCosReal(2.0*PETSC_PI*x)*PetscExpReal(-y)/2) + 1.0*PetscCosReal(2.0*PETSC_PI*x)*PetscExpReal(-y)*PetscSinReal(PETSC_PI*y) + 0.25*PetscPowRealInt(PETSC_PI,3)*PetscPowRealInt(z,4)*PetscCosReal(PETSC_PI*x)*PetscExpReal(y) - 0.25*PETSC_PI*PetscPowRealInt(z,4)*PetscCosReal(PETSC_PI*x)*PetscExpReal(y) - 3.0*PETSC_PI*PetscPowRealInt(z,2)*PetscCosReal(PETSC_PI*x)*PetscExpReal(y) - 1.0*PETSC_PI*PetscCosReal(PETSC_PI *y)*PetscCosReal(2.0*PETSC_PI*x)*PetscExpReal(-y);
   }
   if (Fc) {
-    /**Fc = -2.0*PETSC_PI*(PetscPowRealInt(x,3) + PetscPowRealInt(y,3))*PetscCosReal(2.0*PETSC_PI*z) - z*PetscCosReal(2.0*PETSC_PI*x)*PetscExpReal(-y)*PetscSinReal(PETSC_PI*y) + PETSC_PI*PetscPowRealInt(z,3)*PetscCosReal(PETSC_PI*x)*PetscExpReal(y) + PETSC_PI*z*PetscCosReal(PETSC_PI*y)*PetscCosReal(2.0*PETSC_PI*x)*PetscExpReal(-y) ;*/
-    /**Fc = PETSC_PI*PetscCosReal(PETSC_PI*x) + PETSC_PI*PetscCosReal(PETSC_PI*y) + PETSC_PI*PetscCosReal(PETSC_PI*z);*/
-    /**Fc = -2.0*PETSC_PI*(PetscPowRealInt(x,3) + PetscPowRealInt(y,3))*PetscCosReal(2.0*PETSC_PI*z) - z*PetscCosReal(2.0*PETSC_PI*x)*PetscExpReal(-y)*PetscSinReal(PETSC_PI*y) + PETSC_PI*PetscPowRealInt(z,3)*PetscCosReal(PETSC_PI*x)*PetscExpReal(y) + PETSC_PI*z*PetscCosReal(PETSC_PI*y)*PetscCosReal(2.0*PETSC_PI*x)*PetscExpReal(-y);*/
+    /* Fc = -2.0*PETSC_PI*(PetscPowRealInt(x,3) + PetscPowRealInt(y,3))*PetscCosReal(2.0*PETSC_PI*z) - z*PetscCosReal(2.0*PETSC_PI*x)*PetscExpReal(-y)*PetscSinReal(PETSC_PI*y) + PETSC_PI*PetscPowRealInt(z,3)*PetscCosReal(PETSC_PI*x)*PetscExpReal(y) + PETSC_PI*z*PetscCosReal(PETSC_PI*y)*PetscCosReal(2.0*PETSC_PI*x)*PetscExpReal(-y) ;*/
+    /* Fc = PETSC_PI*PetscCosReal(PETSC_PI*x) + PETSC_PI*PetscCosReal(PETSC_PI*y) + PETSC_PI*PetscCosReal(PETSC_PI*z);*/
+    /* Fc = -2.0*PETSC_PI*(PetscPowRealInt(x,3) + PetscPowRealInt(y,3))*PetscCosReal(2.0*PETSC_PI*z) - z*PetscCosReal(2.0*PETSC_PI*x)*PetscExpReal(-y)*PetscSinReal(PETSC_PI*y) + PETSC_PI*PetscPowRealInt(z,3)*PetscCosReal(PETSC_PI*x)*PetscExpReal(y) + PETSC_PI*z*PetscCosReal(PETSC_PI*y)*PetscCosReal(2.0*PETSC_PI*x)*PetscExpReal(-y);*/
     *Fc = 0.0;
   }
 }
@@ -1193,8 +1192,8 @@ static PetscErrorCode DMDAIntegrateErrors3D(DM stokes_da,Vec X,Vec X_analytic)
       }
     }
   }
-  ierr = MPI_Allreduce(&tint_p_ms,&int_p_ms,1,MPIU_SCALAR,MPIU_SUM,PETSC_COMM_WORLD);CHKERRQ(ierr);
-  ierr = MPI_Allreduce(&tint_p,&int_p,1,MPIU_SCALAR,MPIU_SUM,PETSC_COMM_WORLD);CHKERRQ(ierr);
+  ierr = MPI_Allreduce(&tint_p_ms,&int_p_ms,1,MPIU_SCALAR,MPIU_SUM,PETSC_COMM_WORLD);CHKERRMPI(ierr);
+  ierr = MPI_Allreduce(&tint_p,&int_p,1,MPIU_SCALAR,MPIU_SUM,PETSC_COMM_WORLD);CHKERRMPI(ierr);
 
   ierr = PetscPrintf(PETSC_COMM_WORLD,"\\int P dv %1.4e (h)  %1.4e (ms)\n",PetscRealPart(int_p),PetscRealPart(int_p_ms));CHKERRQ(ierr);
 
@@ -1267,15 +1266,14 @@ static PetscErrorCode DMDAIntegrateErrors3D(DM stokes_da,Vec X,Vec X_analytic)
       }
     }
   }
-  ierr = MPI_Allreduce(&tp_L2,&p_L2,1,MPIU_SCALAR,MPIU_SUM,PETSC_COMM_WORLD);CHKERRQ(ierr);
-  ierr = MPI_Allreduce(&tu_L2,&u_L2,1,MPIU_SCALAR,MPIU_SUM,PETSC_COMM_WORLD);CHKERRQ(ierr);
-  ierr = MPI_Allreduce(&tu_H1,&u_H1,1,MPIU_SCALAR,MPIU_SUM,PETSC_COMM_WORLD);CHKERRQ(ierr);
+  ierr = MPI_Allreduce(&tp_L2,&p_L2,1,MPIU_SCALAR,MPIU_SUM,PETSC_COMM_WORLD);CHKERRMPI(ierr);
+  ierr = MPI_Allreduce(&tu_L2,&u_L2,1,MPIU_SCALAR,MPIU_SUM,PETSC_COMM_WORLD);CHKERRMPI(ierr);
+  ierr = MPI_Allreduce(&tu_H1,&u_H1,1,MPIU_SCALAR,MPIU_SUM,PETSC_COMM_WORLD);CHKERRMPI(ierr);
   p_L2 = PetscSqrtScalar(p_L2);
   u_L2 = PetscSqrtScalar(u_L2);
   u_H1 = PetscSqrtScalar(u_H1);
 
   ierr = PetscPrintf(PETSC_COMM_WORLD,"%1.4e   %1.4e   %1.4e   %1.4e \n",PetscRealPart(h),PetscRealPart(p_L2),PetscRealPart(u_L2),PetscRealPart(u_H1));CHKERRQ(ierr);
-
 
   ierr = DMDAVecRestoreArray(cda,coords,&_coords);CHKERRQ(ierr);
 
@@ -1511,7 +1509,7 @@ PetscErrorCode DAView_3DVTK_PStructuredGrid(DM da,const char file_prefix[],const
   PetscErrorCode ierr;
 
   PetscFunctionBeginUser;
-  /* only master generates this file */
+  /* only rank-0 generates this file */
   PetscObjectGetComm((PetscObject)da,&comm);
   MPI_Comm_size(comm,&size);
   MPI_Comm_rank(comm,&rank);
@@ -1882,7 +1880,6 @@ static PetscErrorCode solve_stokes_3d_coupled(PetscInt mx,PetscInt my,PetscInt m
     break;
   default:
     SETERRQ(PETSC_COMM_WORLD,PETSC_ERR_SUP,"No default model is supported. Choose either -model {0,1,2,3}");
-    break;
   }
 
   ierr = DMDAVecRestoreArray(vel_cda,vel_coords,&_vel_coords);CHKERRQ(ierr);
@@ -2022,7 +2019,6 @@ int main(int argc,char **args)
   ierr = PetscFinalize();
   return ierr;
 }
-
 
 /*TEST
 

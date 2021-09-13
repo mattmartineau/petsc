@@ -87,9 +87,7 @@ static PetscErrorCode KSPSetUp_PIPEFGMRES(KSP ksp)
     On entry, the value in vector VEC_VV(0) should be
     the initial residual.
 
-
- */
-
+*/
 static PetscErrorCode KSPPIPEFGMRESCycle(PetscInt *itcount,KSP ksp)
 {
   KSP_PIPEFGMRES *pipefgmres = (KSP_PIPEFGMRES*)(ksp->data);
@@ -182,7 +180,7 @@ static PetscErrorCode KSPPIPEFGMRESCycle(PetscInt *itcount,KSP ksp)
        coefficients we use in the orthogonalization process,because of the shift */
 
     /* Do some local twiddling to allow for a single reduction */
-    for (i=0;i<loc_it+1;i++){
+    for (i=0;i<loc_it+1;i++) {
       redux[i] = VEC_VV(i);
     }
     redux[loc_it+1] = ZVEC(loc_it);
@@ -355,7 +353,6 @@ static PetscErrorCode KSPPIPEFGMRESCycle(PetscInt *itcount,KSP ksp)
 /*
     KSPSolve_PIPEFGMRES - This routine applies the PIPEFGMRES method.
 
-
    Input Parameter:
 .     ksp - the Krylov space object that was set to use pipefgmres
 
@@ -371,12 +368,9 @@ static PetscErrorCode KSPSolve_PIPEFGMRES(KSP ksp)
   PetscBool      guess_zero = ksp->guess_zero;
 
   PetscFunctionBegin;
-
   /* We have not checked these routines for use with complex numbers. The inner products
      are likely not defined correctly for that case */
-#if (defined(PETSC_USE_COMPLEX) && !defined(PETSC_SKIP_COMPLEX))
-  SETERRQ(PETSC_COMM_WORLD,PETSC_ERR_SUP,"PIPEFGMRES has not been implemented for use with complex scalars");
-#endif
+  if (PetscDefined(USE_COMPLEX) && !PetscDefined(SKIP_COMPLEX)) SETERRQ(PETSC_COMM_WORLD,PETSC_ERR_SUP,"PIPEFGMRES has not been implemented for use with complex scalars");
 
   ierr = PetscCitationsRegister(citation,&cited);CHKERRQ(ierr);
 
@@ -671,7 +665,6 @@ PetscErrorCode KSPReset_PIPEFGMRES(KSP ksp)
                              vectors are allocated as needed)
 -   -ksp_gmres_krylov_monitor - plot the Krylov space generated
 
-
    Level: intermediate
 
    Notes:
@@ -785,6 +778,7 @@ static PetscErrorCode KSPPIPEFGMRESGetNewVectors(KSP ksp,PetscInt it)
   pipefgmres->nwork_alloc++;
   PetscFunctionReturn(0);
 }
+
 /*@
   KSPPIPEFGMRESSetShift - Set the shift parameter for the flexible, pipelined GMRES solver.
 

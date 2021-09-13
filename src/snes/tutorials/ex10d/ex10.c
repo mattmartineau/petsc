@@ -37,8 +37,6 @@ The command line options include:\n\
    Processors: n
 T*/
 
-
-
 /* ------------------------------------------------------------------------
 
    PDE Solved : L(u) + lambda*u*u + alpha*u = 0 where L(u) is the Laplacian.
@@ -48,7 +46,6 @@ T*/
    of a node. The off diagonal terms will get a weight of -1.
 
    -----------------------------------------------------------------------*/
-
 
 #define MAX_ELEM      500  /* Maximum number of elements */
 #define MAX_VERT      100  /* Maximum number of vertices */
@@ -119,8 +116,8 @@ int main(int argc,char **argv)
      - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
   ierr =  PetscInitialize(&argc,&argv,"options.inf",help);if (ierr) return ierr;
-  ierr = MPI_Comm_rank(MPI_COMM_WORLD,&rank);CHKERRQ(ierr);
-  ierr = MPI_Comm_size(MPI_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(MPI_COMM_WORLD,&rank);CHKERRMPI(ierr);
+  ierr = MPI_Comm_size(MPI_COMM_WORLD,&size);CHKERRMPI(ierr);
 
   /* The current input file options.inf is for 2 proc run only */
   if (size != 2) SETERRQ(PETSC_COMM_WORLD,PETSC_ERR_WRONG_MPI_SIZE,"This example currently runs on 2 procs only.");
@@ -165,7 +162,7 @@ int main(int argc,char **argv)
      a  ready interface to ParMeTiS).
    */
   fptr = fopen("adj.in","r");
-  if (!fptr) SETERRQ(PETSC_COMM_SELF,0,"Could not open adj.in");
+  if (!fptr) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_FILE_OPEN,"Could not open adj.in");
 
   /*
      Each processor writes to the file output.<rank> where rank is the
@@ -173,7 +170,7 @@ int main(int argc,char **argv)
   */
   sprintf(part_name,"output.%d",rank);
   fptr1 = fopen(part_name,"w");
-  if (!fptr1) SETERRQ(PETSC_COMM_SELF,0,"Could no open output file");
+  if (!fptr1) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_FILE_OPEN,"Could no open output file");
   ierr = PetscMalloc1(user.Nvglobal,&user.gloInd);CHKERRQ(ierr);
   ierr = PetscFPrintf(PETSC_COMM_SELF,fptr1,"Rank is %d\n",rank);CHKERRQ(ierr);
   for (inode = 0; inode < user.Nvglobal; inode++) {
@@ -217,7 +214,7 @@ int main(int argc,char **argv)
     application-to-PETSc mappings. Each vertex also gets a local index (stored in the
     locInd array).
   */
-  ierr    = MPI_Scan(&user.Nvlocal,&rstart,1,MPIU_INT,MPI_SUM,PETSC_COMM_WORLD);CHKERRQ(ierr);
+  ierr    = MPI_Scan(&user.Nvlocal,&rstart,1,MPIU_INT,MPI_SUM,PETSC_COMM_WORLD);CHKERRMPI(ierr);
   rstart -= user.Nvlocal;
   ierr    = PetscMalloc1(user.Nvlocal,&pordering);CHKERRQ(ierr);
 
@@ -720,8 +717,6 @@ PetscErrorCode FormJacobian(SNES snes,Vec X,Mat J,Mat jac,void *ptr)
   /* MatView(jac,PETSC_VIEWER_STDOUT_SELF); */
   return 0;
 }
-
-
 
 /*TEST
 

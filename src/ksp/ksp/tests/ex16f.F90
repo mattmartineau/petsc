@@ -70,7 +70,6 @@
       call VecNorm(u,NORM_2,norm,ierr)
       call KSPGetIterationNumber(ksp1,its,ierr)
 
-
       write(6,100) norm,its
   100 format('Residual norm ',e11.4,' iterations ',i5)
 
@@ -110,6 +109,6 @@
 !
 !    test:
 !      args: -f ${DATAFILESPATH}/matrices/arco1 -options_left no
-!      requires: datafilespath double  !complex !define(PETSC_USE_64BIT_INDICES)
+!      requires: datafilespath double  !complex !defined(PETSC_USE_64BIT_INDICES)
 !
 !TEST*/

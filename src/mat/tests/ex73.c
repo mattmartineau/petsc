@@ -6,8 +6,6 @@ static char help[] = "Reads a PETSc matrix from a file partitions it\n\n";
    Processors: n
 T*/
 
-
-
 /*
   Include "petscmat.h" so that we can use matrices.  Note that this file
   automatically includes:
@@ -36,8 +34,8 @@ int main(int argc,char **args)
   VecScatter      scat;
 
   ierr = PetscInitialize(&argc,&args,(char*)0,help);if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
   ierr = PetscOptionsHasName(NULL,NULL, "-view_mats", &viewMats);CHKERRQ(ierr);
   ierr = PetscOptionsHasName(NULL,NULL, "-view_is", &viewIS);CHKERRQ(ierr);
   ierr = PetscOptionsHasName(NULL,NULL, "-view_vecs", &viewVecs);CHKERRQ(ierr);
@@ -202,32 +200,32 @@ int main(int argc,char **args)
 
    test:
       nsize: 3
-      requires: parmetis datafilespath !complex double !define(PETSC_USE_64BIT_INDICES)
+      requires: parmetis datafilespath !complex double !defined(PETSC_USE_64BIT_INDICES)
       args: -nox -f ${DATAFILESPATH}/matrices/arco1 -mat_partitioning_type parmetis -viewer_binary_skip_info -novec_load
 
    test:
-      requires: parmetis !complex double !define(PETSC_USE_64BIT_INDICES)
+      requires: parmetis !complex double !defined(PETSC_USE_64BIT_INDICES)
       output_file: output/ex73_1.out
       suffix: parmetis_nd_32
       nsize: 3
       args: -nox -f ${wPETSC_DIR}/share/petsc/datafiles/matrices/spd-real-int32-float64 -mat_partitioning_type parmetis -viewer_binary_skip_info -use_nd -novec_load
 
    test:
-      requires: parmetis !complex double define(PETSC_USE_64BIT_INDICES)
+      requires: parmetis !complex double defined(PETSC_USE_64BIT_INDICES)
       output_file: output/ex73_1.out
       suffix: parmetis_nd_64
       nsize: 3
       args: -nox -f ${wPETSC_DIR}/share/petsc/datafiles/matrices/spd-real-int64-float64 -mat_partitioning_type parmetis -viewer_binary_skip_info -use_nd -novec_load
 
    test:
-      requires: ptscotch !complex double !define(PETSC_USE_64BIT_INDICES) define(PETSC_HAVE_SCOTCH_PARMETIS_V3_NODEND)
+      requires: ptscotch !complex double !defined(PETSC_USE_64BIT_INDICES) defined(PETSC_HAVE_SCOTCH_PARMETIS_V3_NODEND)
       output_file: output/ex73_1.out
       suffix: ptscotch_nd_32
       nsize: 4
       args: -nox -f ${wPETSC_DIR}/share/petsc/datafiles/matrices/spd-real-int32-float64 -mat_partitioning_type ptscotch -viewer_binary_skip_info -use_nd -novec_load
 
    test:
-      requires: ptscotch !complex double define(PETSC_USE_64BIT_INDICES) define(PETSC_HAVE_SCOTCH_PARMETIS_V3_NODEND)
+      requires: ptscotch !complex double defined(PETSC_USE_64BIT_INDICES) defined(PETSC_HAVE_SCOTCH_PARMETIS_V3_NODEND)
       output_file: output/ex73_1.out
       suffix: ptscotch_nd_64
       nsize: 4

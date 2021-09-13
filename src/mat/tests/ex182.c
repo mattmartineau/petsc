@@ -13,7 +13,7 @@ int main(int argc,char **argv)
   PetscBool      issbaij;
 
   ierr = PetscInitialize(&argc,&argv,(char*) 0,help);if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
 
   ierr = MatCreate(PETSC_COMM_WORLD,&A);CHKERRQ(ierr);
   ierr = MatSetSizes(A,PETSC_DECIDE,PETSC_DECIDE,m,m);CHKERRQ(ierr);
@@ -42,103 +42,103 @@ int main(int argc,char **argv)
 /*TEST
 
    test:
-      requires: define(PETSC_USE_INFO)
+      requires: defined(PETSC_USE_INFO)
       args: -info
       filter: grep malloc | sort -b
 
    test:
       suffix: 2
       nsize: 2
-      requires: define(PETSC_USE_INFO)
+      requires: defined(PETSC_USE_INFO)
       args: -info ex182info
       filter: grep -h malloc "ex182info.0" | sort -b
 
    test:
       suffix: 3
-      requires: define(PETSC_USE_INFO)
+      requires: defined(PETSC_USE_INFO)
       args: -info -mat_type baij
       filter: grep malloc | sort -b
 
    test:
       suffix: 4
       nsize: 2
-      requires: define(PETSC_USE_INFO)
+      requires: defined(PETSC_USE_INFO)
       args: -info ex182info -mat_type baij
       filter: grep -h malloc "ex182info.1" | sort -b
 
    test:
       suffix: 5
-      requires: define(PETSC_USE_INFO)
+      requires: defined(PETSC_USE_INFO)
       args: -info -mat_type sbaij
       filter: grep malloc | sort  -b
 
    test:
       suffix: 6
       nsize: 2
-      requires: define(PETSC_USE_INFO)
+      requires: defined(PETSC_USE_INFO)
       args: -info ex182info -mat_type sbaij
       filter: grep -h malloc "ex182info.0" | sort -b
 
    test:
      suffix: 7
      nsize: 1
-     requires: define(PETSC_USE_INFO)
+     requires: defined(PETSC_USE_INFO)
      args: -info ex182info
      filter: grep -h malloc "ex182info.0" | grep -v Running | sort -b
 
    test:
      suffix: 8
      nsize: 2
-     requires: define(PETSC_USE_INFO)
+     requires: defined(PETSC_USE_INFO)
      args: -info ex182info:mat
      filter: grep -h malloc "ex182info.1" | sort -b
 
    test:
      suffix: 9
      nsize: 1
-     requires: define(PETSC_USE_INFO)
+     requires: defined(PETSC_USE_INFO)
      args: -info ex182info:sys
      filter: grep -h -ve Running -ve MPI_Comm -ve Initialize -ve communicator -ve HostName -ve PetscDetermineInitialFPTrap -ve libpetscbamg "ex182info.0" | sort -b
 
    test:
      suffix: 10
      nsize: 1
-     requires: define(PETSC_USE_INFO)
+     requires: defined(PETSC_USE_INFO)
      args: -info :~sys
      filter: grep -h malloc | sort -b
 
    test:
      suffix: 11
      nsize: 2
-     requires: define(PETSC_USE_INFO)
+     requires: defined(PETSC_USE_INFO)
      args: -info :~sys,mat
      filter: sort -b
 
    test:
      suffix: 12
      nsize: 2
-     requires: define(PETSC_USE_INFO)
+     requires: defined(PETSC_USE_INFO)
      args: -info ex182info:sys,mat
      filter: grep -h -ve Running -ve MPI_Comm -ve Initialize -ve communicator -ve HostName -ve PetscDetermineInitialFPTrap -ve libpetscbamg "ex182info.1" | sort -b
 
    test:
      suffix: 13
      nsize: 2
-     requires: define(PETSC_USE_INFO)
+     requires: defined(PETSC_USE_INFO)
      args: -info ex182info:mat:~self
      filter: grep -h "ex182info.1" | sort -b
 
    test:
      suffix: 14
      nsize: 2
-     requires: define(PETSC_USE_INFO)
+     requires: defined(PETSC_USE_INFO)
      args: -info ex182info::~self
      filter: grep -h -ve Running -ve MPI_Comm -ve Initialize -ve communicator -ve HostName -ve PetscDetermineInitialFPTrap "ex182info.1" | sort -b
 
    test:
      suffix: 15
      nsize: 2
-     requires: define(PETSC_USE_INFO)
+     requires: defined(PETSC_USE_INFO)
      args: -info ex182info::self
      filter: grep -h -ve Running -ve MPI_Comm -ve Initialize -ve communicator -ve HostName -ve PetscDetermineInitialFPTrap -ve libpetscbamg "ex182info.1" | sort -b
 

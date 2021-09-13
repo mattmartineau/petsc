@@ -20,7 +20,6 @@ typedef struct {
   unsigned  p_flag;      /* planner flags, FFTW_ESTIMATE,FFTW_MEASURE, FFTW_PATIENT, FFTW_EXHAUSTIVE */
 } Mat_USFFT;
 
-
 PetscErrorCode MatApply_USFFT_Private(Mat A, fftw_plan *plan, int direction, Vec x,Vec y)
 {
 #if 0
@@ -100,7 +99,6 @@ PetscErrorCode MatInterpolate_USFFT_Private(Vec x,Vec y)
   PetscFunctionReturn(0);
 } /* MatInterpolate_USFFT_Private() */
 
-
 PetscErrorCode MatMult_SeqUSFFT(Mat A,Vec x,Vec y)
 {
   PetscErrorCode ierr;
@@ -138,7 +136,6 @@ PetscErrorCode MatDestroy_SeqUSFFT(Mat A)
   PetscFunctionReturn(0);
 } /* MatDestroy_SeqUSFFT() */
 
-
 /*@C
       MatCreateSeqUSFFT - Creates a matrix object that provides sequential USFFT
   via the external package FFTW
@@ -171,10 +168,10 @@ PetscErrorCode  MatCreateSeqUSFFT(Vec sampleCoords, DMDA freqDA, Mat *A)
 
   PetscFunctionBegin;
   ierr = PetscObjectGetComm((PetscObject)inda, &comm);CHKERRQ(ierr);
-  ierr = MPI_Comm_size(comm, &size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(comm, &size);CHKERRMPI(ierr);
   if (size > 1) SETERRQ(comm,PETSC_ERR_USER, "Parallel DMDA (in) not yet supported by USFFT");
   ierr = PetscObjectGetComm((PetscObject)outda, &comm);CHKERRQ(ierr);
-  ierr = MPI_Comm_size(comm, &size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(comm, &size);CHKERRMPI(ierr);
   if (size > 1) SETERRQ(comm,PETSC_ERR_USER, "Parallel DMDA (out) not yet supported by USFFT");
   ierr         = MatCreate(comm,A);CHKERRQ(ierr);
   ierr         = PetscNewLog(*A,&usfft);CHKERRQ(ierr);
@@ -209,7 +206,6 @@ PetscErrorCode  MatCreateSeqUSFFT(Vec sampleCoords, DMDA freqDA, Mat *A)
                     PETSC_DECIDE, PETSC_DECIDE, PETSC_DECIDE, dof, 0, NULL, NULL, NULL,  0, &(usfft->resampleDA));CHKERRQ(ierr);
 #endif
   ierr = DMDAGetVec(usfft->resampleDA, usfft->resample);CHKERRQ(ierr);
-
 
   /* CONTINUE: Need to build the connectivity "Sieve" attaching sample points to the resample points they are close to */
 

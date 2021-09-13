@@ -217,6 +217,12 @@ PETSC_INTERN PetscErrorCode MatMult_SeqBAIJ_7(Mat,Vec,Vec);
 PETSC_INTERN PetscErrorCode MatMult_SeqBAIJ_9_AVX2(Mat,Vec,Vec);
 PETSC_INTERN PetscErrorCode MatMult_SeqBAIJ_11(Mat,Vec,Vec);
 
+PETSC_INTERN PetscErrorCode MatMult_SeqBAIJ_12_ver1(Mat,Vec,Vec);
+PETSC_INTERN PetscErrorCode MatMult_SeqBAIJ_12_ver2(Mat,Vec,Vec);
+PETSC_INTERN PetscErrorCode MatMult_SeqBAIJ_12_AVX2(Mat,Vec,Vec);
+PETSC_INTERN PetscErrorCode MatMultAdd_SeqBAIJ_12_ver1(Mat,Vec,Vec,Vec);
+PETSC_INTERN PetscErrorCode MatMultAdd_SeqBAIJ_12_ver2(Mat,Vec,Vec,Vec);
+
 PETSC_INTERN PetscErrorCode MatMult_SeqBAIJ_15_ver1(Mat,Vec,Vec);
 PETSC_INTERN PetscErrorCode MatMult_SeqBAIJ_15_ver2(Mat,Vec,Vec);
 PETSC_INTERN PetscErrorCode MatMult_SeqBAIJ_15_ver3(Mat,Vec,Vec);
@@ -266,7 +272,7 @@ PETSC_INTERN PetscErrorCode MatDestroySubMatrices_SeqBAIJ(PetscInt,Mat*[]);
 
   Input Parameters:
 +  A,B - square bs by bs arrays stored in column major order
--  W   - bs*bs work arrary
+-  W   - bs*bs work array
 
   Output Parameter:
 .  A = A * B
@@ -308,7 +314,7 @@ PETSC_STATIC_INLINE PetscErrorCode PetscKernel_A_gets_A_minus_B_times_C_2(PetscS
 
   Input Parameters:
 +  A,B - square bs by bs arrays stored in column major order
--  W   - bs*bs work arrary
+-  W   - bs*bs work array
 
   Output Parameter:
 .  A = A * B
@@ -360,7 +366,7 @@ PETSC_STATIC_INLINE PetscErrorCode PetscKernel_A_gets_A_minus_B_times_C_3(PetscS
 
   Input Parameters:
 +  A,B - square bs by bs arrays stored in column major order
--  W   - bs*bs work arrary
+-  W   - bs*bs work array
 
   Output Parameter:
 .  A = A * B
@@ -738,9 +744,9 @@ PETSC_STATIC_INLINE PetscErrorCode PetscKernel_A_gets_A_times_B_9(PetscScalar *A
 
     A6 = _mm256_loadu_pd  (W+18); A7 = _mm256_loadu_pd  (W+22); A8 = _mm256_loadu_pd  (W+26);
     B0 = _mm256_broadcast_sd(B+ 2); B1 = _mm256_broadcast_sd(B+11); B2 = _mm256_broadcast_sd(B+20);
-    S0 = _mm256_fmadd_pd(A6,B0,S0); S1 = _mm256_fmadd_pd(A7,B0,S1); S2 = _mm256_fmadd_pd(A2,B0,S2);
-    S3 = _mm256_fmadd_pd(A6,B1,S3); S4 = _mm256_fmadd_pd(A7,B1,S4); S5 = _mm256_fmadd_pd(A2,B1,S5);
-    S6 = _mm256_fmadd_pd(A6,B2,S6); S7 = _mm256_fmadd_pd(A7,B2,S7); S8 = _mm256_fmadd_pd(A5,B2,S8);
+    S0 = _mm256_fmadd_pd(A6,B0,S0); S1 = _mm256_fmadd_pd(A7,B0,S1); S2 = _mm256_fmadd_pd(A8,B0,S2);
+    S3 = _mm256_fmadd_pd(A6,B1,S3); S4 = _mm256_fmadd_pd(A7,B1,S4); S5 = _mm256_fmadd_pd(A8,B1,S5);
+    S6 = _mm256_fmadd_pd(A6,B2,S6); S7 = _mm256_fmadd_pd(A7,B2,S7); S8 = _mm256_fmadd_pd(A8,B2,S8);
 
     A0 = _mm256_loadu_pd  (W+27); A1 = _mm256_loadu_pd  (W+31); A2 = _mm256_loadu_pd  (W+35);
     B6 = _mm256_broadcast_sd(B+ 3); B7 = _mm256_broadcast_sd(B+12); B8 = _mm256_broadcast_sd(B+21);
@@ -1059,7 +1065,7 @@ PETSC_STATIC_INLINE PetscErrorCode PetscKernel_A_gets_A_minus_B_times_C_9(PetscS
 
   Input Parameters:
 +  A,B - square bs by bs arrays stored in column major order
--  W   - bs*bs work arrary
+-  W   - bs*bs work array
 
   Output Parameter:
 .  A = A * B

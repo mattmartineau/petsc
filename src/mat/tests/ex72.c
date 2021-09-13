@@ -6,24 +6,23 @@ Usage:  ./ex72 -fin <infile> -fout <outfile> \n\
 The option -aij_only allows to use MATAIJ for all cases.\n\\n";
 
 /*
-*   NOTES:
-*
-*   1) Matrix Market files are always 1-based, i.e. the index of the first
-*      element of a matrix is (1,1), not (0,0) as in C.  ADJUST THESE
-*      OFFSETS ACCORDINGLY offsets accordingly when reading and writing
-*      to files.
-*
-*   2) ANSI C requires one to use the "l" format modifier when reading
-*      double precision floating point numbers in scanf() and
-*      its variants.  For example, use "%lf", "%lg", or "%le"
-*      when reading doubles, otherwise errors will occur.
+   NOTES:
+
+   1) Matrix Market files are always 1-based, i.e. the index of the first
+      element of a matrix is (1,1), not (0,0) as in C.  ADJUST THESE
+      OFFSETS ACCORDINGLY offsets accordingly when reading and writing
+      to files.
+
+   2) ANSI C requires one to use the "l" format modifier when reading
+      double precision floating point numbers in scanf() and
+      its variants.  For example, use "%lf", "%lg", or "%le"
+      when reading doubles, otherwise errors will occur.
 */
 #include <petscmat.h>
 #include "ex72mmio.h"
 
 int main(int argc,char **argv)
 {
-  PetscInt    ret_code;
   MM_typecode matcode;
   FILE        *file;
   PetscInt    M, N, ninput;
@@ -36,7 +35,7 @@ int main(int argc,char **argv)
   PetscBool   sametype,flag,symmetric = PETSC_FALSE,skew = PETSC_FALSE,real = PETSC_FALSE,pattern = PETSC_FALSE,aijonly = PETSC_FALSE;
 
   PetscInitialize(&argc,&argv,(char *)0,help);
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
   if (size != 1) SETERRQ(PETSC_COMM_WORLD,PETSC_ERR_WRONG_MPI_SIZE,"This is a uniprocessor example only!");
 
   ierr = PetscOptionsGetString(NULL,NULL,"-fin",filein,sizeof(filein),&flag);CHKERRQ(ierr);
@@ -53,7 +52,7 @@ int main(int argc,char **argv)
 
   /*  This is how one can screen matrix types if their application */
   /*  only supports a subset of the Matrix Market data types.      */
-  if (!mm_is_matrix(matcode) || !mm_is_sparse(matcode)){
+  if (!mm_is_matrix(matcode) || !mm_is_sparse(matcode)) {
     SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Input must be a sparse matrix. Market Market type: [%s]\n", mm_typecode_to_str(matcode));
   }
 
@@ -63,7 +62,7 @@ int main(int argc,char **argv)
   if (mm_is_pattern(matcode)) pattern = PETSC_TRUE;
 
   /* Find out size of sparse matrix .... */
-  if ((ret_code = mm_read_mtx_crd_size(file, &M, &N, &nz)) !=0)
+  if (mm_read_mtx_crd_size(file, &M, &N, &nz))
     SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Size of sparse matrix is wrong.");
 
   ierr = mm_write_banner(stdout, matcode);CHKERRQ(ierr);
@@ -77,7 +76,7 @@ int main(int argc,char **argv)
   /*   specifier as in "%lg", "%lf", "%le", otherwise errors will occur */
   /*  (ANSI C X3.159-1989, Sec. 4.9.6.2, p. 136 lines 13-15)            */
 
-  for (i=0; i<nz; i++){
+  for (i=0; i<nz; i++) {
     if (pattern) {
       ninput = fscanf(file, "%d %d\n", &ia[i], &ja[i]);
       if (ninput < 2) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_FILE_UNEXPECTED,"Badly formatted input file\n");
@@ -159,7 +158,7 @@ int main(int argc,char **argv)
 /*TEST
 
    build:
-      requires:  !complex double !define(PETSC_USE_64BIT_INDICES)
+      requires:  !complex double !defined(PETSC_USE_64BIT_INDICES)
       depends: ex72mmio.c
 
    test:

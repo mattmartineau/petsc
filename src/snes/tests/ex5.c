@@ -40,7 +40,7 @@ int main(int argc,char **argv)
   PC             pc;
 
   ierr = PetscInitialize(&argc,&argv,(char*)0,help);if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
   if (size != 1) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SUP,"This is a uniprocessor example only!");
   ierr = PetscOptionsGetInt(NULL,NULL,"-n",&n,NULL);CHKERRQ(ierr);
   h    = 1.0/(n-1);
@@ -70,7 +70,6 @@ int main(int argc,char **argv)
      Set function evaluation routine and vector
   */
   ierr = SNESSetFunction(snes,r,FormFunction,(void*)F);CHKERRQ(ierr);
-
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Create matrix data structure; set Jacobian evaluation routine
@@ -157,7 +156,6 @@ int main(int argc,char **argv)
   ierr = VecAXPY(x,none,U);CHKERRQ(ierr);
   ierr = VecNorm(x,NORM_2,&norm);CHKERRQ(ierr);
   ierr = PetscPrintf(PETSC_COMM_WORLD,"Norm of error %g, Iterations %D\n",(double)norm,its);CHKERRQ(ierr);
-
 
   /*
      Free work space.  All PETSc objects should be destroyed when they

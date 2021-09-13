@@ -43,8 +43,8 @@ static PetscErrorCode MatPartitioningApply_Party(MatPartitioning part,IS *partit
 
   PetscFunctionBegin;
   if (part->use_edge_weights) SETERRQ(PetscObjectComm((PetscObject)part),PETSC_ERR_SUP,"Party does not support edge weights");
-  ierr = MPI_Comm_size(PetscObjectComm((PetscObject)mat),&size);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)mat),&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PetscObjectComm((PetscObject)mat),&size);CHKERRMPI(ierr);
+  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)mat),&rank);CHKERRMPI(ierr);
   ierr = PetscObjectTypeCompare((PetscObject)mat,MATMPIADJ,&flg);CHKERRQ(ierr);
   if (size>1) {
     if (flg) {
@@ -115,7 +115,7 @@ static PetscErrorCode MatPartitioningApply_Party(MatPartitioning part,IS *partit
   close(fd_pipe[0]);
   close(fd_pipe[1]);
   if (party->verbose) {
-    ierr = PetscPrintf(PetscObjectComm((PetscObject)mat),mesg_log);
+    ierr = PetscPrintf(PetscObjectComm((PetscObject)mat),mesg_log);CHKERRQ(ierr);
   }
   ierr = PetscFree(mesg_log);CHKERRQ(ierr);
 #endif

@@ -14,7 +14,6 @@
 #define PETSC_GOOGLE_CLIENT_ST  "vOds_A71I3_S_aHMq_kZAI0t"
 #define PETSC_GOOGLE_API_KEY    "AIzaSyDRZsOcySpWVzsUvIBL2UG3J2tcg-MXbyk"
 
-
 /*@C
      PetscGoogleDriveRefresh - Get a new authorization token for accessing Google drive from PETSc from a refresh token
 
@@ -30,7 +29,7 @@
 .   access_token - token that can be passed to PetscGoogleDriveUpload()
 
    Options Database:
-.  -google_refresh_token XXX   where XXX was obtained from PetscGoogleDriveAuthorize()
+.  -google_refresh_token XXX - where XXX was obtained from PetscGoogleDriveAuthorize()
 
    Level: intermediate
 
@@ -49,7 +48,7 @@ PetscErrorCode PetscGoogleDriveRefresh(MPI_Comm comm,const char refresh_token[],
   PetscBool      found;
 
   PetscFunctionBegin;
-  ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(comm,&rank);CHKERRMPI(ierr);
   if (!rank) {
     if (!refresh_token) {
       PetscBool set;
@@ -134,7 +133,7 @@ PetscErrorCode PetscGoogleDriveUpload(MPI_Comm comm,const char access_token[],co
   int            err;
 
   PetscFunctionBegin;
-  ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(comm,&rank);CHKERRMPI(ierr);
   if (!rank) {
     ierr = PetscStrcpy(head,"Authorization: Bearer ");CHKERRQ(ierr);
     ierr = PetscStrcat(head,access_token);CHKERRQ(ierr);
@@ -218,7 +217,7 @@ PetscErrorCode PetscGoogleDriveAuthorize(MPI_Comm comm,char access_token[],char 
   PetscBool      found;
 
   PetscFunctionBegin;
-  ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(comm,&rank);CHKERRMPI(ierr);
   if (!rank) {
     if (!isatty(fileno(PETSC_STDOUT))) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_USER,"Requires users input/output");
     ierr = PetscPrintf(comm,"Cut and paste the following into your browser:\n\n"
@@ -261,7 +260,6 @@ PetscErrorCode PetscGoogleDriveAuthorize(MPI_Comm comm,char access_token[],char 
   }
   PetscFunctionReturn(0);
 }
-
 
 /*@C
      PetscURLShorten - Uses Google's service to get a short url for a long url

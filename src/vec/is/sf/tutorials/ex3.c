@@ -20,8 +20,8 @@ int main(int argc, char **argv)
   MPI_Datatype contig;
 
   ierr = PetscInitialize(&argc,&argv,NULL,help);if (ierr) return ierr;
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
 
   if (size != 1) SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_USER, "Only coded for one MPI process");
 
@@ -62,18 +62,18 @@ int main(int argc, char **argv)
   ierr = VecGetArrayRead(A,(const PetscScalar**)&bufA);CHKERRQ(ierr);
   ierr = VecGetArray(Aout,&bufAout);CHKERRQ(ierr);
 
-  ierr = MPI_Type_contiguous(4, MPIU_SCALAR, &contig);CHKERRQ(ierr);
-  ierr = MPI_Type_commit(&contig);CHKERRQ(ierr);
+  ierr = MPI_Type_contiguous(4, MPIU_SCALAR, &contig);CHKERRMPI(ierr);
+  ierr = MPI_Type_commit(&contig);CHKERRMPI(ierr);
 
   if (test_dupped_type) {
     MPI_Datatype tmp;
-    ierr = MPI_Type_dup(contig, &tmp);CHKERRQ(ierr);
-    ierr = MPI_Type_free(&contig);CHKERRQ(ierr);
+    ierr = MPI_Type_dup(contig, &tmp);CHKERRMPI(ierr);
+    ierr = MPI_Type_free(&contig);CHKERRMPI(ierr);
     contig = tmp;
   }
   for (i=0;i<10000;i++) {
-    ierr = PetscSFBcastBegin(sf,contig,bufA,bufAout);CHKERRQ(ierr);
-    ierr = PetscSFBcastEnd(sf,contig,bufA,bufAout);CHKERRQ(ierr);
+    ierr = PetscSFBcastBegin(sf,contig,bufA,bufAout,MPI_REPLACE);CHKERRQ(ierr);
+    ierr = PetscSFBcastEnd(sf,contig,bufA,bufAout,MPI_REPLACE);CHKERRQ(ierr);
   }
   ierr = VecRestoreArrayRead(A,(const PetscScalar**)&bufA);CHKERRQ(ierr);
   ierr = VecRestoreArray(Aout,&bufAout);CHKERRQ(ierr);
@@ -82,7 +82,7 @@ int main(int argc, char **argv)
   ierr = VecDestroy(&A);CHKERRQ(ierr);
   ierr = VecDestroy(&Aout);CHKERRQ(ierr);
   ierr = PetscSFDestroy(&sf);CHKERRQ(ierr);
-  ierr = MPI_Type_free(&contig);CHKERRQ(ierr);
+  ierr = MPI_Type_free(&contig);CHKERRMPI(ierr);
   ierr = PetscFinalize();
   return ierr;
 }
@@ -101,26 +101,26 @@ int main(int argc, char **argv)
       suffix: window
       filter: grep -v "type" | grep -v "sort"
       args: -sf_type window -sf_window_sync {{fence active lock}} -sf_window_flavor {{create allocate dynamic}}
-      requires: define(PETSC_HAVE_MPI_ONE_SIDED)
+      requires: defined(PETSC_HAVE_MPI_ONE_SIDED) defined(PETSC_HAVE_MPI_FEATURE_DYNAMIC_WINDOW)
 
    test:
       suffix: window_dupped
       filter: grep -v "type" | grep -v "sort"
       args: -test_dupped_type -sf_type window -sf_window_sync {{fence active lock}} -sf_window_flavor {{create allocate dynamic}}
-      requires: define(PETSC_HAVE_MPI_ONE_SIDED)
+      requires: defined(PETSC_HAVE_MPI_ONE_SIDED) defined(PETSC_HAVE_MPI_FEATURE_DYNAMIC_WINDOW)
 
    test:
       suffix: window_shared
       output_file: output/ex3_window.out
       filter: grep -v "type" | grep -v "sort"
       args: -sf_type window -sf_window_sync {{fence active lock}} -sf_window_flavor shared
-      requires: define(PETSC_HAVE_MPI_PROCESS_SHARED_MEMORY) define(PETSC_HAVE_MPI_ONE_SIDED)
+      requires: defined(PETSC_HAVE_MPI_PROCESS_SHARED_MEMORY) defined(PETSC_HAVE_MPI_ONE_SIDED)
 
    test:
       suffix: window_dupped_shared
       output_file: output/ex3_window_dupped.out
       filter: grep -v "type" | grep -v "sort"
       args: -test_dupped_type -sf_type window -sf_window_sync {{fence active lock}} -sf_window_flavor shared
-      requires: define(PETSC_HAVE_MPI_PROCESS_SHARED_MEMORY) define(PETSC_HAVE_MPI_ONE_SIDED)
+      requires: defined(PETSC_HAVE_MPI_PROCESS_SHARED_MEMORY) defined(PETSC_HAVE_MPI_ONE_SIDED)
 
 TEST*/

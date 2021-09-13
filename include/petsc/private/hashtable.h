@@ -5,7 +5,7 @@
 
 #define kh_inline   PETSC_INLINE
 #define klib_unused PETSC_UNUSED
-#include <petsc/private/kernels/khash.h>
+#include <petsc/private/khash/khash.h>
 
 /* Required for khash <= 0.2.5 */
 #if !defined(kcalloc)
@@ -84,7 +84,6 @@
         } }
 #endif /*kh_foreach_value*/
 
-
 /* --- Helper macro for error checking --- */
 
 #if defined(PETSC_USE_DEBUG)
@@ -97,7 +96,6 @@
 #else
 #define PetscHashAssert(expr) ((void)(expr))
 #endif
-
 
 /* --- Low level iterator API --- */
 
@@ -119,7 +117,6 @@ typedef khiter_t PetscHashIter;
 #define PetscHashIterGetVal(ht,i,v) ((v) = kh_val((ht),(i)))
 
 #define PetscHashIterSetVal(ht,i,v) (kh_val((ht),(i)) = (v))
-
 
 /* --- Thomas Wang integer hash functions --- */
 
@@ -197,6 +194,15 @@ PETSC_STATIC_INLINE PetscHash_t PetscHashInt(PetscInt key)
 #endif
 }
 
+PETSC_STATIC_INLINE PetscHash_t PetscHashPointer(void *key)
+{
+#if PETSC_SIZEOF_VOID_P == 8
+  return PetscHash_UInt64((PetscHash64_t)key);
+#else
+  return PetscHash_UInt32((PetscHash32_t)key);
+#endif
+}
+
 PETSC_STATIC_INLINE PetscHash_t PetscHashCombine(PetscHash_t seed, PetscHash_t hash)
 {
   /* https://doi.org/10.1002/asi.10170 */
@@ -205,6 +211,5 @@ PETSC_STATIC_INLINE PetscHash_t PetscHashCombine(PetscHash_t seed, PetscHash_t h
 }
 
 #define PetscHashEqual(a,b) ((a) == (b))
-
 
 #endif /* PETSC_HASHTABLE_H */

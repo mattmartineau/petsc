@@ -15,7 +15,7 @@ int main(int argc,char **args)
   PetscMPIInt    rank;
 
   ierr = PetscInitialize(&argc,&args,(char*)0,help);if (ierr) return ierr;
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
   ierr = PetscOptionsGetString(NULL,NULL,"-f",file,sizeof(file),&flg);CHKERRQ(ierr);
   if (!flg) SETERRQ(PETSC_COMM_WORLD,PETSC_ERR_USER,"Must indicate binary file with the -f option");
   ierr = PetscViewerBinaryOpen(PETSC_COMM_WORLD,file,FILE_MODE_READ,&fd);CHKERRQ(ierr);
@@ -56,14 +56,14 @@ int main(int argc,char **args)
    test:
       suffix: 1
       nsize: 2
-      requires: datafilespath !complex double !define(PETSC_USE_64BIT_INDICES)
+      requires: datafilespath !complex double !defined(PETSC_USE_64BIT_INDICES)
       args: -f ${DATAFILESPATH}/matrices/small -mat_type aij
       output_file: output/ex138.out
 
    test:
       suffix: 2
-      nsize: 2
-      requires: datafilespath !complex double !define(PETSC_USE_64BIT_INDICES)
+      nsize: {{1 2}}
+      requires: datafilespath !complex double !defined(PETSC_USE_64BIT_INDICES)
       args: -f ${DATAFILESPATH}/matrices/small -mat_type baij -matload_block_size {{2 3}}
       output_file: output/ex138.out
 

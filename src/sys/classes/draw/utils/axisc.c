@@ -10,7 +10,7 @@ PetscClassId PETSC_DRAWAXIS_CLASSID = 0;
    Input Parameters:
 .  win - PetscDraw object where axis to to be made
 
-   Ouput Parameters:
+   Output Parameter:
 .  axis - the axis datastructure
 
    Notes:
@@ -264,7 +264,7 @@ PetscErrorCode  PetscDrawAxisDraw(PetscDrawAxis axis)
   PetscValidHeaderSpecific(axis,PETSC_DRAWAXIS_CLASSID,1);
   ierr = PetscDrawIsNull(axis->win,&isnull);CHKERRQ(ierr);
   if (isnull) PetscFunctionReturn(0);
-  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)axis),&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)axis),&rank);CHKERRMPI(ierr);
 
   draw = axis->win;
 
@@ -368,7 +368,7 @@ PetscErrorCode  PetscDrawAxisDraw(PetscDrawAxis axis)
   ierr = PetscDrawGetCoordinates(draw,&coors[0],&coors[1],&coors[2],&coors[3]);CHKERRQ(ierr);
 finally:
   ierr = PetscDrawCollectiveEnd(draw);CHKERRQ(ierr);
-  ierr = MPI_Bcast(coors,4,MPIU_REAL,0,PetscObjectComm((PetscObject)draw));CHKERRQ(ierr);
+  ierr = MPI_Bcast(coors,4,MPIU_REAL,0,PetscObjectComm((PetscObject)draw));CHKERRMPI(ierr);
   ierr = PetscDrawSetCoordinates(draw,coors[0],coors[1],coors[2],coors[3]);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }

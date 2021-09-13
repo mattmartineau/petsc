@@ -592,8 +592,6 @@ PetscErrorCode TSRosWRegisterAll(void)
   PetscFunctionReturn(0);
 }
 
-
-
 /*@C
    TSRosWRegisterDestroy - Frees the list of schemes that were registered by TSRosWRegister().
 
@@ -1182,7 +1180,6 @@ static PetscErrorCode TSRosWGetVecs(TS ts,DM dm,Vec *Ydot,Vec *Zdot,Vec *Ystage,
   PetscFunctionReturn(0);
 }
 
-
 static PetscErrorCode TSRosWRestoreVecs(TS ts,DM dm,Vec *Ydot,Vec *Zdot, Vec *Ystage, Vec *Zstage)
 {
   PetscErrorCode ierr;
@@ -1239,7 +1236,6 @@ static PetscErrorCode DMRestrictHook_TSRosW(DM fine,Mat restrct,Vec rscale,Mat i
   ierr = TSRosWRestoreVecs(ts,coarse,&Ydotc,&Ystagec,&Zdotc,&Zstagec);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
-
 
 static PetscErrorCode DMSubDomainHook_TSRosW(DM fine,DM coarse,void *ctx)
 {
@@ -1559,7 +1555,6 @@ static PetscErrorCode  TSRosWSetType_RosW(TS ts,TSRosWType rostype)
     }
   }
   SETERRQ1(PetscObjectComm((PetscObject)ts),PETSC_ERR_ARG_UNKNOWN_TYPE,"Could not find '%s'",rostype);
-  PetscFunctionReturn(0);
 }
 
 static PetscErrorCode  TSRosWSetRecomputeJacobian_RosW(TS ts,PetscBool flg)

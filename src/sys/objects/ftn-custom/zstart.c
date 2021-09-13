@@ -14,8 +14,7 @@
 #include <petsc/private/fortranimpl.h>
 
 #if defined(PETSC_HAVE_FORTRAN_CAPS)
-#define petscinitialize_              PETSCINITIALIZE
-#define petscinitializenoarguments_   PETSCINITIALIZENOARGUMENTS
+#define petscinitializef_             PETSCINITIALIZEF
 #define petscfinalize_                PETSCFINALIZE
 #define petscend_                     PETSCEND
 #define iargc_                        IARGC
@@ -25,8 +24,7 @@
 #define petsccommandargumentcount_    PETSCCOMMANDARGUMENTCOUNT
 #define petscgetcommandargument_      PETSCGETCOMMANDARGUMENT
 #elif !defined(PETSC_HAVE_FORTRAN_UNDERSCORE)
-#define petscinitialize_              petscinitialize
-#define petscinitializenoarguments_   petscinitializenoarguments
+#define petscinitializef_             petscinitializef
 #define petscfinalize_                petscfinalize
 #define petscend_                     petscend
 #define mpi_init_                     mpi_init
@@ -130,14 +128,7 @@ PETSC_EXTERN void PXFGETARG(int*,_fcd,int*,int*);
 #endif
 #endif
 
-#if (defined(PETSC_HAVE_COMPLEX) && !defined(PETSC_HAVE_MPI_C_DOUBLE_COMPLEX)) || defined(PETSC_USE_REAL___FLOAT128) || defined(PETSC_USE_REAL___FP16)
-PETSC_EXTERN MPI_Op MPIU_SUM;
-
-PETSC_EXTERN void MPIAPI PetscSum_Local(void*,void*,PetscMPIInt*,MPI_Datatype*);
-
-#endif
 #if defined(PETSC_USE_REAL___FLOAT128) || defined(PETSC_USE_REAL___FP16)
-
 PETSC_EXTERN void MPIAPI PetscSum_Local(void*,void*,PetscMPIInt*,MPI_Datatype*);
 PETSC_EXTERN void MPIAPI PetscMax_Local(void*,void*,PetscMPIInt*,MPI_Datatype*);
 PETSC_EXTERN void MPIAPI PetscMin_Local(void*,void*,PetscMPIInt*,MPI_Datatype*);
@@ -148,7 +139,7 @@ PETSC_EXTERN PetscMPIInt MPIAPI Petsc_Counter_Attr_Delete_Fn(MPI_Comm,PetscMPIIn
 PETSC_EXTERN PetscMPIInt MPIAPI Petsc_InnerComm_Attr_Delete_Fn(MPI_Comm,PetscMPIInt,void*,void*);
 PETSC_EXTERN PetscMPIInt MPIAPI Petsc_OuterComm_Attr_Delete_Fn(MPI_Comm,PetscMPIInt,void*,void*);
 
-PETSC_INTERN PetscErrorCode PetscOptionsCheckInitial_Private(void);
+PETSC_INTERN PetscErrorCode PetscOptionsCheckInitial_Private(const char[]);
 PETSC_INTERN PetscErrorCode PetscInitialize_DynamicLibraries(void);
 #if defined(PETSC_USE_LOG)
 PETSC_INTERN PetscErrorCode PetscLogInitialize(void);
@@ -159,7 +150,7 @@ PETSC_INTERN int  PetscGlobalArgc;
 PETSC_INTERN char **PetscGlobalArgs;
 
 /*
-    Reads in Fortran command line argments and sends them to
+    Reads in Fortran command line arguments and sends them to
   all processors.
 */
 
@@ -175,7 +166,7 @@ PetscErrorCode PETScParseFortranArgs_Private(int *argc,char ***argv)
   PetscMPIInt    rank;
   char           *p;
 
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
   if (!rank) {
 #if defined(PETSC_HAVE_IARG_COUNT_PROGNAME)
     *argc = iargc_();
@@ -184,7 +175,7 @@ PetscErrorCode PETScParseFortranArgs_Private(int *argc,char ***argv)
     *argc = 1 + iargc_();
 #endif
   }
-  ierr = MPI_Bcast(argc,1,MPI_INT,0,PETSC_COMM_WORLD);CHKERRQ(ierr);
+  ierr = MPI_Bcast(argc,1,MPI_INT,0,PETSC_COMM_WORLD);CHKERRMPI(ierr);
 
   /* PetscTrMalloc() not yet set, so don't use PetscMalloc() */
   ierr = PetscMallocAlign((*argc+1)*(warg*sizeof(char)+sizeof(char*)),PETSC_FALSE,0,0,0,(void**)argv);CHKERRQ(ierr);
@@ -221,7 +212,7 @@ PetscErrorCode PETScParseFortranArgs_Private(int *argc,char ***argv)
       }
     }
   }
-  ierr = MPI_Bcast((*argv)[0],*argc*warg,MPI_CHAR,0,PETSC_COMM_WORLD);CHKERRQ(ierr);
+  ierr = MPI_Bcast((*argv)[0],*argc*warg,MPI_CHAR,0,PETSC_COMM_WORLD);CHKERRMPI(ierr);
   if (rank) {
     for (i=0; i<*argc; i++) (*argv)[i+1] = (*argv)[i] + warg;
   }
@@ -253,7 +244,7 @@ PETSC_INTERN PetscErrorCode PetscPreMPIInit_Private();
       Since this is called from Fortran it does not return error codes
 
 */
-static void petscinitialize_internal(char* filename, PetscInt len, PetscBool readarguments, PetscErrorCode *ierr)
+PETSC_EXTERN void petscinitializef_(char* filename,char* help,PetscBool *readarguments,PetscErrorCode *ierr,PETSC_FORTRAN_CHARLEN_T len,PETSC_FORTRAN_CHARLEN_T helplen)
 {
   int            j,i;
 #if defined (PETSC_USE_NARGS)
@@ -263,6 +254,7 @@ static void petscinitialize_internal(char* filename, PetscInt len, PetscBool rea
   PetscMPIInt    size;
   char           *t1,name[256],hostname[64];
   PetscMPIInt    f_petsc_comm_world;
+  PetscBool      checkstack = PETSC_FALSE;
 
   *ierr = PetscMemzero(name,sizeof(name)); if (*ierr) return;
   if (PetscInitializeCalled) {*ierr = 0; return;}
@@ -366,20 +358,6 @@ static void petscinitialize_internal(char* filename, PetscInt len, PetscBool rea
     PETSC_i = _Complex_I;
 #endif
   }
-
-#if !defined(PETSC_HAVE_MPI_C_DOUBLE_COMPLEX)
-  *ierr = MPI_Type_contiguous(2,MPI_DOUBLE,&MPIU_C_DOUBLE_COMPLEX);
-  if (*ierr) {(*PetscErrorPrintf)("PetscInitialize:Creating MPI types\n");return;}
-  *ierr = MPI_Type_commit(&MPIU_C_DOUBLE_COMPLEX);
-  if (*ierr) {(*PetscErrorPrintf)("PetscInitialize:Creating MPI types\n");return;}
-  *ierr = MPI_Type_contiguous(2,MPI_FLOAT,&MPIU_C_COMPLEX);
-  if (*ierr) {(*PetscErrorPrintf)("PetscInitialize:Creating MPI types\n");return;}
-  *ierr = MPI_Type_commit(&MPIU_C_COMPLEX);
-  if (*ierr) {(*PetscErrorPrintf)("PetscInitialize:Creating MPI types\n");return;}
-  *ierr = MPI_Op_create(PetscSum_Local,1,&MPIU_SUM);
-  if (*ierr) {(*PetscErrorPrintf)("PetscInitialize:Creating MPI ops\n");return;}
-#endif
-
 #endif
 
 #if defined(PETSC_USE_REAL___FLOAT128)
@@ -423,12 +401,55 @@ static void petscinitialize_internal(char* filename, PetscInt len, PetscBool rea
   if (*ierr) {(*PetscErrorPrintf)("PetscInitialize:Creating MPI types\n");return;}
   *ierr = MPI_Type_commit(&MPIU_2SCALAR);
   if (*ierr) {(*PetscErrorPrintf)("PetscInitialize:Creating MPI types\n");return;}
+
+  /* create datatypes used by MPIU_MAXLOC, MPIU_MINLOC and PetscSplitReduction_Op */
+#if !defined(PETSC_HAVE_MPIUNI)
+  {
+    struct PetscRealInt { PetscReal v; PetscInt i; };
+    PetscMPIInt  blockSizes[2] = {1,1};
+    MPI_Aint     blockOffsets[2] = {offsetof(struct PetscRealInt,v),offsetof(struct PetscRealInt,i)};
+    MPI_Datatype blockTypes[2] = {MPIU_REAL,MPIU_INT}, tmpStruct;
+
+    *ierr = MPI_Type_create_struct(2,blockSizes,blockOffsets,blockTypes,&tmpStruct);
+    if (*ierr) {(*PetscErrorPrintf)("PetscInitialize:Creating MPI struct\n");return;}
+    *ierr = MPI_Type_create_resized(tmpStruct,0,sizeof(struct PetscRealInt),&MPIU_REAL_INT);
+    if (*ierr) {(*PetscErrorPrintf)("PetscInitialize:Creating MPI resized\n");return;}
+    *ierr = MPI_Type_free(&tmpStruct);
+    if (*ierr) {(*PetscErrorPrintf)("PetscInitialize:Freeing MPI types\n");return;}
+    *ierr = MPI_Type_commit(&MPIU_REAL_INT);
+    if (*ierr) {(*PetscErrorPrintf)("PetscInitialize:Creating MPI types\n");return;}
+  }
+  {
+    struct PetscScalarInt { PetscScalar v; PetscInt i; };
+    PetscMPIInt  blockSizes[2] = {1,1};
+    MPI_Aint     blockOffsets[2] = {offsetof(struct PetscScalarInt,v),offsetof(struct PetscScalarInt,i)};
+    MPI_Datatype blockTypes[2] = {MPIU_SCALAR,MPIU_INT}, tmpStruct;
+
+    *ierr = MPI_Type_create_struct(2,blockSizes,blockOffsets,blockTypes,&tmpStruct);
+    if (*ierr) {(*PetscErrorPrintf)("PetscInitialize:Creating MPI struct\n");return;}
+    *ierr = MPI_Type_create_resized(tmpStruct,0,sizeof(struct PetscScalarInt),&MPIU_SCALAR_INT);
+    if (*ierr) {(*PetscErrorPrintf)("PetscInitialize:Creating MPI resized\n");return;}
+    *ierr = MPI_Type_free(&tmpStruct);
+    if (*ierr) {(*PetscErrorPrintf)("PetscInitialize:Freeing MPI types\n");return;}
+    *ierr = MPI_Type_commit(&MPIU_SCALAR_INT);
+    if (*ierr) {(*PetscErrorPrintf)("PetscInitialize:Creating MPI types\n");return;}
+  }
+#endif
+
 #if defined(PETSC_USE_64BIT_INDICES)
   *ierr = MPI_Type_contiguous(2,MPIU_INT,&MPIU_2INT);
   if (*ierr) {(*PetscErrorPrintf)("PetscInitialize:Creating MPI types\n");return;}
   *ierr = MPI_Type_commit(&MPIU_2INT);
   if (*ierr) {(*PetscErrorPrintf)("PetscInitialize:Creating MPI types\n");return;}
 #endif
+  *ierr = MPI_Type_contiguous(4,MPI_INT,&MPI_4INT);
+  if (*ierr) {(*PetscErrorPrintf)("PetscInitialize:Creating MPI types\n");return;}
+  *ierr = MPI_Type_commit(&MPI_4INT);
+  if (*ierr) {(*PetscErrorPrintf)("PetscInitialize:Creating MPI types\n");return;}
+  *ierr = MPI_Type_contiguous(4,MPIU_INT,&MPIU_4INT);
+  if (*ierr) {(*PetscErrorPrintf)("PetscInitialize:Creating MPI types\n");return;}
+  *ierr = MPI_Type_commit(&MPIU_4INT);
+  if (*ierr) {(*PetscErrorPrintf)("PetscInitialize:Creating MPI types\n");return;}
   *ierr = MPI_Comm_create_keyval(MPI_COMM_NULL_COPY_FN,Petsc_Counter_Attr_Delete_Fn,&Petsc_Counter_keyval,(void*)0);
   if (*ierr) {(*PetscErrorPrintf)("PetscInitialize:Creating MPI keyvals\n");return;}
   *ierr = MPI_Comm_create_keyval(MPI_COMM_NULL_COPY_FN,Petsc_InnerComm_Attr_Delete_Fn,&Petsc_InnerComm_keyval,(void*)0);
@@ -445,7 +466,7 @@ static void petscinitialize_internal(char* filename, PetscInt len, PetscBool rea
      below.
   */
   PetscInitializeFortran();
-  if (readarguments == PETSC_TRUE) {
+  if (*readarguments) {
     PETScParseFortranArgs_Private(&PetscGlobalArgc,&PetscGlobalArgs);
     FIXCHAR(filename,len,t1);
     *ierr = PetscOptionsInsert(NULL,&PetscGlobalArgc,&PetscGlobalArgs,t1);
@@ -453,7 +474,7 @@ static void petscinitialize_internal(char* filename, PetscInt len, PetscBool rea
     FREECHAR(filename,t1);
     if (*ierr) {(*PetscErrorPrintf)("PetscInitialize:Freeing string in creating options database\n");return;}
   }
-  *ierr = PetscOptionsCheckInitial_Private();
+  *ierr = PetscOptionsCheckInitial_Private(help);
   if (*ierr) {(*PetscErrorPrintf)("PetscInitialize:Checking initial options\n");return;}
   /* call a second time to check options database */
   *ierr = PetscErrorPrintfInitialize();
@@ -483,8 +504,10 @@ static void petscinitialize_internal(char* filename, PetscInt len, PetscBool rea
   *ierr = PetscInfo1(0,"Running on machine: %s\n",hostname);
   if (*ierr) { (*PetscErrorPrintf)("PetscInitialize:Calling PetscInfo()\n");return;}
 
+  *ierr = PetscOptionsGetBool(NULL,NULL,"-checkstack",&checkstack,NULL);
+  if (*ierr) { (*PetscErrorPrintf)("PetscInitialize:Calling PetscOptionsGetBool()\n");return;}
 #if defined(PETSC_USE_DEBUG) && !defined(PETSC_HAVE_THREADSAFETY)
-  *ierr = PetscStackCreate();
+  *ierr = PetscStackCreate(checkstack);
   if (*ierr) {(*PetscErrorPrintf)("PetscInitialize:PetscStackCreate()\n");return;}
 #endif
 
@@ -503,17 +526,6 @@ static void petscinitialize_internal(char* filename, PetscInt len, PetscBool rea
   if (*ierr) {(*PetscErrorPrintf)("PetscInitialize:adios_read_init_method()\n");return;}
 #endif
 }
-
-PETSC_EXTERN void petscinitialize_(char* filename,PetscErrorCode *ierr,PETSC_FORTRAN_CHARLEN_T len)
-{
-  petscinitialize_internal(filename, len, PETSC_TRUE, ierr);
-}
-
-PETSC_EXTERN void petscinitializenoarguments_(PetscErrorCode *ierr)
-{
-  petscinitialize_internal(NULL, (PetscInt) 0, PETSC_FALSE, ierr);
-}
-
 
 PETSC_EXTERN void petscfinalize_(PetscErrorCode *ierr)
 {
@@ -536,4 +548,3 @@ PETSC_EXTERN void petscend_(PetscErrorCode *ierr)
 
   *ierr = PetscEnd();
 }
-

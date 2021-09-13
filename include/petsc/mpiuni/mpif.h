@@ -36,7 +36,6 @@
        MPIUNI_FInt MPI_INFO_NULL
        PARAMETER (MPI_INFO_NULL=0)
 
-
        MPIUNI_FInt MPI_REQUEST_NULL
        parameter (MPI_REQUEST_NULL=0)
 
@@ -84,6 +83,8 @@
        parameter (MPI_MAX=2)
        MPIUNI_FInt MPI_MIN
        parameter (MPI_MIN=3)
+       MPIUNI_FInt MPI_REPLACE
+       parameter (MPI_REPLACE=4)
        MPIUNI_FInt MPI_MAXLOC
        parameter (MPI_MAXLOC=12)
        MPIUNI_FInt MPI_MINLOC
@@ -91,5 +92,4 @@
 
        MPIUNI_FInt MPI_MAX_PROCESSOR_NAME
        parameter (MPI_MAX_PROCESSOR_NAME=128-1)
-
 

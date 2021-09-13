@@ -77,7 +77,7 @@ PetscErrorCode main(int argc,char **argv)
 
   /* Initialize TAO,PETSc */
   ierr = PetscInitialize(&argc,&argv,(char *)0,help);if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
   /* Specify default parameters for the problem, check for command-line overrides */
   ierr = PetscStrncpy(user.name,"HS21",sizeof(user.name));CHKERRQ(ierr);
   ierr = PetscOptionsGetString(NULL,NULL,"-cutername",user.name,sizeof(user.name),&flg);CHKERRQ(ierr);
@@ -163,13 +163,13 @@ PetscErrorCode InitializeProblem(AppCtx *user)
   ierr = MatLoad(user->H,loader);CHKERRQ(ierr);
   ierr = PetscViewerDestroy(&loader);CHKERRQ(ierr);
   ierr = MatGetSize(user->H,&nrows,&ncols);CHKERRQ(ierr);
-  if (nrows != user->n) SETERRQ(comm,0,"H: nrows != n\n");
-  if (ncols != user->n) SETERRQ(comm,0,"H: ncols != n\n");
+  if (nrows != user->n) SETERRQ(comm,PETSC_ERR_ARG_SIZ,"H: nrows != n\n");
+  if (ncols != user->n) SETERRQ(comm,PETSC_ERR_ARG_SIZ,"H: ncols != n\n");
   ierr = MatSetFromOptions(user->H);CHKERRQ(ierr);
 
   ierr = PetscStrncpy(filename,filebase,sizeof(filename));CHKERRQ(ierr);
   ierr = PetscStrlcat(filename,"Aeq",sizeof(filename));CHKERRQ(ierr);
-  ierr = PetscViewerBinaryOpen(comm,filename,FILE_MODE_READ,&loader);
+  ierr = PetscViewerBinaryOpen(comm,filename,FILE_MODE_READ,&loader);CHKERRQ(ierr);
   if (ierr) {
     user->Aeq = NULL;
     user->me  = 0;
@@ -178,7 +178,7 @@ PetscErrorCode InitializeProblem(AppCtx *user)
     ierr = MatLoad(user->Aeq,loader);CHKERRQ(ierr);
     ierr = PetscViewerDestroy(&loader);CHKERRQ(ierr);
     ierr = MatGetSize(user->Aeq,&nrows,&ncols);CHKERRQ(ierr);
-    if (ncols != user->n) SETERRQ(comm,0,"Aeq ncols != H nrows\n");
+    if (ncols != user->n) SETERRQ(comm,PETSC_ERR_ARG_SIZ,"Aeq ncols != H nrows\n");
     ierr = MatSetFromOptions(user->Aeq);CHKERRQ(ierr);
     user->me = nrows;
   }
@@ -193,7 +193,7 @@ PetscErrorCode InitializeProblem(AppCtx *user)
     ierr = VecLoad(user->beq,loader);CHKERRQ(ierr);
     ierr = PetscViewerDestroy(&loader);CHKERRQ(ierr);
     ierr = VecGetSize(user->beq,&nrows);CHKERRQ(ierr);
-    if (nrows != user->me) SETERRQ(comm,0,"Aeq nrows != Beq n\n");
+    if (nrows != user->me) SETERRQ(comm,PETSC_ERR_ARG_SIZ,"Aeq nrows != Beq n\n");
     ierr = VecSetFromOptions(user->beq);CHKERRQ(ierr);
   }
 
@@ -289,7 +289,6 @@ PetscErrorCode FormEqualityJacobian(Tao tao, Vec x, Mat JE, Mat JEpre, void *ctx
   PetscFunctionBegin;
   PetscFunctionReturn(0);
 }
-
 
 /*TEST
 

@@ -11,7 +11,7 @@
         KSPDestroy_XXX()         - Destroys the Krylov context, freeing all
                                    memory it needed
     Here the "_XXX" denotes a particular implementation, in this case
-    we use _CG (e.g. KSPCreate_CG, KSPDestroy_CG). These routines are
+    we use _CG (e.g. KSPCreate_CG, KSPDestroy_CG). These routines
     are actually called via the common user interface routines
     KSPSetType(), KSPSetFromOptions(), KSPSolve(), and KSPDestroy() so the
     application code interface remains identical for all preconditioners.
@@ -63,11 +63,11 @@ static PetscErrorCode KSPSetUp_CG(KSP ksp)
   ierr = KSPSetWorkVecs(ksp,nwork);CHKERRQ(ierr);
 
   /*
-     If user requested computations of eigenvalues then allocate work
+     If user requested computations of eigenvalues then allocate
      work space needed
   */
   if (ksp->calc_sings) {
-    /* get space to store tridiagonal matrix for Lanczos */
+    ierr = PetscFree4(cgP->e,cgP->d,cgP->ee,cgP->dd);CHKERRQ(ierr);
     ierr = PetscMalloc4(maxit+1,&cgP->e,maxit+1,&cgP->d,maxit+1,&cgP->ee,maxit+1,&cgP->dd);CHKERRQ(ierr);
     ierr = PetscLogObjectMemory((PetscObject)ksp,2*(maxit+1)*(sizeof(PetscScalar)+sizeof(PetscReal)));CHKERRQ(ierr);
 
@@ -431,10 +431,7 @@ PetscErrorCode KSPDestroy_CG(KSP ksp)
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
-  /* free space used for singular value calculations */
-  if (ksp->calc_sings) {
-    ierr = PetscFree4(cg->e,cg->d,cg->ee,cg->dd);CHKERRQ(ierr);
-  }
+  ierr = PetscFree4(cg->e,cg->d,cg->ee,cg->dd);CHKERRQ(ierr);
   ierr = KSPDestroyDefault(ksp);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPCGSetType_C",NULL);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPCGUseSingleReduction_C",NULL);CHKERRQ(ierr);
@@ -481,7 +478,7 @@ PetscErrorCode KSPSetFromOptions_CG(PetscOptionItems *PetscOptionsObject,KSP ksp
   ierr = PetscOptionsEnum("-ksp_cg_type","Matrix is Hermitian or complex symmetric","KSPCGSetType",KSPCGTypes,(PetscEnum)cg->type,
                           (PetscEnum*)&cg->type,NULL);CHKERRQ(ierr);
 #endif
-  ierr = PetscOptionsBool("-ksp_cg_single_reduction","Merge inner products into single MPIU_Allreduce()","KSPCGUseSingleReduction",cg->singlereduction,&cg->singlereduction,&flg);CHKERRQ(ierr);
+  ierr = PetscOptionsBool("-ksp_cg_single_reduction","Merge inner products into single MPI_Allreduce()","KSPCGUseSingleReduction",cg->singlereduction,&cg->singlereduction,&flg);CHKERRQ(ierr);
   if (flg) {
     ierr = KSPCGUseSingleReduction(ksp,cg->singlereduction);CHKERRQ(ierr);
   }
@@ -546,7 +543,7 @@ PETSC_INTERN PetscErrorCode KSPBuildResidual_CG(KSP ksp,Vec t,Vec v,Vec *V)
    Options Database Keys:
 +   -ksp_cg_type Hermitian - (for complex matrices only) indicates the matrix is Hermitian, see KSPCGSetType()
 .   -ksp_cg_type symmetric - (for complex matrices only) indicates the matrix is symmetric
--   -ksp_cg_single_reduction - performs both inner products needed in the algorithm with a single MPIU_Allreduce() call, see KSPCGUseSingleReduction()
+-   -ksp_cg_single_reduction - performs both inner products needed in the algorithm with a single MPI_Allreduce() call, see KSPCGUseSingleReduction()
 
    Level: beginner
 

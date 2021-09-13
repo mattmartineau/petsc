@@ -3,7 +3,7 @@ import config.package
 class Configure(config.package.Package):
   def __init__(self, framework):
     config.package.Package.__init__(self, framework)
-    self.gitcommit              = 'e7097336a66e31606855770a5b9eb3f8634fe7ee' # master Sep-30-2020
+    self.gitcommit              = 'd60ba3c8ddd2e2df1c61788df564dcf8e6ecd44f' # main aug-28-2021
     self.download               = ['git://https://gitlab.com/slepc/slepc.git','https://gitlab.com/slepc/slepc/-/archive/'+self.gitcommit+'/slepc-'+self.gitcommit+'.tar.gz']
     self.functions              = []
     self.includes               = []
@@ -53,6 +53,8 @@ class Configure(config.package.Package):
 
     if 'download-slepc-configure-arguments' in self.argDB and self.argDB['download-slepc-configure-arguments']:
       configargs = self.argDB['download-slepc-configure-arguments']
+      if '--with-slepc4py' in self.argDB['download-slepc-configure-arguments']:
+        carg += ' PYTHONPATH='+os.path.join(self.installDir,'lib')+':${PYTHONPATH}'
     else:
       configargs = ''
 

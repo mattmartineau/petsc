@@ -35,11 +35,10 @@ PetscErrorCode RegisterMatScaleUserImpl(Mat mat)
   PetscErrorCode ierr;
   PetscMPIInt    size;
 
-  ierr = MPI_Comm_size(PetscObjectComm((PetscObject)mat), &size);CHKERRQ(ierr);
-
+  PetscFunctionBegin;
+  ierr = MPI_Comm_size(PetscObjectComm((PetscObject)mat), &size);CHKERRMPI(ierr);
   if (size == 1) { /* SeqAIJ Matrix */
     ierr = PetscObjectComposeFunction((PetscObject)mat,"MatScaleUserImpl_C",MatScaleUserImpl_SeqAIJ);CHKERRQ(ierr);
-
   } else { /* MPIAIJ Matrix */
     Mat AA,AB;
     ierr = MatMPIAIJGetSeqAIJ(mat,&AA,&AB,NULL);CHKERRQ(ierr);
@@ -77,10 +76,9 @@ int main(int argc,char **args)
   PetscScalar    v,none = -1.0;
   PetscMPIInt    rank,size;
 
-
   ierr = PetscInitialize(&argc,&args,(char*)0,help);if (ierr) return ierr;
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
   n    = 2*size;
 
   /* create the matrix */
@@ -118,7 +116,6 @@ int main(int argc,char **args)
   ierr = PetscFinalize();
   return ierr;
 }
-
 
 /*TEST
 

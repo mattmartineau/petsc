@@ -19,8 +19,8 @@ int main(int argc,char **args)
 #endif
 
   ierr = PetscInitialize(&argc,&args,(char*)0,help);if (ierr) return ierr;
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRMPI(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRMPI(ierr);
 
 #if !defined(PETSC_HAVE_MUMPS)
   if (!rank) {ierr = PetscPrintf(PETSC_COMM_SELF,"This example requires MUMPS, exit...\n");CHKERRQ(ierr);}
@@ -57,7 +57,7 @@ int main(int argc,char **args)
   ierr = MatGetSize(A,&M,&N);CHKERRQ(ierr);
   if (m != n) SETERRQ2(PETSC_COMM_SELF,PETSC_ERR_ARG_SIZ, "This example is not intended for rectangular matrices (%d, %d)", m, n);
 
-  /* Create dense matrix C and X; C holds true solution with identical colums */
+  /* Create dense matrix C and X; C holds true solution with identical columns */
   nrhs = N;
   ierr = PetscOptionsGetInt(NULL,NULL,"-nrhs",&nrhs,NULL);CHKERRQ(ierr);
   ierr = MatCreate(PETSC_COMM_WORLD,&C);CHKERRQ(ierr);
@@ -126,7 +126,7 @@ int main(int argc,char **args)
 
     ierr = MatMatSolve(F,RHS,X);CHKERRQ(ierr);
     if (displ) {
-      if (!rank) {ierr = PetscPrintf(PETSC_COMM_SELF," \n(2) first %D columns of inv(A) with dense RHS:\n",nrhs);}
+      if (!rank) {ierr = PetscPrintf(PETSC_COMM_SELF," \n(2) first %D columns of inv(A) with dense RHS:\n",nrhs);CHKERRQ(ierr);}
       ierr = MatView(X,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
     }
 
@@ -166,7 +166,7 @@ int main(int argc,char **args)
     ierr = MatMatTransposeSolve(F,spRHST,X);CHKERRQ(ierr);
 
     if (displ) {
-      if (!rank) {ierr = PetscPrintf(PETSC_COMM_SELF," \n(3) first %D columns of inv(A) with sparse RHS:\n",nrhs);}
+      if (!rank) {ierr = PetscPrintf(PETSC_COMM_SELF," \n(3) first %D columns of inv(A) with sparse RHS:\n",nrhs);CHKERRQ(ierr);}
       ierr = MatView(X,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
     }
 
@@ -215,7 +215,6 @@ int main(int argc,char **args)
 }
 
 /*TEST
-
 
    test:
      requires: mumps double !complex
