@@ -80,6 +80,8 @@ static PetscErrorCode PCDestroy_AMGX(PC pc)
 
     PetscFunctionBegin;
 
+    PetscErrorCode ierr;
+
     // XXX I am not sure it is a good idea to automatically call reset here
     // as it seems to be called internally by PETSc on destroy?
     // ierr = PCReset(pc);
@@ -99,7 +101,7 @@ static PetscErrorCode PCDestroy_AMGX(PC pc)
         AMGX_SAFE_CALL(AMGX_config_destroy(amgx->cfg));
         AMGX_SAFE_CALL(AMGX_finalize_plugins());
         AMGX_SAFE_CALL(AMGX_finalize());
-        PetscErrorCode ierr = MPI_Comm_free(&amgx->comm);
+        ierr = MPI_Comm_free(&amgx->comm);
         CHKERRQ(ierr);
 #ifdef AMGX_DYNAMIC_LOADING
         amgx_libclose(amgx->lib_handle);
@@ -110,7 +112,7 @@ static PetscErrorCode PCDestroy_AMGX(PC pc)
         AMGX_SAFE_CALL(AMGX_config_destroy(amgx->cfg));
     }
     s_count -= 1;
-    PetscErrorCode ierr = PetscFree(amgx);
+    ierr = PetscFree(amgx);
     CHKERRQ(ierr);
 
     PetscFunctionReturn(0);
@@ -132,6 +134,7 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
 #ifdef AMGXDEBUG
     printf("in %s\n", __func__);
 #endif
+
     PC_AMGX *amgx = (PC_AMGX *)pc->data;
     Mat Pmat = pc->pmat;
 
@@ -140,10 +143,6 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
     if (!pc->setupcalled)
     {
         // Read configuration file and set exception handling
-#ifdef AMGXDEBUG
-        printMemory();
-#endif
-
         AMGX_SAFE_CALL(AMGX_config_create_from_file(&amgx->cfg, amgx->filename));
 
         /* switch on internal error handling (no need to use AMGX_SAFE_CALL after this point) */
@@ -216,6 +215,7 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
         CHKERRQ(ierr);
 
         struct cudaPointerAttributes attr;
+#if 0
 #if (CUDART_VERSION >= 11000)
         if (cudaPointerGetAttributes(&attr, amgx->values) == cudaSuccess)
         {
@@ -231,6 +231,7 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
             cudaGetLastError();
             CHECK(cudaHostRegister(amgx->values, amgx->nnz * sizeof(PetscScalar), cudaHostRegisterDefault));
         }
+#endif
 #endif
 
         if (isAmgXMatrix)
@@ -299,18 +300,9 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
         AMGX_solver_setup(amgx->solver, amgx->A);
         AMGX_vector_bind(amgx->P, amgx->A);
         AMGX_vector_bind(amgx->RHS, amgx->A);
-
-#ifdef AMGXDEBUG
-        printMemory();
-#endif
-
     }
     else
     {
-#ifdef AMGXDEBUG
-        printMemory();
-#endif
-
         // The fast path after the initial setup phase
         AMGX_matrix_replace_coefficients(amgx->A, amgx->nLocalRows, amgx->nnz, amgx->values, NULL);
 
@@ -429,6 +421,7 @@ PetscErrorCode PCView_AMGX(PC pc, PetscViewer viewer)
 #ifdef AMGXDEBUG
     printf("in %s\n", __func__);
 #endif
+
     PetscErrorCode ierr;
     PetscBool iascii;
 
@@ -437,6 +430,7 @@ PetscErrorCode PCView_AMGX(PC pc, PetscViewer viewer)
     CHKERRQ(ierr);
     if (iascii)
     {
+        // Implement
     }
     PetscFunctionReturn(0);
 }
