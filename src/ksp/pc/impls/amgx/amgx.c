@@ -214,8 +214,8 @@ static PetscErrorCode PCSetUp_AMGX(PC pc)
         ierr = MatSeqAIJGetArray(amgx->localA, &amgx->values);
         CHKERRQ(ierr);
 
-        struct cudaPointerAttributes attr;
 #if 0
+        struct cudaPointerAttributes attr;
 #if (CUDART_VERSION >= 11000)
         if (cudaPointerGetAttributes(&attr, amgx->values) == cudaSuccess)
         {
