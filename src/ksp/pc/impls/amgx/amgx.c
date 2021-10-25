@@ -38,19 +38,23 @@ typedef struct _PC_AMGX
 } PC_AMGX;
 static PetscInt s_count = 0;
 
+void print_error(char const* file, int const line, cudaError_t error) 
+{
+    SETERRQ5(PETSC_COMM_WORLD, PETSC_ERR_SIG, "Error: %s:%d, code:%d, name: %s, reason: %s\n",
+              file, line, error, cudaGetErrorName(error), cudaGetErrorString(error));
+}
+
 /** \brief A macro to check the returned CUDA error code.
  *
  * \param call [in] Function call to CUDA API.
  */
-#define CHECK(call)                                                         \
-{                                                                           \
-    const cudaError_t error = call;                                         \
-    if (error != cudaSuccess)                                               \
-    {                                                                       \
-        SETERRQ4(PETSC_COMM_WORLD, PETSC_ERR_SIG,                           \
-            "Error: %s:%d, code:%d, reason: %s\n",                          \
-            __FILE__, __LINE__, error, cudaGetErrorString(error));          \
-    }                                                                       \
+#define CHECK(call)                             \
+{                                               \
+    const cudaError_t error = call;             \
+    if (error != cudaSuccess)                   \
+    {                                           \
+        print_error(__FILE__, __LINE__, error); \
+    }                                           \
 }
 
 /* ----------------------------------------------------------------------------- */
